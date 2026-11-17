@@ -30,6 +30,8 @@ class SesionEnVivoController extends Controller
             'leccion' => $leccion,
             'sesion' => $sesion,
             'miAsistencia' => $asistencia,
+            // Para «Volver al curso» (la lección no trae su curso).
+            'curso' => $leccion->curso?->only(['id', 'titulo']),
         ]);
     }
 }

@@ -29,23 +29,32 @@ class AsignacionController extends Controller
     {
         $this->authorize('viewAny', Asignacion::class);
 
+        // ?curso= llega desde el aula o el constructor («Asignaciones de este curso»).
+        $curso = $request->integer('curso') > 0
+            ? Curso::query()->where('id', $request->integer('curso'))->first(['id', 'titulo'])
+            : null;
+
         $asignaciones = Asignacion::query()
             ->with(['asignable', 'responsable:id,name,apellidos'])
             ->withCount('asignacionesUsuario')
+            ->when($curso !== null, fn ($query) => $query->whereMorphedTo('asignable', $curso))
             ->orderByDesc('created_at')
             ->paginate(Paginacion::porPagina())
             ->withQueryString();
 
         return Inertia::render('Asignaciones/Index', [
             'asignaciones' => $asignaciones,
+            'cursoFiltro' => $curso === null ? null : ['id' => $curso->id, 'titulo' => $curso->titulo],
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
         $this->authorize('create', Asignacion::class);
 
         return Inertia::render('Asignaciones/Create', [
+            // ?curso= preselecciona el curso al llegar desde su aula o su constructor.
+            'cursoPreseleccionado' => $request->integer('curso') > 0 ? $request->integer('curso') : null,
             'cursosDisponibles' => Curso::query()->orderBy('titulo')->get(['id', 'titulo']),
             'sucursalesDisponibles' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre']),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),

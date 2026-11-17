@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ArrowLeft, UserCheck, Video } from '@lucide/vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
-import Heading from '@/components/Heading.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,8 +19,11 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
+import { index as indexCapacitacion } from '@/routes/capacitacion';
+import { edit, index as indexCursos } from '@/routes/cursos';
 import { store } from '@/routes/cursos/lecciones/sesion';
 import { update } from '@/routes/sesiones';
+import { index as indexAsistencias } from '@/routes/sesiones/asistencias';
 import type { CursoItem, LeccionItem, SesionEnVivoItem } from '@/types';
 
 const props = defineProps<{
@@ -32,7 +36,8 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Cursos', href: '/cursos' },
+            { title: 'Capacitación', href: indexCapacitacion() },
+            { title: 'Cursos', href: indexCursos() },
             { title: 'Constructor de sesión en vivo', href: '#' },
         ],
     },
@@ -101,13 +106,28 @@ function guardar() {
 <template>
     <Head title="Constructor de sesión en vivo" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <Heading
-            title="Constructor de sesión en vivo"
-            :description="`Lección: ${leccion.titulo}`"
-        />
+    <div class="pagina-ancha flex flex-col gap-5">
+        <CrudPageHeader
+            :titulo="sesion ? sesion.titulo : 'Nueva sesión en vivo'"
+            :descripcion="`${curso.titulo} · Lección «${leccion.titulo}»`"
+            :icono="Video"
+            detalle
+        >
+            <Button variant="outline" as-child>
+                <Link :href="edit(curso.id)">
+                    <ArrowLeft class="size-4" /> Volver al contenido
+                </Link>
+            </Button>
+            <Button v-if="sesion" variant="secondary" as-child>
+                <Link :href="indexAsistencias(sesion.id)">
+                    <UserCheck class="size-4" /> Asistencias
+                </Link>
+            </Button>
+        </CrudPageHeader>
 
-        <div class="rounded-lg border p-4">
+        <div
+            class="entrada-suave rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+        >
             <form class="grid gap-4" @submit.prevent="guardar">
                 <div class="grid gap-2">
                     <Label for="titulo">Título</Label>
@@ -177,14 +197,16 @@ function guardar() {
                 </div>
                 <p
                     v-else
-                    class="rounded-md border border-dashed p-3 text-sm text-muted-foreground"
+                    class="rounded-xl border border-dashed border-border bg-crema/30 p-3 text-sm text-muted-foreground"
                 >
                     El enlace se genera automáticamente al guardar, si la
                     integración está configurada. Si no lo está, puedes agregar
                     uno manualmente después de guardar.
                 </p>
 
-                <fieldset class="grid gap-4 rounded-md border p-3">
+                <fieldset
+                    class="grid gap-4 rounded-xl border border-border/60 p-4"
+                >
                     <legend class="px-1 text-sm font-medium">
                         Reglas de asistencia (sincronización automática)
                     </legend>

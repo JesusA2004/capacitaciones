@@ -29,6 +29,8 @@ createInertiaApp({
             // Asistente de registro por QR: pantalla propia, sin menú.
             case name.startsWith('Registro/'):
             case name.startsWith('App/'):
+            // Verificación pública del folio de una constancia (QR del PDF).
+            case name.startsWith('Constancias/'):
             // Página de error: puede pintarse sin sesión (404, 500, 503).
             case name === 'Error':
                 return null;

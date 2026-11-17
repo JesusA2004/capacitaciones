@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Plus } from '@lucide/vue';
+import { HelpCircle, Library, Pencil, Plus, Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
 import BancoFormDialog from '@/components/Cuestionarios/BancoFormDialog.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import TableFilters from '@/components/DataTable/TableFilters.vue';
-import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
 import { destroy, index, show } from '@/routes/bancos-preguntas';
+import { index as indexCapacitacion } from '@/routes/capacitacion';
 import type { BancoPreguntaItem, RespuestaPaginada } from '@/types';
 
 const props = defineProps<{
@@ -23,6 +24,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
+            { title: 'Capacitación', href: indexCapacitacion() },
             { title: 'Banco de preguntas', href: index.url() },
         ],
     },
@@ -70,21 +72,21 @@ async function eliminar(banco: BancoPreguntaItem) {
 <template>
     <Head title="Banco de preguntas" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <div class="flex items-center justify-between">
-            <Heading
-                title="Banco de preguntas"
-                description="Preguntas reutilizables entre los cuestionarios de los cursos"
-            />
+    <div class="pagina-ancha flex flex-col gap-5">
+        <CrudPageHeader
+            titulo="Banco de preguntas"
+            descripcion="Preguntas reutilizables entre los cuestionarios de los cursos."
+            :icono="Library"
+        >
             <Button @click="abrirCrear">
                 <Plus class="size-4" />
                 Nuevo banco
             </Button>
-        </div>
+        </CrudPageHeader>
 
         <TableFilters
             :model-value="filtros.busqueda"
-            placeholder="Buscar por nombre..."
+            placeholder="Buscar por nombre…"
             @update:model-value="
                 (valor) => {
                     filtros.busqueda = valor;
@@ -100,21 +102,56 @@ async function eliminar(banco: BancoPreguntaItem) {
             mensaje-vacio="Todavía no se ha creado ningún banco de preguntas."
         >
             <template #celda-nombre="{ fila }">
-                <Link :href="show.url(fila.id)" class="font-medium underline">
-                    {{ fila.nombre }}
+                <Link
+                    :href="show.url(fila.id)"
+                    class="group flex items-center gap-3"
+                >
+                    <span
+                        class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-crema text-bronce transicion-ui group-hover:scale-105"
+                        aria-hidden="true"
+                    >
+                        <Library class="size-4" />
+                    </span>
+                    <span
+                        class="font-medium group-hover:text-primary group-hover:underline"
+                        >{{ fila.nombre }}</span
+                    >
                 </Link>
             </template>
+            <template #celda-descripcion="{ fila }">
+                <span class="line-clamp-2 text-muted-foreground">{{
+                    fila.descripcion || '—'
+                }}</span>
+            </template>
+            <template #celda-preguntas_count="{ fila }">
+                <span
+                    class="inline-flex items-center gap-1.5 text-muted-foreground tabular-nums"
+                >
+                    <HelpCircle class="size-3.5" aria-hidden="true" />
+                    {{ fila.preguntas_count ?? 0 }}
+                </span>
+            </template>
             <template #acciones="{ fila }">
-                <Button variant="ghost" size="sm" @click="abrirEditar(fila)"
-                    >Editar</Button
-                >
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    class="text-destructive"
-                    @click="eliminar(fila)"
-                    >Eliminar</Button
-                >
+                <div class="flex justify-end gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Editar banco"
+                        aria-label="Editar banco"
+                        @click="abrirEditar(fila)"
+                    >
+                        <Pencil class="size-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Eliminar banco"
+                        aria-label="Eliminar banco"
+                        @click="eliminar(fila)"
+                    >
+                        <Trash2 class="size-4 text-destructive" />
+                    </Button>
+                </div>
             </template>
         </DataTable>
     </div>

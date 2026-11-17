@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from '@lucide/vue';
+import {
+    BookOpen,
+    ChevronDown,
+    ChevronUp,
+    Pencil,
+    Plus,
+    Trash2,
+} from '@lucide/vue';
 import { ref } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import LeccionFormDialog from '@/components/Cursos/LeccionFormDialog.vue';
 import LeccionRow from '@/components/Cursos/LeccionRow.vue';
 import { Button } from '@/components/ui/button';
+import ListaAnimada from '@/components/ui/ListaAnimada.vue';
 import { useAlertas } from '@/composables/useAlertas';
 import {
     destroy as destroyModulo,
@@ -22,6 +30,8 @@ const props = defineProps<{
     modulo: CursoModuloItem;
     esPrimero: boolean;
     esUltimo: boolean;
+    /** Número del módulo dentro del curso (1, 2…). */
+    numero?: number;
     recursosMultimediaDisponibles: RecursoMultimediaOpcion[];
 }>();
 
@@ -74,20 +84,30 @@ async function eliminar() {
 </script>
 
 <template>
-    <div class="rounded-lg border bg-muted/30">
-        <div
-            class="flex items-center justify-between gap-3 border-b bg-muted/50 px-4 py-3"
+    <section
+        class="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transicion-ui hover:shadow-md"
+    >
+        <header
+            class="flex items-center justify-between gap-3 border-b border-border/60 bg-crema/40 px-4 py-3"
         >
-            <div class="min-w-0">
-                <p class="truncate text-sm font-semibold">
-                    {{ modulo.titulo }}
-                </p>
-                <p
-                    v-if="modulo.descripcion"
-                    class="truncate text-xs text-muted-foreground"
+            <div class="flex min-w-0 items-center gap-3">
+                <span
+                    v-if="numero"
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-card text-sm font-bold text-bronce tabular-nums shadow-sm ring-1 ring-border/60"
+                    aria-hidden="true"
+                    >{{ numero }}</span
                 >
-                    {{ modulo.descripcion }}
-                </p>
+                <div class="min-w-0">
+                    <h3 class="truncate font-semibold">
+                        {{ modulo.titulo }}
+                    </h3>
+                    <p class="truncate text-xs text-muted-foreground">
+                        {{
+                            modulo.descripcion ||
+                            `${modulo.lecciones.length} ${modulo.lecciones.length === 1 ? 'lección' : 'lecciones'}`
+                        }}
+                    </p>
+                </div>
             </div>
             <div class="flex shrink-0 items-center gap-1">
                 <Button
@@ -95,6 +115,7 @@ async function eliminar() {
                     size="icon"
                     :disabled="esPrimero"
                     title="Subir módulo"
+                    aria-label="Subir módulo"
                     @click="mover('arriba')"
                 >
                     <ChevronUp class="size-4" />
@@ -104,6 +125,7 @@ async function eliminar() {
                     size="icon"
                     :disabled="esUltimo"
                     title="Bajar módulo"
+                    aria-label="Bajar módulo"
                     @click="mover('abajo')"
                 >
                     <ChevronDown class="size-4" />
@@ -112,6 +134,7 @@ async function eliminar() {
                     variant="ghost"
                     size="icon"
                     title="Editar módulo"
+                    aria-label="Editar módulo"
                     @click="emit('editar', modulo)"
                 >
                     <Pencil class="size-4" />
@@ -120,42 +143,52 @@ async function eliminar() {
                     variant="ghost"
                     size="icon"
                     title="Eliminar módulo"
+                    aria-label="Eliminar módulo"
                     @click="eliminar"
                 >
                     <Trash2 class="size-4 text-destructive" />
                 </Button>
             </div>
-        </div>
+        </header>
 
         <div class="flex flex-col gap-2 p-3">
-            <LeccionRow
-                v-for="(leccion, indice) in modulo.lecciones"
-                :key="leccion.id"
-                :curso-id="cursoId"
-                :modulo-id="modulo.id"
-                :leccion="leccion"
-                :es-primera="indice === 0"
-                :es-ultima="indice === modulo.lecciones.length - 1"
-                @editar="abrirEditarLeccion"
-            />
+            <ListaAnimada
+                v-if="modulo.lecciones.length"
+                tag="div"
+                :cantidad="modulo.lecciones.length"
+                class="flex flex-col gap-2"
+            >
+                <LeccionRow
+                    v-for="(leccion, indice) in modulo.lecciones"
+                    :key="leccion.id"
+                    :curso-id="cursoId"
+                    :modulo-id="modulo.id"
+                    :leccion="leccion"
+                    :es-primera="indice === 0"
+                    :es-ultima="indice === modulo.lecciones.length - 1"
+                    @editar="abrirEditarLeccion"
+                />
+            </ListaAnimada>
 
             <EmptyState
-                v-if="modulo.lecciones.length === 0"
+                v-else
+                :icono="BookOpen"
                 titulo="Sin lecciones"
-                descripcion="Agrega la primera lección de este módulo."
+                descripcion="Agrega la primera lección de este módulo: video, documento, cuestionario, actividad o sesión en vivo."
+                class="py-6"
             />
 
             <Button
                 variant="outline"
                 size="sm"
-                class="self-start"
+                class="self-start border-dashed"
                 @click="abrirCrearLeccion"
             >
                 <Plus class="size-4" />
                 Agregar lección
             </Button>
         </div>
-    </div>
+    </section>
 
     <LeccionFormDialog
         v-if="dialogLeccionAbierto"

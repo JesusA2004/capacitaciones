@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
+import { UserCheck } from '@lucide/vue';
 import { reactive } from 'vue';
-import Heading from '@/components/Heading.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
+import { index as indexCapacitacion } from '@/routes/capacitacion';
+import { index as indexCursos } from '@/routes/cursos';
 import { marcar } from '@/routes/sesiones/asistencias';
 import type { AsistenciaItem, SesionConAsistencias } from '@/types';
 
@@ -18,13 +21,23 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Cursos', href: '/cursos' },
+            { title: 'Capacitación', href: indexCapacitacion() },
+            { title: 'Cursos', href: indexCursos() },
             { title: 'Asistencias de la sesión en vivo', href: '#' },
         ],
     },
 });
 
 const { mostrarExito, mostrarError, confirmarCambioAsistencia } = useAlertas();
+
+const CLASE_ESTADO: Record<string, string> = {
+    presente: 'bg-success-soft text-primary',
+    asistencia_parcial: 'bg-warning-soft text-bronce',
+    tarde: 'bg-warning-soft text-bronce',
+    ausente: 'bg-danger-soft text-destructive',
+    pendiente_revision: 'bg-warning-soft text-bronce',
+    corregida_manualmente: 'bg-info-soft text-primary',
+};
 
 const etiquetaEstado: Record<string, string> = {
     pendiente: 'Pendiente',
@@ -91,21 +104,32 @@ async function cambiarEstado(asistencia: AsistenciaItem, estado: string) {
 <template>
     <Head title="Asistencias" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <Heading :title="sesion.titulo" description="Registro de asistencia" />
+    <div class="pagina-ancha flex flex-col gap-5">
+        <CrudPageHeader
+            :titulo="sesion.titulo"
+            :descripcion="`Registro de asistencia · ${sesion.asistencias.length} participante(s)`"
+            :icono="UserCheck"
+            detalle
+        />
 
-        <div class="flex flex-col gap-3">
+        <div class="grid gap-3 xl:grid-cols-2">
             <div
                 v-for="asistencia in sesion.asistencias"
                 :key="asistencia.id"
-                class="rounded-lg border p-4"
+                class="entrada-suave rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
             >
                 <div class="flex items-center justify-between">
                     <span class="text-sm font-medium">
                         {{ asistencia.usuario.name }}
                         {{ asistencia.usuario.apellidos ?? '' }}
                     </span>
-                    <Badge variant="secondary">
+                    <Badge
+                        variant="secondary"
+                        :class="
+                            CLASE_ESTADO[asistencia.estado] ??
+                            'bg-muted text-muted-foreground'
+                        "
+                    >
                         {{
                             etiquetaEstado[asistencia.estado] ??
                             asistencia.estado
@@ -116,7 +140,7 @@ async function cambiarEstado(asistencia: AsistenciaItem, estado: string) {
                 <!-- Datos recuperados de la sincronización automática, si existen -->
                 <div
                     v-if="asistencia.sincronizado_en"
-                    class="mt-2 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground"
+                    class="mt-2 rounded-xl bg-crema/40 p-3 text-xs text-muted-foreground"
                 >
                     <p>
                         Sincronizado automáticamente:
@@ -160,7 +184,7 @@ async function cambiarEstado(asistencia: AsistenciaItem, estado: string) {
                 <!-- Rastro de la última corrección manual, si existe -->
                 <div
                     v-if="asistencia.corregido_por"
-                    class="mt-2 rounded-md border border-dashed p-2 text-xs text-muted-foreground"
+                    class="mt-2 rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground"
                 >
                     <p>
                         Corregida por {{ asistencia.corregido_por.name }}: de

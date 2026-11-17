@@ -68,5 +68,6 @@ export type CursoItem = {
     publicado_en: string | null;
     modulos?: CursoModuloItem[];
     modulos_count?: number;
+    inscripciones_count?: number;
     requisitosPrevios?: CursoRequisitoItem[];
 };

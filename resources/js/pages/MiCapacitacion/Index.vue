@@ -12,6 +12,7 @@ import {
     HelpCircle,
     ListTodo,
     PlayCircle,
+    ShieldCheck,
     Video,
 } from '@lucide/vue';
 import type { Component } from 'vue';
@@ -30,6 +31,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
+import { verificar as verificarConstancia } from '@/routes/constancias';
 import {
     certificados as rutaCertificados,
     index,
@@ -217,7 +219,9 @@ function contadorSeccion(clave: Seccion): number | null {
                             class="h-24 rounded-2xl"
                         />
                     </div>
-                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div
+                        class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                    >
                         <Skeleton
                             v-for="n in 3"
                             :key="n"
@@ -270,7 +274,7 @@ function contadorSeccion(clave: Seccion): number | null {
                             v-else
                             tag="div"
                             :cantidad="panel.aulas.length"
-                            class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                            class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                         >
                             <Link
                                 v-for="aula in panel.aulas"
@@ -465,7 +469,7 @@ function contadorSeccion(clave: Seccion): number | null {
                             v-else
                             tag="ul"
                             :cantidad="panel.certificados.length"
-                            class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+                            class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                         >
                             <li
                                 v-for="certificado in panel.certificados"
@@ -494,23 +498,39 @@ function contadorSeccion(clave: Seccion): number | null {
                                         </p>
                                     </div>
                                 </div>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    class="self-start"
-                                    as-child
-                                >
-                                    <a
-                                        :href="
-                                            descargarConstancia.url(
-                                                certificado.id,
-                                            )
-                                        "
+                                <div class="mt-auto flex flex-wrap gap-2">
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        as-child
                                     >
-                                        <Download class="size-4" />
-                                        Descargar constancia
-                                    </a>
-                                </Button>
+                                        <a
+                                            :href="
+                                                descargarConstancia.url(
+                                                    certificado.id,
+                                                )
+                                            "
+                                        >
+                                            <Download class="size-4" />
+                                            Descargar
+                                        </a>
+                                    </Button>
+                                    <Button variant="ghost" size="sm" as-child>
+                                        <a
+                                            :href="
+                                                verificarConstancia.url(
+                                                    certificado.folio,
+                                                )
+                                            "
+                                            target="_blank"
+                                            rel="noopener"
+                                            title="Página pública para que cualquiera compruebe que tu constancia es auténtica"
+                                        >
+                                            <ShieldCheck class="size-4" />
+                                            Verificación
+                                        </a>
+                                    </Button>
+                                </div>
                             </li>
                         </ListaAnimada>
                     </section>

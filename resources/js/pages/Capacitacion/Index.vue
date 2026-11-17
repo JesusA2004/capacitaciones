@@ -80,7 +80,7 @@ function porcentaje(completaron: number, inscritos: number): number {
                         class="mb-2 inline-flex items-center gap-2 rounded-full bg-card/70 px-3 py-1 text-xs font-semibold tracking-wide text-bronce uppercase"
                     >
                         <GraduationCap class="size-3.5" />
-                        Fase 3 · Capacitación Mr. Lana
+                        Capacitación Mr. Lana
                     </p>
                     <Heading
                         title="Capacitación"

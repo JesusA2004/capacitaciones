@@ -17,6 +17,7 @@ export type RecursoMultimediaItem = {
     tamano_bytes: number | null;
     duracion_segundos: number | null;
     error_procesamiento: string | null;
-    subidoPor: { id: number; name: string; apellidos: string | null } | null;
+    /** Relación subidoPor: Laravel la serializa en snake_case. */
+    subido_por: { id: number; name: string; apellidos: string | null } | null;
     created_at: string;
 };

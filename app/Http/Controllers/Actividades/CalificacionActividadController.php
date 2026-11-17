@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Actividades;
 use App\Enums\EstadoEntregaActividad;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Actividades\CalificarEntregaActividadRequest;
+use App\Models\Curso;
 use App\Models\EntregaActividad;
+use App\Models\Leccion;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Evaluacion\EntregaActividadService;
 use App\Services\Multimedia\MediaStorageService;
@@ -30,15 +32,31 @@ class CalificacionActividadController extends Controller
 
         $idsColaboradores = $this->alcance->idsColaboradoresParaRevision($request->user());
 
+        // ?curso= llega desde el aula («Calificar los de este curso»).
+        $curso = $request->integer('curso') > 0
+            ? Curso::query()->where('id', $request->integer('curso'))->first(['id', 'titulo'])
+            : null;
+
         $entregas = EntregaActividad::query()
             ->where('estado', EstadoEntregaActividad::Entregada->value)
             ->when($idsColaboradores !== null, fn ($query) => $query->whereIn('user_id', $idsColaboradores))
-            ->with(['usuario:id,name,apellidos', 'actividad:id,titulo,leccion_id'])
+            ->when($curso !== null, fn ($query) => $query->whereHas('actividad.leccion.modulo', fn ($q) => $q->where('curso_id', $curso?->id)))
+            ->with(['usuario:id,name,apellidos', 'actividad:id,titulo,leccion_id', 'actividad.leccion:id,curso_modulo_id,titulo', 'actividad.leccion.curso'])
             ->orderBy('entregado_en')
-            ->paginate(Paginacion::porPagina());
+            ->paginate(Paginacion::porPagina())
+            ->withQueryString()
+            ->through(fn (EntregaActividad $entrega): array => [
+                'id' => $entrega->id,
+                'version' => $entrega->version,
+                'entregado_en' => $entrega->entregado_en->toIso8601String(),
+                'usuario' => $entrega->usuario?->only(['id', 'name', 'apellidos']),
+                'actividad' => $entrega->actividad?->only(['id', 'titulo', 'leccion_id']),
+                'curso' => $this->cursoDe($entrega->actividad?->leccion),
+            ]);
 
         return Inertia::render('Actividades/Calificaciones/Index', [
             'entregas' => $entregas,
+            'cursoFiltro' => $curso === null ? null : ['id' => $curso->id, 'titulo' => $curso->titulo],
         ]);
     }
 
@@ -47,11 +65,22 @@ class CalificacionActividadController extends Controller
         $this->authorize('respuestas.ver');
         $this->autorizarAlcance($request, $entrega);
 
-        $entrega->load(['usuario:id,name,apellidos', 'actividad', 'recursoMultimedia:id,nombre_original']);
+        $entrega->load(['usuario:id,name,apellidos', 'actividad', 'actividad.leccion:id,curso_modulo_id,titulo', 'actividad.leccion.curso', 'recursoMultimedia:id,nombre_original']);
 
         return Inertia::render('Actividades/Calificaciones/Show', [
             'entrega' => $entrega,
+            'curso' => $this->cursoDe($entrega->actividad?->leccion),
         ]);
+    }
+
+    /**
+     * @return array{id: int, titulo: string}|null
+     */
+    private function cursoDe(?Leccion $leccion): ?array
+    {
+        $curso = $leccion?->curso;
+
+        return $curso === null ? null : ['id' => $curso->id, 'titulo' => $curso->titulo];
     }
 
     public function descargar(Request $request, EntregaActividad $entrega): StreamedResponse

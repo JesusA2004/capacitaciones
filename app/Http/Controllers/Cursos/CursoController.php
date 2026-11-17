@@ -23,7 +23,7 @@ class CursoController extends Controller
         $this->authorize('viewAny', Curso::class);
 
         $cursos = Curso::query()
-            ->withCount('modulos')
+            ->withCount(['modulos', 'inscripciones'])
             ->with('responsable:id,name,apellidos')
             ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->where('titulo', 'like', "%{$busqueda}%"))
             ->when($request->string('estado')->toString(), fn ($query, string $estado) => $query->where('estado', $estado))

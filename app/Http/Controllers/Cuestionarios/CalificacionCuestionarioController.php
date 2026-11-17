@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Cuestionarios;
 use App\Enums\EstadoIntentoCuestionario;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Cuestionarios\CalificarRespuestaRequest;
+use App\Models\Curso;
 use App\Models\IntentoCuestionario;
+use App\Models\Leccion;
 use App\Models\RespuestaCuestionario;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Evaluacion\IntentoCuestionarioService;
@@ -37,16 +39,43 @@ class CalificacionCuestionarioController extends Controller
 
         $idsColaboradores = $this->alcance->idsColaboradoresParaRevision($request->user());
 
+        // ?curso= llega desde el aula («Calificar los de este curso»).
+        $curso = $request->integer('curso') > 0
+            ? Curso::query()->where('id', $request->integer('curso'))->first(['id', 'titulo'])
+            : null;
+
         $intentos = IntentoCuestionario::query()
             ->where('estado', EstadoIntentoCuestionario::Enviado->value)
             ->when($idsColaboradores !== null, fn ($query) => $query->whereIn('user_id', $idsColaboradores))
-            ->with(['usuario:id,name,apellidos', 'cuestionario:id,titulo,leccion_id'])
+            ->when($curso !== null, fn ($query) => $query->whereHas('cuestionario.leccion.modulo', fn ($q) => $q->where('curso_id', $curso?->id)))
+            ->with(['usuario:id,name,apellidos', 'cuestionario:id,titulo,leccion_id', 'cuestionario.leccion:id,curso_modulo_id,titulo', 'cuestionario.leccion.curso'])
             ->orderBy('enviado_en')
-            ->paginate(Paginacion::porPagina());
+            ->paginate(Paginacion::porPagina())
+            ->withQueryString()
+            ->through(fn (IntentoCuestionario $intento): array => [
+                'id' => $intento->id,
+                'numero_intento' => $intento->numero_intento,
+                'estado' => $intento->estado,
+                'enviado_en' => $intento->enviado_en?->toIso8601String(),
+                'usuario' => $intento->usuario?->only(['id', 'name', 'apellidos']),
+                'cuestionario' => $intento->cuestionario?->only(['id', 'titulo', 'leccion_id']),
+                'curso' => $this->cursoDe($intento->cuestionario?->leccion),
+            ]);
 
         return Inertia::render('Cuestionarios/Calificaciones/Index', [
             'intentos' => $intentos,
+            'cursoFiltro' => $curso === null ? null : ['id' => $curso->id, 'titulo' => $curso->titulo],
         ]);
+    }
+
+    /**
+     * @return array{id: int, titulo: string}|null
+     */
+    private function cursoDe(?Leccion $leccion): ?array
+    {
+        $curso = $leccion?->curso;
+
+        return $curso === null ? null : ['id' => $curso->id, 'titulo' => $curso->titulo];
     }
 
     public function show(Request $request, IntentoCuestionario $intento): Response
@@ -54,10 +83,11 @@ class CalificacionCuestionarioController extends Controller
         $this->authorize('respuestas.ver');
         $this->autorizarAlcance($request, $intento);
 
-        $intento->load(['usuario:id,name,apellidos', 'cuestionario:id,titulo', 'respuestas.pregunta.opciones']);
+        $intento->load(['usuario:id,name,apellidos', 'cuestionario:id,titulo,leccion_id', 'cuestionario.leccion:id,curso_modulo_id,titulo', 'cuestionario.leccion.curso', 'respuestas.pregunta.opciones']);
 
         return Inertia::render('Cuestionarios/Calificaciones/Show', [
             'intento' => $intento,
+            'curso' => $this->cursoDe($intento->cuestionario?->leccion),
         ]);
     }
 

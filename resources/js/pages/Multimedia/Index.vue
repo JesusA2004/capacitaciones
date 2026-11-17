@@ -1,25 +1,28 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { FileText, Image as ImageIcon, Plus, Trash2, Video } from '@lucide/vue';
+import {
+    AudioLines,
+    FileText,
+    Image as ImageIcon,
+    Loader2,
+    Plus,
+    Trash2,
+    Video,
+} from '@lucide/vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { Component } from 'vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import TableFilters from '@/components/DataTable/TableFilters.vue';
-import Heading from '@/components/Heading.vue';
 import MultimediaUploadDialog from '@/components/Multimedia/MultimediaUploadDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
+import { index as indexCapacitacion } from '@/routes/capacitacion';
 import { destroy, index } from '@/routes/multimedia';
 import type {
     RecursoMultimediaItem,
@@ -37,6 +40,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
+            { title: 'Capacitación', href: indexCapacitacion() },
             { title: 'Biblioteca multimedia', href: index.url() },
         ],
     },
@@ -55,29 +59,62 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'nombre_original', etiqueta: 'Archivo' },
     { clave: 'tipo', etiqueta: 'Tipo' },
     { clave: 'estado', etiqueta: 'Estado' },
-    { clave: 'subidoPor', etiqueta: 'Cargado por' },
+    { clave: 'subido_por', etiqueta: 'Cargado por' },
 ];
 
 const dialogAbierto = ref(false);
 
-const iconosPorTipo: Record<string, Component> = {
-    video: Video,
-    documento: FileText,
-    imagen: ImageIcon,
+const ICONO_TIPO: Record<string, { icono: Component; clase: string }> = {
+    video: { icono: Video, clase: 'bg-info-soft text-primary' },
+    audio: { icono: AudioLines, clase: 'bg-menta text-esmeralda' },
+    documento: { icono: FileText, clase: 'bg-crema text-bronce' },
+    imagen: { icono: ImageIcon, clase: 'bg-salvia text-primary' },
 };
 
-function variantePorEstado(
-    estado: string,
-): 'default' | 'secondary' | 'outline' {
-    if (estado === 'disponible') {
-        return 'default';
+const ESTADO: Record<string, { texto: string; clase: string }> = {
+    cargando: { texto: 'Cargando', clase: 'bg-info-soft text-primary' },
+    pendiente: {
+        texto: 'En cola',
+        clase: 'bg-warning-soft text-bronce',
+    },
+    procesando: {
+        texto: 'Procesando',
+        clase: 'bg-warning-soft text-bronce',
+    },
+    disponible: { texto: 'Disponible', clase: 'bg-success-soft text-primary' },
+    error: { texto: 'Error', clase: 'bg-danger-soft text-destructive' },
+};
+
+function etiquetaTipo(valor: string): string {
+    return props.tipos.find((t) => t.value === valor)?.etiqueta ?? valor;
+}
+
+function tamano(bytes: number | null): string | null {
+    if (!bytes) {
+        return null;
     }
 
-    if (estado === 'error') {
-        return 'outline';
+    const mb = bytes / 1_048_576;
+
+    return mb >= 1
+        ? `${mb.toLocaleString('es-MX', { maximumFractionDigits: 1 })} MB`
+        : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function duracion(segundos: number | null): string | null {
+    if (!segundos) {
+        return null;
     }
 
-    return 'secondary';
+    const m = Math.floor(segundos / 60);
+    const s = Math.round(segundos % 60);
+
+    return `${m}:${String(s).padStart(2, '0')} min`;
+}
+
+function filtrarTipo(valor: string) {
+    filtros.tipo = filtros.tipo === valor ? '' : valor;
+    aplicar();
 }
 
 const hayProcesamientoPendiente = computed(() =>
@@ -121,73 +158,129 @@ async function eliminar(recurso: RecursoMultimediaItem) {
 <template>
     <Head title="Biblioteca multimedia" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <div class="flex items-center justify-between">
-            <Heading
-                title="Biblioteca multimedia"
-                description="Videos, documentos e imágenes usados en las lecciones"
-            />
+    <div class="pagina-ancha flex flex-col gap-5">
+        <CrudPageHeader
+            titulo="Biblioteca multimedia"
+            descripcion="Videos, documentos e imágenes usados en las lecciones."
+            :icono="Video"
+        >
             <Button @click="dialogAbierto = true">
                 <Plus class="size-4" />
                 Cargar archivo
             </Button>
-        </div>
+        </CrudPageHeader>
 
-        <div class="flex flex-wrap items-center gap-2">
-            <TableFilters
-                :model-value="filtros.busqueda"
-                placeholder="Buscar por nombre..."
-                @update:model-value="
-                    (valor) => {
-                        filtros.busqueda = valor;
-                        aplicarConDebounce();
-                    }
-                "
-                @limpiar="limpiar"
+        <TableFilters
+            :model-value="filtros.busqueda"
+            placeholder="Buscar por nombre…"
+            @update:model-value="
+                (valor) => {
+                    filtros.busqueda = valor;
+                    aplicarConDebounce();
+                }
+            "
+            @limpiar="limpiar"
+        >
+            <div
+                class="flex flex-wrap gap-1 rounded-xl border border-border/60 bg-crema/40 p-1"
+                role="group"
+                aria-label="Filtrar por tipo"
             >
-                <Select
-                    :model-value="filtros.tipo"
-                    @update:model-value="
-                        (v) => {
-                            filtros.tipo = String(v ?? '');
-                            aplicar();
-                        }
+                <button
+                    type="button"
+                    class="presionable rounded-lg px-3 py-1.5 text-xs font-medium transicion-ui"
+                    :class="
+                        filtros.tipo === ''
+                            ? 'bg-card text-primary shadow-sm'
+                            : 'text-muted-foreground hover:bg-card/60'
                     "
+                    :aria-pressed="filtros.tipo === ''"
+                    @click="filtrarTipo('')"
                 >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todos los tipos"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in tipos"
-                            :key="opcion.value"
-                            :value="opcion.value"
-                        >
-                            {{ opcion.etiqueta }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
-            </TableFilters>
-        </div>
+                    Todos
+                </button>
+                <button
+                    v-for="opcion in tipos"
+                    :key="opcion.value"
+                    type="button"
+                    class="flex presionable items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transicion-ui"
+                    :class="
+                        filtros.tipo === opcion.value
+                            ? 'bg-card text-primary shadow-sm'
+                            : 'text-muted-foreground hover:bg-card/60'
+                    "
+                    :aria-pressed="filtros.tipo === opcion.value"
+                    @click="filtrarTipo(opcion.value)"
+                >
+                    <component
+                        :is="ICONO_TIPO[opcion.value]?.icono ?? FileText"
+                        class="size-3.5"
+                    />
+                    {{ opcion.etiqueta }}
+                </button>
+            </div>
+        </TableFilters>
 
         <DataTable
             :columnas="columnas"
             :datos="recursos"
-            mensaje-vacio="Todavía no se ha cargado ningún archivo."
+            mensaje-vacio="Todavía no se ha cargado ningún archivo. Carga videos o documentos para usarlos en las lecciones."
         >
             <template #celda-nombre_original="{ fila }">
-                <div class="flex items-center gap-2">
-                    <component
-                        :is="iconosPorTipo[fila.tipo] ?? FileText"
-                        class="size-4 shrink-0 text-muted-foreground"
-                    />
-                    <span class="truncate">{{ fila.nombre_original }}</span>
+                <div class="flex min-w-0 items-center gap-3">
+                    <span
+                        class="flex size-9 shrink-0 items-center justify-center rounded-xl"
+                        :class="
+                            ICONO_TIPO[fila.tipo]?.clase ??
+                            'bg-muted text-muted-foreground'
+                        "
+                        aria-hidden="true"
+                    >
+                        <component
+                            :is="ICONO_TIPO[fila.tipo]?.icono ?? FileText"
+                            class="size-4"
+                        />
+                    </span>
+                    <div class="min-w-0">
+                        <p class="truncate font-medium">
+                            {{ fila.nombre_original }}
+                        </p>
+                        <p class="text-xs text-muted-foreground tabular-nums">
+                            {{
+                                [
+                                    tamano(fila.tamano_bytes),
+                                    duracion(fila.duracion_segundos),
+                                    formatearFecha(fila.created_at),
+                                ]
+                                    .filter(Boolean)
+                                    .join(' · ')
+                            }}
+                        </p>
+                    </div>
                 </div>
             </template>
+            <template #celda-tipo="{ fila }">
+                <span class="text-muted-foreground">{{
+                    etiquetaTipo(fila.tipo)
+                }}</span>
+            </template>
             <template #celda-estado="{ fila }">
-                <Badge :variant="variantePorEstado(fila.estado)">{{
-                    fila.estado
-                }}</Badge>
+                <Badge
+                    variant="secondary"
+                    :class="
+                        ESTADO[fila.estado]?.clase ??
+                        'bg-muted text-muted-foreground'
+                    "
+                >
+                    <Loader2
+                        v-if="
+                            fila.estado === 'procesando' ||
+                            fila.estado === 'cargando'
+                        "
+                        class="size-3 animate-spin"
+                    />
+                    {{ ESTADO[fila.estado]?.texto ?? fila.estado }}
+                </Badge>
                 <p
                     v-if="fila.estado === 'error' && fila.error_procesamiento"
                     class="mt-1 text-xs text-destructive"
@@ -195,10 +288,10 @@ async function eliminar(recurso: RecursoMultimediaItem) {
                     {{ fila.error_procesamiento }}
                 </p>
             </template>
-            <template #celda-subidoPor="{ fila }">
+            <template #celda-subido_por="{ fila }">
                 {{
-                    fila.subidoPor
-                        ? `${fila.subidoPor.name} ${fila.subidoPor.apellidos ?? ''}`
+                    fila.subido_por
+                        ? `${fila.subido_por.name} ${fila.subido_por.apellidos ?? ''}`
                         : '—'
                 }}
             </template>
@@ -207,6 +300,7 @@ async function eliminar(recurso: RecursoMultimediaItem) {
                     variant="ghost"
                     size="icon"
                     title="Eliminar"
+                    aria-label="Eliminar archivo"
                     @click="eliminar(fila)"
                 >
                     <Trash2 class="size-4 text-destructive" />

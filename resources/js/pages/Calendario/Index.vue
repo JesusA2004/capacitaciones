@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { ChevronLeft, ChevronRight } from '@lucide/vue';
+import { CalendarDays, ChevronLeft, ChevronRight } from '@lucide/vue';
 import {
     addMonths,
     eachDayOfInterval,
@@ -17,8 +17,8 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { computed } from 'vue';
-import Heading from '@/components/Heading.vue';
-import { Badge } from '@/components/ui/badge';
+import EmptyState from '@/components/Common/EmptyState.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { calendario as indexCalendario, dashboard } from '@/routes';
 import type { EventoCalendarioItem } from '@/types';
@@ -84,24 +84,24 @@ function abrirEvento(evento: EventoCalendarioItem) {
 <template>
     <Head title="Calendario" />
 
-    <div class="pagina-ancha flex flex-col gap-6">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <Heading
-                title="Calendario"
-                description="Fechas límite y sesiones en vivo próximas"
-            />
-            <div class="flex items-center gap-2">
+    <div class="pagina-ancha flex flex-col gap-5">
+        <CrudPageHeader
+            titulo="Calendario"
+            descripcion="Fechas límite y sesiones en vivo."
+            :icono="CalendarDays"
+        >
+            <Button variant="outline" @click="irAMes(new Date())">Hoy</Button>
+            <div class="flex items-center gap-1">
                 <Button
                     variant="outline"
                     size="icon"
-                    class="size-10"
                     aria-label="Mes anterior"
                     @click="mesAnterior"
                 >
                     <ChevronLeft class="size-4" aria-hidden="true" />
                 </Button>
                 <span
-                    class="w-36 text-center text-sm font-medium capitalize"
+                    class="w-36 text-center text-sm font-semibold capitalize"
                     aria-live="polite"
                 >
                     {{ nombreMes }}
@@ -109,23 +109,36 @@ function abrirEvento(evento: EventoCalendarioItem) {
                 <Button
                     variant="outline"
                     size="icon"
-                    class="size-10"
                     aria-label="Mes siguiente"
                     @click="mesSiguiente"
                 >
                     <ChevronRight class="size-4" aria-hidden="true" />
                 </Button>
             </div>
+        </CrudPageHeader>
+
+        <div
+            class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground"
+        >
+            <span class="inline-flex items-center gap-1.5">
+                <span class="size-2.5 rounded-full bg-primary" /> Sesión en vivo
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+                <span class="size-2.5 rounded-full bg-oro" /> Fecha límite
+            </span>
+            <span class="ml-auto tabular-nums"
+                >{{ eventos.length }} evento(s) este mes</span
+            >
         </div>
 
         <div
             :key="nombreMes"
-            class="grid entrada-suave grid-cols-7 gap-px overflow-hidden rounded-2xl border bg-border text-xs"
+            class="grid entrada-suave grid-cols-7 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 text-xs shadow-sm"
         >
             <div
                 v-for="dia in diasSemana"
                 :key="dia"
-                class="bg-crema px-1 py-1.5 text-center font-medium text-bronce sm:px-2"
+                class="bg-crema px-1 py-2 text-center font-semibold text-bronce sm:px-2"
             >
                 {{ dia }}
             </div>
@@ -133,14 +146,19 @@ function abrirEvento(evento: EventoCalendarioItem) {
             <div
                 v-for="dia in diasDelMes"
                 :key="dia.toISOString()"
-                class="min-h-16 min-w-0 bg-card p-1 sm:min-h-24 sm:p-1.5"
-                :class="{ 'opacity-40': !isSameMonth(dia, mesActual) }"
+                class="min-h-16 min-w-0 bg-card p-1 transicion-ui sm:min-h-28 sm:p-2"
+                :class="{
+                    'bg-crema/20 opacity-50': !isSameMonth(dia, mesActual),
+                    'bg-salvia/30': isToday(dia),
+                }"
             >
                 <span
-                    class="inline-flex size-5 items-center justify-center rounded-full text-xs"
-                    :class="{
-                        'bg-[var(--brand-primary)] text-white': isToday(dia),
-                    }"
+                    class="inline-flex size-6 items-center justify-center rounded-full text-xs tabular-nums"
+                    :class="
+                        isToday(dia)
+                            ? 'bg-primary font-semibold text-primary-foreground'
+                            : 'text-muted-foreground'
+                    "
                 >
                     {{ format(dia, 'd') }}
                 </span>
@@ -150,23 +168,26 @@ function abrirEvento(evento: EventoCalendarioItem) {
                         v-for="evento in eventosDelDia(dia)"
                         :key="evento.id"
                         type="button"
-                        class="block w-full presionable rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        class="block w-full presionable truncate rounded-md border-l-2 px-1.5 py-1 text-left text-[11px] font-medium transicion-ui focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        :class="
+                            evento.tipo === 'sesion'
+                                ? 'border-primary bg-salvia text-primary hover:bg-salvia/70'
+                                : 'border-oro bg-warning-soft text-bronce hover:bg-warning-soft/70'
+                        "
                         :title="evento.titulo"
                         @click="abrirEvento(evento)"
                     >
-                        <Badge
-                            :variant="
-                                evento.tipo === 'sesion'
-                                    ? 'default'
-                                    : 'secondary'
-                            "
-                            class="w-full justify-start truncate text-[10px]"
-                        >
-                            {{ evento.titulo }}
-                        </Badge>
+                        {{ evento.titulo }}
                     </button>
                 </div>
             </div>
         </div>
+
+        <EmptyState
+            v-if="eventos.length === 0"
+            :icono="CalendarDays"
+            titulo="Mes sin pendientes"
+            descripcion="No hay sesiones en vivo ni fechas límite en este mes."
+        />
     </div>
 </template>

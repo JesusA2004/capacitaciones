@@ -1,23 +1,27 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import {
+    ArrowLeft,
+    ClipboardCheck,
+    FileUp,
+    Link2,
+    Presentation,
+    Save,
+    Type,
+} from '@lucide/vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
-import Heading from '@/components/Heading.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { update } from '@/routes/actividades';
+import { index as indexCapacitacion } from '@/routes/capacitacion';
+import { aula, edit, index as indexCursos } from '@/routes/cursos';
 import { store } from '@/routes/cursos/lecciones/actividad';
 import type { ActividadItem, CursoItem, LeccionItem } from '@/types';
 
@@ -31,7 +35,8 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Cursos', href: '/cursos' },
+            { title: 'Capacitación', href: indexCapacitacion() },
+            { title: 'Cursos', href: indexCursos() },
             { title: 'Constructor de actividad', href: '#' },
         ],
     },
@@ -48,9 +53,24 @@ const form = useForm({
 });
 
 const tiposEntrega = [
-    { value: 'archivo', etiqueta: 'Archivo' },
-    { value: 'texto', etiqueta: 'Texto' },
-    { value: 'enlace', etiqueta: 'Enlace' },
+    {
+        value: 'archivo',
+        etiqueta: 'Archivo',
+        ayuda: 'PDF, imagen, documento…',
+        icono: FileUp,
+    },
+    {
+        value: 'texto',
+        etiqueta: 'Texto',
+        ayuda: 'Escribe su respuesta',
+        icono: Type,
+    },
+    {
+        value: 'enlace',
+        etiqueta: 'Enlace',
+        ayuda: 'Pega una liga',
+        icono: Link2,
+    },
 ];
 
 function guardar() {
@@ -78,14 +98,32 @@ function guardar() {
 <template>
     <Head title="Constructor de actividad" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <Heading
-            title="Constructor de actividad"
-            :description="`Lección: ${leccion.titulo}`"
-        />
+    <div class="pagina-ancha flex flex-col gap-5">
+        <CrudPageHeader
+            :titulo="actividad ? 'Actividad' : 'Nueva actividad'"
+            :descripcion="`${curso.titulo} · Lección «${leccion.titulo}»`"
+            :icono="ClipboardCheck"
+            detalle
+        >
+            <Button variant="outline" as-child>
+                <Link :href="edit(curso.id)">
+                    <ArrowLeft class="size-4" /> Volver al contenido
+                </Link>
+            </Button>
+            <Button variant="outline" as-child>
+                <Link :href="aula(curso.id)">
+                    <Presentation class="size-4" /> Aula
+                </Link>
+            </Button>
+        </CrudPageHeader>
 
-        <div class="rounded-lg border p-4">
-            <form class="grid gap-4" @submit.prevent="guardar">
+        <form
+            class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]"
+            @submit.prevent="guardar"
+        >
+            <section
+                class="flex entrada-suave flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+            >
                 <div class="grid gap-2">
                     <Label for="titulo">Título</Label>
                     <Input id="titulo" v-model="form.titulo" />
@@ -97,66 +135,96 @@ function guardar() {
                     <Textarea
                         id="instrucciones"
                         v-model="form.instrucciones"
-                        rows="4"
+                        rows="8"
+                        placeholder="Explica qué debe entregar la persona y cómo se evaluará."
                     />
                     <InputError :message="form.errors.instrucciones" />
                 </div>
 
-                <div class="grid grid-cols-3 gap-4">
-                    <div class="grid gap-2">
-                        <Label>Tipo de entrega</Label>
-                        <Select v-model="form.tipo_entrega">
-                            <SelectTrigger class="w-full">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in tiposEntrega"
-                                    :key="opcion.value"
-                                    :value="opcion.value"
-                                >
-                                    {{ opcion.etiqueta }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <InputError :message="form.errors.tipo_entrega" />
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="calificacion_minima"
-                            >Calificación mínima (%)</Label
+                <div class="grid gap-2">
+                    <Label>Tipo de entrega</Label>
+                    <div
+                        class="grid gap-2 sm:grid-cols-3"
+                        role="radiogroup"
+                        aria-label="Tipo de entrega"
+                    >
+                        <button
+                            v-for="opcion in tiposEntrega"
+                            :key="opcion.value"
+                            type="button"
+                            role="radio"
+                            :aria-checked="form.tipo_entrega === opcion.value"
+                            class="flex presionable items-center gap-3 rounded-xl border px-3 py-3 text-left text-sm transicion-ui"
+                            :class="
+                                form.tipo_entrega === opcion.value
+                                    ? 'border-primary/40 bg-salvia/60 shadow-sm'
+                                    : 'border-border/60 hover:bg-crema/40'
+                            "
+                            @click="form.tipo_entrega = opcion.value"
                         >
-                        <Input
-                            id="calificacion_minima"
-                            v-model.number="form.calificacion_minima"
-                            type="number"
-                            min="1"
-                            max="100"
-                        />
-                        <InputError
-                            :message="form.errors.calificacion_minima"
-                        />
+                            <span
+                                class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-card text-primary"
+                            >
+                                <component :is="opcion.icono" class="size-4" />
+                            </span>
+                            <span>
+                                <span class="block font-medium">{{
+                                    opcion.etiqueta
+                                }}</span>
+                                <span class="text-xs text-muted-foreground">{{
+                                    opcion.ayuda
+                                }}</span>
+                            </span>
+                        </button>
                     </div>
-
-                    <div class="grid gap-2">
-                        <Label for="fecha_limite">Fecha límite</Label>
-                        <DateTimePicker
-                            v-model="form.fecha_limite"
-                            id="fecha_limite"
-                        />
-                        <InputError :message="form.errors.fecha_limite" />
-                    </div>
+                    <InputError :message="form.errors.tipo_entrega" />
                 </div>
+            </section>
+
+            <aside
+                class="flex entrada-suave flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm lg:sticky lg:top-20"
+            >
+                <h2 class="font-semibold">Evaluación y plazo</h2>
+                <div class="grid gap-2">
+                    <Label for="calificacion_minima"
+                        >Calificación mínima para aprobar (%)</Label
+                    >
+                    <Input
+                        id="calificacion_minima"
+                        v-model.number="form.calificacion_minima"
+                        type="number"
+                        min="1"
+                        max="100"
+                    />
+                    <InputError :message="form.errors.calificacion_minima" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="fecha_limite">Fecha límite</Label>
+                    <DateTimePicker
+                        v-model="form.fecha_limite"
+                        id="fecha_limite"
+                    />
+                    <InputError :message="form.errors.fecha_limite" />
+                </div>
+
+                <p
+                    class="rounded-xl bg-crema/50 px-3 py-2 text-xs text-pretty text-muted-foreground"
+                >
+                    Cada entrega llega a «Calificar actividades»; la lección se
+                    completa cuando la entrega se aprueba.
+                </p>
 
                 <Button
                     type="submit"
-                    class="self-start"
+                    class="w-full"
                     :disabled="form.processing"
                 >
                     <Spinner v-if="form.processing" />
-                    Guardar
+                    <Save v-else class="size-4" />
+                    Guardar actividad
                 </Button>
-            </form>
-        </div>
+            </aside>
+        </form>
     </div>
 </template>

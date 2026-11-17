@@ -82,6 +82,8 @@ export type IntentoCalificacionItem = {
     enviado_en: string | null;
     usuario: { id: number; name: string; apellidos: string | null };
     cuestionario: { id: number; titulo: string; leccion_id: number };
+    /** Curso al que pertenece la lección (null si el curso se archivó/borró). */
+    curso: { id: number; titulo: string } | null;
 };
 
 export type RespuestaParaCalificar = {

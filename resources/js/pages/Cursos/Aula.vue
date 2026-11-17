@@ -16,7 +16,7 @@ import {
 import type { Component } from 'vue';
 import { computed, ref } from 'vue';
 import AnilloProgreso from '@/components/Capacitacion/AnilloProgreso.vue';
-import PortadaCurso from '@/components/Capacitacion/PortadaCurso.vue';
+import EncabezadoCurso from '@/components/Capacitacion/EncabezadoCurso.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
 import { Badge } from '@/components/ui/badge';
@@ -107,61 +107,33 @@ const CELDA: Record<EstadoCeldaAula, { texto: string; clase: string }> = {
     <Head :title="`Aula · ${aula.curso.titulo}`" />
 
     <div class="pagina-ancha flex flex-col gap-6">
-        <section
-            class="entrada-suave overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm"
+        <EncabezadoCurso
+            :curso="{
+                ...aula.curso,
+                descripcion: aula.curso.descripcion || aula.curso.objetivo,
+            }"
+            actual="aula"
         >
-            <PortadaCurso
-                :curso-id="aula.curso.id"
-                :titulo="aula.curso.titulo"
-                alto="h-36 sm:h-44"
+            <Button
+                v-if="puede.editar"
+                variant="secondary"
+                class="bg-card/80"
+                as-child
             >
-                <div
-                    class="absolute inset-x-0 bottom-0 flex flex-col gap-2 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6"
+                <Link :href="edit(aula.curso.id)">
+                    <Pencil class="size-4" />
+                    Editar contenido
+                </Link>
+            </Button>
+            <Button v-if="puede.asignar" as-child>
+                <Link
+                    :href="nuevaAsignacion({ query: { curso: aula.curso.id } })"
                 >
-                    <div class="min-w-0">
-                        <Badge variant="secondary" class="mb-2 bg-card/80">{{
-                            aula.curso.estado_etiqueta
-                        }}</Badge>
-                        <h1
-                            class="text-2xl font-bold text-pretty text-foreground sm:text-3xl"
-                        >
-                            {{ aula.curso.titulo }}
-                        </h1>
-                        <p
-                            v-if="aula.curso.responsable"
-                            class="text-sm text-foreground/70"
-                        >
-                            Responsable: {{ aula.curso.responsable }}
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <Button
-                            v-if="puede.editar"
-                            variant="secondary"
-                            class="bg-card/80"
-                            as-child
-                        >
-                            <Link :href="edit(aula.curso.id)">
-                                <Pencil class="size-4" />
-                                Editar contenido
-                            </Link>
-                        </Button>
-                        <Button v-if="puede.asignar" as-child>
-                            <Link :href="nuevaAsignacion()">
-                                <Send class="size-4" />
-                                Asignar
-                            </Link>
-                        </Button>
-                    </div>
-                </div>
-            </PortadaCurso>
-            <p
-                v-if="aula.curso.descripcion || aula.curso.objetivo"
-                class="border-t border-border/60 px-5 py-4 text-sm text-muted-foreground sm:px-6"
-            >
-                {{ aula.curso.descripcion || aula.curso.objetivo }}
-            </p>
-        </section>
+                    <Send class="size-4" />
+                    Asignar
+                </Link>
+            </Button>
+        </EncabezadoCurso>
 
         <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5">
             <MetricCard
@@ -231,7 +203,7 @@ const CELDA: Record<EstadoCeldaAula, { texto: string; clase: string }> = {
                     v-else
                     tag="ol"
                     :cantidad="aula.tablon.length"
-                    class="flex flex-col gap-3"
+                    class="grid gap-3 xl:grid-cols-2"
                 >
                     <li
                         v-for="(evento, i) in aula.tablon"
@@ -277,12 +249,22 @@ const CELDA: Record<EstadoCeldaAula, { texto: string; clase: string }> = {
                     class="flex flex-wrap gap-2"
                 >
                     <Button variant="secondary" size="sm" as-child>
-                        <Link :href="indexCalificacionesCuestionarios()"
+                        <Link
+                            :href="
+                                indexCalificacionesCuestionarios({
+                                    query: { curso: aula.curso.id },
+                                })
+                            "
                             >Calificar cuestionarios</Link
                         >
                     </Button>
                     <Button variant="secondary" size="sm" as-child>
-                        <Link :href="indexCalificacionesActividades()"
+                        <Link
+                            :href="
+                                indexCalificacionesActividades({
+                                    query: { curso: aula.curso.id },
+                                })
+                            "
                             >Calificar actividades</Link
                         >
                     </Button>
@@ -293,7 +275,7 @@ const CELDA: Record<EstadoCeldaAula, { texto: string; clase: string }> = {
                     titulo="Sin trabajo asignado"
                     descripcion="Agrega lecciones de cuestionario, actividad o sesión en vivo desde el constructor del curso."
                 />
-                <ul v-else class="grid gap-3 md:grid-cols-2">
+                <ul v-else class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
                     <li
                         v-for="trabajo in aula.trabajo"
                         :key="trabajo.leccion_id"

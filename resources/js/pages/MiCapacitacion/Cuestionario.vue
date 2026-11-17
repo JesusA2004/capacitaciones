@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ArrowLeft, HelpCircle, Timer } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import RadioMarca from '@/components/Common/RadioMarca.vue';
-import Heading from '@/components/Heading.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
-import { index } from '@/routes/mi-capacitacion';
+import { index, show as showCurso } from '@/routes/mi-capacitacion';
 import { enviar } from '@/routes/mi-capacitacion/intentos';
 import { iniciar } from '@/routes/mi-capacitacion/lecciones/cuestionario';
 import type {
@@ -35,6 +36,7 @@ const props = defineProps<{
     intentosRestantes: number | null;
     ultimoResultado: ResultadoIntento | null;
     retroalimentacion: RetroalimentacionPregunta[] | null;
+    curso?: { id: number; titulo: string } | null;
 }>();
 
 defineOptions({
@@ -224,39 +226,50 @@ async function enviarCuestionario(porTiempoAgotado = false) {
 <template>
     <Head :title="cuestionario.titulo" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <div class="flex items-start justify-between gap-4">
-            <Heading
-                :title="cuestionario.titulo"
-                :description="leccion.titulo"
-            />
-
+    <div class="pagina-ancha flex flex-col gap-5">
+        <CrudPageHeader
+            :titulo="cuestionario.titulo"
+            :descripcion="
+                curso ? `${curso.titulo} · ${leccion.titulo}` : leccion.titulo
+            "
+            :icono="HelpCircle"
+            detalle
+        >
             <div
                 v-if="intentoActivoId && tiempoFormateado !== null"
-                class="shrink-0 rounded-md border px-3 py-2 text-center"
+                class="flex items-center gap-2 rounded-2xl border bg-card px-4 py-2 shadow-sm"
                 :class="
                     (segundosRestantes ?? 0) <= 30
-                        ? 'border-destructive text-destructive'
-                        : ''
+                        ? 'latido-aviso border-destructive text-destructive'
+                        : 'border-border/60'
                 "
+                role="timer"
+                aria-live="off"
             >
-                <p class="text-xs text-muted-foreground">Tiempo restante</p>
-                <p class="font-mono text-lg font-semibold">
+                <Timer class="size-4" />
+                <span class="text-xs text-muted-foreground">Tiempo</span>
+                <span class="font-mono text-lg font-semibold tabular-nums">
                     {{ tiempoFormateado }}
-                </p>
+                </span>
             </div>
-        </div>
+            <Button v-else variant="outline" as-child>
+                <Link :href="curso ? showCurso(curso.id) : index()">
+                    <ArrowLeft class="size-4" />
+                    {{ curso ? 'Volver al curso' : 'Mi capacitación' }}
+                </Link>
+            </Button>
+        </CrudPageHeader>
 
         <p
             v-if="cuestionario.instrucciones"
-            class="text-sm text-muted-foreground"
+            class="max-w-prose rounded-2xl border border-dashed border-border bg-crema/30 px-4 py-3 text-sm whitespace-pre-line text-muted-foreground"
         >
             {{ cuestionario.instrucciones }}
         </p>
 
         <div
             v-if="ultimoResultado && !intentoActivoId"
-            class="rounded-lg border p-4"
+            class="entrada-suave rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
         >
             <div class="flex items-center gap-2">
                 <Badge
@@ -288,13 +301,13 @@ async function enviarCuestionario(porTiempoAgotado = false) {
                 <div
                     v-for="pregunta in preguntas"
                     :key="pregunta.id"
-                    class="rounded-md border p-3 text-sm"
+                    class="rounded-xl border border-border/60 bg-crema/20 p-3 text-sm"
                 >
                     <p class="font-medium">{{ pregunta.enunciado }}</p>
                     <p
                         :class="
                             retroalimentacionDe(pregunta.id)?.es_correcta
-                                ? 'text-[var(--success)]'
+                                ? 'text-primary'
                                 : 'text-destructive'
                         "
                     >
@@ -328,7 +341,10 @@ async function enviarCuestionario(porTiempoAgotado = false) {
             </p>
         </div>
 
-        <div v-else-if="!intentoActivoId" class="rounded-lg border p-4">
+        <div
+            v-else-if="!intentoActivoId"
+            class="entrada-suave rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+        >
             <p class="mb-4 text-sm text-muted-foreground">
                 {{ preguntas.length }} pregunta(s).
                 <template v-if="cuestionario.tiempo_limite_minutos">
@@ -351,7 +367,7 @@ async function enviarCuestionario(porTiempoAgotado = false) {
             <div
                 v-for="pregunta in preguntas"
                 :key="pregunta.id"
-                class="rounded-lg border p-4"
+                class="entrada-suave rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
             >
                 <p class="mb-3 text-sm font-medium">{{ pregunta.enunciado }}</p>
 

@@ -92,6 +92,8 @@ class IntentoCuestionarioController extends Controller
             'segundosRestantes' => $intentoActivo?->fecha_limite ? max(0, $intentoActivo->fecha_limite->getTimestamp() - now()->getTimestamp()) : null,
             'horaServidor' => now()->toIso8601String(),
             'intentosRestantes' => $intentosRestantes,
+            // Para «Volver al curso» (la lección no trae su curso).
+            'curso' => $leccion->curso?->only(['id', 'titulo']),
             'ultimoResultado' => $ultimoFinalizado ? [
                 'estado' => $ultimoFinalizado->estado->value,
                 'calificacion' => $ultimoFinalizado->calificacion,

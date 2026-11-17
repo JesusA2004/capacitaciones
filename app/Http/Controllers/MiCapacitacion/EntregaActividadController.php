@@ -38,6 +38,8 @@ class EntregaActividadController extends Controller
             'actividad' => $actividad,
             'entregas' => $entregas,
             'puedeEntregar' => $this->service->puedeEntregar($usuario, $actividad),
+            // Para «Volver al curso» (la lección no trae su curso).
+            'curso' => $leccion->curso?->only(['id', 'titulo']),
         ]);
     }
 

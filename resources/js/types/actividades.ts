@@ -29,10 +29,13 @@ export type EntregaCalificacionItem = {
     entregado_en: string;
     usuario: { id: number; name: string; apellidos: string | null };
     actividad: { id: number; titulo: string; leccion_id: number };
+    /** Curso al que pertenece la lección (null si el curso se archivó/borró). */
+    curso: { id: number; titulo: string } | null;
 };
 
 export type EntregaDetalleCalificacion = EntregaActividadItem & {
     usuario: { id: number; name: string; apellidos: string | null };
     actividad: ActividadItem;
-    recursoMultimedia?: { id: number; nombre_original: string } | null;
+    /** Relación recursoMultimedia: Laravel la serializa en snake_case. */
+    recurso_multimedia?: { id: number; nombre_original: string } | null;
 };
