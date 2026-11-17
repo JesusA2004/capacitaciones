@@ -133,18 +133,16 @@ const SIDEBAR_SIN_GUIA = [
     'Mis documentos laborales',
     'Mis contratos',
     // Formulario de un solo paso para enviar un aviso (artículo «avisos» de la Guía).
-    'Enviar notificación',
+    'Avisos',
     // Importaciones / cargas masivas: solo super_admin; carga puntual de un
     // archivo con vista previa (el proceso está en la Guía maestra).
-    'Importar salarios y vacaciones',
-    'Contactos de emergencia',
     'Importar datos',
     // Pantallas de las etapas nuevas del sidebar (contratación, onboarding,
     // periodo de prueba, cierres): aún no tienen módulo de guía propio.
     'Personas en contratación',
     'Validación de documentos',
     'Contratos de ingreso',
-    'Contratos',
+    'Contratos de la plantilla',
     'Inducción al puesto',
     'Calificaciones y refuerzo',
     'Activos y responsivas',
@@ -162,7 +160,7 @@ const SIDEBAR_SIN_GUIA = [
     'Incapacidades',
     'Mis reportes',
     // Pestaña «Catálogo de causales» de Bajas (misma pantalla).
-    'Catálogo de bajas',
+    'Catálogo de causales',
 ];
 
 test('todo acceso del sidebar tiene módulo de guía o una justificación explícita', function () {

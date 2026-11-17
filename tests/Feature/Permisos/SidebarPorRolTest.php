@@ -39,7 +39,7 @@ function sbOperativo(): array
         'Pendientes de alta en sistemas' => [['sistemas.altas.ver'], 'sistemas.pendientes-alta.index'],
         'Validación de documentos' => [['documentos.revisar'], 'rh.validacion-documentos.index'],
         'Contratos de ingreso' => [['contratos.ver'], 'rh.contratos-ingreso.index'],
-        'Contratos' => [['contratos.ver'], 'rh.contratos.index'],
+        'Contratos de la plantilla' => [['contratos.ver'], 'rh.contratos.index'],
         'Cartas compromiso' => [['cartas_compromiso.ver'], 'rh.cartas-compromiso.index'],
         'Inducción institucional' => [['onboarding.gestionar+onboarding.presentar_induccion'], 'induccion.presentacion'],
         'Inducción al puesto' => [['onboarding.gestionar+onboarding.induccion_puesto'], 'rh.induccion-puesto.index'],
@@ -53,9 +53,7 @@ function sbOperativo(): array
         'Actas administrativas' => [['actas.ver'], 'rh.actas.index'],
         'Recepción documental' => [['recepcion_documental.ver'], 'rh.recepcion-documental.index'],
         'Recibos de nómina' => [['nomina.recibos.ver'], 'rh.nomina.lotes.index'],
-        'Importar salarios y vacaciones' => [['colaboradores.importar_salarios_vacaciones'], 'rh.importaciones.index'],
-        'Contactos de emergencia' => [['contactos_emergencia.importar'], 'rh.contactos-emergencia.index'],
-        'Enviar notificación' => [['avisos.ver', 'avisos.enviar'], 'rh.avisos.index'],
+        'Avisos' => [['avisos.ver', 'avisos.enviar'], 'rh.avisos.index'],
         'Reingresos' => [['reingresos.solicitar', 'reingresos.gestionar'], 'rh.reingresos.index'],
         'Organigrama' => [['organigrama.ver'], 'administracion.jerarquia-puestos.index'],
         'Responsables de aprobación' => [['organigrama.ver+responsables_aprobacion.ver', 'organigrama.ver+responsables_aprobacion.administrar'], 'administracion.responsables-aprobacion.index'],
@@ -189,7 +187,7 @@ test('el menú no tiene entradas fuera de este recorrido', function () {
     preg_match_all("/\\? '([^']+)'\\s*: '([^']+)'/", (string) file_get_contents(resource_path('js/composables/useMainNavItems.ts')), $condicionales);
 
     // Enrutadas por permiso o detrás de una bandera: no son una sola ruta fija.
-    $aparte = ['Tablero de RH', 'Mi bandeja de bajas', 'Bajas', 'Catálogo de bajas', 'Ayuda', 'Mi recibo', 'Mis documentos laborales', 'Mis contratos', 'Mi capacitación', 'Evaluación del desempeño', 'Matriz 9 box y planes', 'Capacitación continua', 'Certificación Mr. Lana', 'Celebraciones'];
+    $aparte = ['Tablero de RH', 'Mi bandeja de bajas', 'Bajas', 'Catálogo de causales', 'Ayuda', 'Mi recibo', 'Mis documentos laborales', 'Mis contratos', 'Mi capacitación', 'Evaluación del desempeño', 'Matriz 9 box y planes', 'Capacitación continua', 'Certificación Mr. Lana', 'Celebraciones'];
 
     $sueltos = array_diff(array_unique($titulos[1]), array_keys(sbOperativo()), array_keys(sbColaborador()), $aparte);
 

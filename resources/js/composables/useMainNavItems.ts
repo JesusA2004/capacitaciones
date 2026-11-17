@@ -58,6 +58,9 @@ import {
     UserCheck,
     Users,
     HeartPulse,
+    BadgeDollarSign,
+    FolderTree,
+    KeyRound,
 } from '@lucide/vue';
 import type { LucideIcon } from '@lucide/vue';
 import { computed } from 'vue';
@@ -114,7 +117,6 @@ import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCartasCompromiso } from '@/routes/rh/cartas-compromiso';
 import { index as indexCierres } from '@/routes/rh/cierres';
-import { index as indexContactosEmergencia } from '@/routes/rh/contactos-emergencia';
 import { index as indexContratacion } from '@/routes/rh/contratacion';
 import { index as indexContratos } from '@/routes/rh/contratos';
 import { index as indexContratosIngreso } from '@/routes/rh/contratos-ingreso';
@@ -123,7 +125,6 @@ import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestro
 import { index as indexEvaluaciones } from '@/routes/rh/evaluaciones';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormulariosEvaluacion } from '@/routes/rh/formularios-evaluacion';
-import { index as indexImportaciones } from '@/routes/rh/importaciones';
 import { index as indexIncapacidades } from '@/routes/rh/incapacidades';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexInduccionPuesto } from '@/routes/rh/induccion-puesto';
@@ -416,11 +417,6 @@ export function useMainNavItems() {
                         href: indexAgenda(),
                         icon: CalendarClock,
                     },
-                    tienePermiso('rh.incorporacion.invitaciones.ver') && {
-                        title: 'Invitaciones QR',
-                        href: indexIncorporacionInvitaciones(),
-                        icon: QrCode,
-                    },
                 ],
             ),
 
@@ -436,6 +432,13 @@ export function useMainNavItems() {
                         title: 'Personas en contratación',
                         href: indexContratacion(),
                         icon: UserPlus,
+                    },
+                    // Solo aplica a quien ya está en contratación
+                    // (IncorporacionInvitacionController): va en la etapa 2.
+                    tienePermiso('rh.incorporacion.invitaciones.ver') && {
+                        title: 'Invitaciones QR',
+                        href: indexIncorporacionInvitaciones(),
+                        icon: QrCode,
                     },
                     // Sistemas da usuarios en las demás plataformas a quien
                     // entró a contratación (RH consulta).
@@ -465,7 +468,7 @@ export function useMainNavItems() {
                     // Contratos que le corresponden a TODA la plantilla activa
                     // por fecha de ingreso (generar los que falten).
                     tienePermiso('contratos.ver') && {
-                        title: 'Contratos',
+                        title: 'Contratos de la plantilla',
                         href: indexContratos(),
                         icon: FileSignature,
                     },
@@ -587,24 +590,13 @@ export function useMainNavItems() {
                         href: indexLotesNomina(),
                         icon: ReceiptText,
                     },
-                    tienePermiso(
-                        'colaboradores.importar_salarios_vacaciones',
-                    ) && {
-                        title: 'Importar salarios y vacaciones',
-                        href: indexImportaciones(),
-                        icon: FileSpreadsheet,
-                    },
-                    // Pantalla SOLO de importación por Excel: como toda
-                    // carga masiva, solo super_admin (2026-10-20).
-                    tienePermiso('contactos_emergencia.importar') && {
-                        title: 'Contactos de emergencia',
-                        href: indexContactosEmergencia(),
-                        icon: FileSpreadsheet,
-                    },
+                    // «Importar salarios y vacaciones» y «Contactos de
+                    // emergencia» (cargas por Excel, solo super_admin) viven
+                    // en Configuración → Importar datos: no se repiten aquí.
                     // Historial con avisos.ver; enviar exige avisos.enviar
                     // (el botón lo valida la pantalla y el backend).
                     algunPermiso('avisos.ver', 'avisos.enviar') && {
-                        title: 'Enviar notificación',
+                        title: 'Avisos',
                         href: indexAvisos(),
                         icon: BellRing,
                     },
@@ -813,7 +805,7 @@ export function useMainNavItems() {
                         tienePermiso('salarios.ver')) && {
                         title: 'Puestos y salarios',
                         href: indexPuestos(),
-                        icon: Briefcase,
+                        icon: BadgeDollarSign,
                     },
                     // Solo sucursales: los departamentos (y mover personas
                     // entre ellos) viven en su propio módulo, abajo.
@@ -825,7 +817,7 @@ export function useMainNavItems() {
                     tienePermiso('departamentos.administrar') && {
                         title: 'Departamentos',
                         href: indexDepartamentos(),
-                        icon: Briefcase,
+                        icon: FolderTree,
                     },
                     tienePermiso('empresas.ver') && {
                         title: 'Empresas',
@@ -925,7 +917,7 @@ export function useMainNavItems() {
                     // Misma pantalla que la pestaña «Catálogo de causales» de Bajas (RN-15).
                     tienePermiso('finiquitos.causales_rotacion') &&
                         tienePermiso('finiquitos.ver') && {
-                            title: 'Catálogo de bajas',
+                            title: 'Catálogo de causales',
                             href: causalesBajas(),
                             icon: ListTree,
                         },
@@ -942,7 +934,7 @@ export function useMainNavItems() {
                     ) && {
                         title: 'Roles y permisos',
                         href: indexRoles(),
-                        icon: ShieldCheck,
+                        icon: KeyRound,
                     },
                     // Importaciones/cargas masivas: solo super_admin
                     // (2026-10-20); mismos permisos que exige
