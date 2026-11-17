@@ -13,7 +13,7 @@ test('rh_admin puede ver el listado de reportes RH', function () {
     $rh->assignRole('rh_admin');
 
     $this->actingAs($rh)
-        ->get(route('rh.reportes.index'))
+        ->get(route('reportes.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Rh/Reportes/Index')
@@ -27,7 +27,7 @@ test('un colaborador sin permiso de reportes_rh no puede acceder', function () {
     $colaborador->assignRole('colaborador');
 
     $this->actingAs($colaborador)
-        ->get(route('rh.reportes.index'))
+        ->get(route('reportes.index'))
         ->assertForbidden();
 });
 
@@ -43,7 +43,7 @@ test('el reporte de empleados por sucursal solo cuenta colaboradores dentro del 
     User::factory()->create(['sucursal_principal_id' => $sucursalAjena->id]);
 
     $respuesta = $this->actingAs($gerente)
-        ->get(route('rh.reportes.index', ['reporte' => 'empleados_por_sucursal']))
+        ->get(route('reportes.index', ['reporte' => 'empleados_por_sucursal']))
         ->assertOk();
 
     $respuesta->assertInertia(function ($page) use ($sucursalPropia, $sucursalAjena) {
@@ -72,4 +72,14 @@ test('rh_admin puede exportar un reporte a excel', function () {
         ->get(route('rh.reportes.excel', ['reporte' => 'empleados_total']))
         ->assertOk()
         ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+});
+
+test('la URL vieja /rh/reportes redirige 301 a la canónica /reportes con sus filtros', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $this->actingAs($rh)
+        ->get('/rh/reportes?reporte=empleados_por_sucursal')
+        ->assertStatus(301)
+        ->assertRedirect(route('reportes.index', ['reporte' => 'empleados_por_sucursal']));
 });

@@ -18,7 +18,9 @@ import { VueApexCharts } from '@/lib/apexDiferido';
 import { opcionesDe } from '@/lib/opcionesSelect';
 import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
-import { excel, index, pdf } from '@/routes/rh/reportes';
+// URL canónica: /reportes (la del menú). /rh/reportes redirige aquí.
+import { index } from '@/routes/reportes';
+import { excel, pdf } from '@/routes/rh/reportes';
 import { index as misReportes } from '@/routes/rh/reportes/mis-reportes';
 import {
     exportar as exportarNoi,
@@ -66,7 +68,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Reportes RH', href: index.url() },
+            { title: 'Reportes de RH', href: index.url() },
         ],
     },
 });

@@ -35,6 +35,7 @@ use App\Http\Controllers\Rh\ReporteRhController;
 use App\Http\Controllers\Rh\SolicitudController;
 use App\Http\Controllers\Rh\VacanteController;
 use App\Http\Controllers\Rh\VinculacionSynologyController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -487,7 +488,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         Route::prefix('reportes')->name('reportes.')->group(function () {
-            Route::get('/', [ReporteRhController::class, 'index'])->name('index');
+            // URL canónica de «Reportes de RH»: /reportes (routes/reportes.php).
+            // Esta se conserva (301 con los mismos filtros) para enlaces viejos.
+            Route::get('/', fn (Request $request) => redirect()->route('reportes.index', $request->query(), 301))->name('index');
             Route::get('excel', [ReporteRhController::class, 'exportarExcel'])->name('excel');
             Route::get('pdf', [ReporteRhController::class, 'exportarPdf'])->name('pdf');
             Route::get('noi/exportar', [ReporteRhController::class, 'exportarNoi'])->name('noi.exportar');
