@@ -17,6 +17,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Policies\CampanaReclutamientoPolicy;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererException;
@@ -61,9 +62,9 @@ class ReporteCampanasService
      *   sucursal, departamento, puesto, vacante y responsable de RH.
      * - Filtros del candidato: fase del tablero.
      *
-     * El gasto de campañas no se acota por sucursal (ver
-     * CampanaReclutamientoController), pero los candidatos SÍ respetan el
-     * alcance del usuario en el módulo de candidatos.
+     * Las campañas se acotan al alcance por sucursal del módulo `campanas`
+     * (CampanaReclutamientoPolicy) y los candidatos al alcance del usuario
+     * en el módulo de candidatos.
      *
      * @return array{campanas: list<array<string, mixed>>, totales: array<string, mixed>, filtros_aplicados: list<array{etiqueta: string, valor: string}>, periodo: string, criterio: string}
      */
@@ -87,7 +88,9 @@ class ReporteCampanasService
      */
     public function consulta(FiltrosReporteCampanas $filtros, User $usuario): Builder
     {
-        $consulta = CampanaReclutamiento::query();
+        // Campañas dentro del alcance por sucursal del módulo (las generales,
+        // sin sucursal, entran para todos), ver CampanaReclutamientoPolicy.
+        $consulta = $this->alcanceModulo->limitarPorSucursal(CampanaReclutamiento::query(), $usuario, CampanaReclutamientoPolicy::MODULO);
 
         if ($filtros->criterio === CriterioFechaReporteCampanas::Registro) {
             $consulta->whereHas('candidatos', $this->acotarCandidatos($filtros, $usuario));
@@ -238,9 +241,9 @@ class ReporteCampanasService
      *
      * @return array<string, mixed>
      */
-    public function opciones(): array
+    public function opciones(User $usuario): array
     {
-        $campanas = CampanaReclutamiento::query()
+        $campanas = $this->alcanceModulo->limitarPorSucursal(CampanaReclutamiento::query(), $usuario, CampanaReclutamientoPolicy::MODULO)
             ->orderByDesc('anio')->orderByDesc('mes')->orderByDesc('id')
             ->get(['id', 'nombre', 'canal', 'mes', 'anio', 'fecha_inicio', 'fecha_fin', 'vacante_id', 'responsable_id']);
 
@@ -260,7 +263,7 @@ class ReporteCampanasService
             'criterios' => CriterioFechaReporteCampanas::opciones(),
             'fases' => array_map(fn (string $value, string $etiqueta) => ['value' => $value, 'etiqueta' => $etiqueta], array_keys(FiltrosReporteCampanas::fasesCandidato()), FiltrosReporteCampanas::fasesCandidato()),
             'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+            'sucursales' => $this->alcanceModulo->sucursalesDelModulo($usuario, CampanaReclutamientoPolicy::MODULO)->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
             'vacantes' => array_values($vacantes->map(fn (Vacante $v): array => ['id' => $v->id, 'etiqueta' => $this->etiquetaVacante($v) ?? ''])->all()),

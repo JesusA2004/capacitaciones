@@ -4,6 +4,7 @@ namespace App\Http\Requests\Rh;
 
 use App\Enums\CanalReclutamiento;
 use App\Enums\TipoCostoReclutamiento;
+use App\Models\CampanaReclutamiento;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Enum;
 
@@ -16,7 +17,11 @@ class UpdateCampanaReclutamientoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return ($this->user()?->can('reclutamiento.campanas.ver') ?? false) && $this->user()->can('reclutamiento.campanas.editar');
+        $campana = $this->route('campana');
+
+        // Permiso + alcance por sucursal de ESA campaña (CampanaReclutamientoPolicy),
+        // antes de validar nada.
+        return $campana instanceof CampanaReclutamiento && ($this->user()?->can('update', $campana) ?? false);
     }
 
     /**

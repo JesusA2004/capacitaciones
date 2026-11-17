@@ -15,10 +15,11 @@ use App\Models\Candidato;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
-use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Policies\CampanaReclutamientoPolicy;
 use App\Services\Pdf\PdfRendererException;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
 use App\Services\Reclutamiento\ReporteCampanasService;
@@ -40,10 +41,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * Gasto de campañas de reclutamiento por canal/periodo (ver
  * App\Services\Reclutamiento\CampanaReclutamientoService). Autorización por
- * permiso propio (reclutamiento.campanas.ver/administrar, ver
- * RolesYPermisosSeeder) — este módulo no tiene la granularidad de
- * Vacantes/Candidatos (ver_todos/ver_sucursal), porque el gasto de
- * campañas no es información sensible por sucursal.
+ * permiso propio (reclutamiento.campanas.*, ver RolesYPermisosSeeder) más el
+ * alcance por sucursal del módulo `campanas` (CampanaReclutamientoPolicy):
+ * listado, reporte y cada operación sobre una campaña concreta respetan las
+ * sucursales del usuario; las campañas generales (sin sucursal) las ven todos.
  */
 class CampanaReclutamientoController extends Controller
 {
@@ -54,6 +55,7 @@ class CampanaReclutamientoController extends Controller
         private readonly CostoReclutamientoService $costos,
         private readonly VacantesListadoService $vacantesListado,
         private readonly ReporteCampanasService $reporte,
+        private readonly AlcanceModuloService $alcance,
     ) {}
 
     public function index(Request $request): Response
@@ -64,7 +66,7 @@ class CampanaReclutamientoController extends Controller
         $mes = $request->integer('mes') ?: (int) now()->month;
         $anio = $request->integer('anio') ?: (int) now()->year;
 
-        $consulta = $this->consultaFiltrada($request, $mes, $anio)
+        $consulta = $this->consultaFiltrada($request, $usuario, $mes, $anio)
             ->with([
                 'empresa:id,nombre',
                 'sucursal:id,nombre',
@@ -111,7 +113,7 @@ class CampanaReclutamientoController extends Controller
             ],
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+                'sucursales' => $this->alcance->sucursalesDelModulo($usuario, CampanaReclutamientoPolicy::MODULO)->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
                 'tiposCosto' => TipoCostoReclutamiento::opciones(),
@@ -137,11 +139,11 @@ class CampanaReclutamientoController extends Controller
      *
      * @return Builder<CampanaReclutamiento>
      */
-    private function consultaFiltrada(Request $request, int $mes, int $anio): Builder
+    private function consultaFiltrada(Request $request, User $usuario, int $mes, int $anio): Builder
     {
         $filtros = $request->only(self::FILTROS);
 
-        return CampanaReclutamiento::query()
+        return $this->alcance->limitarPorSucursal(CampanaReclutamiento::query(), $usuario, CampanaReclutamientoPolicy::MODULO)
             ->where('mes', $mes)
             ->where('anio', $anio)
             ->when($filtros['empresa_id'] ?? null, fn ($q, $v) => $q->where('empresa_id', $v))
@@ -165,7 +167,7 @@ class CampanaReclutamientoController extends Controller
         return Inertia::render('Rh/Campanas/Reporte', [
             'reporte' => $this->reporte->reporte($filtros, $usuario, $this->conCandidatos($request)),
             'filtros' => $filtros->aQuery(),
-            'opciones' => $this->reporte->opciones(),
+            'opciones' => $this->reporte->opciones($usuario),
             'conCandidatos' => $this->conCandidatos($request),
             'puedeExportar' => $usuario->can('reclutamiento.campanas.exportar'),
         ]);
@@ -226,7 +228,7 @@ class CampanaReclutamientoController extends Controller
      */
     public function reporteCampanaPdf(Request $request, CampanaReclutamiento $campana): HttpResponse
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.exportar'), 403);
+        $this->authorize('exportar', $campana);
 
         $nombre = $campana->nombre !== null && $campana->nombre !== '' ? $campana->nombre : $campana->canal->etiqueta();
         $periodo = sprintf('Del %s al %s', $campana->fecha_inicio?->format('d/m/Y') ?? '—', $campana->fecha_fin?->format('d/m/Y') ?? 'hoy');
@@ -266,7 +268,7 @@ class CampanaReclutamientoController extends Controller
             ->limit(300)
             ->get();
 
-        $historicasIds = CampanaReclutamiento::query()
+        $historicasIds = $this->alcance->limitarPorSucursal(CampanaReclutamiento::query(), $usuario, CampanaReclutamientoPolicy::MODULO)
             ->whereNotNull('vacante_id')
             ->whereNotIn('vacante_id', $reales->pluck('id'))
             ->distinct()
@@ -284,6 +286,7 @@ class CampanaReclutamientoController extends Controller
 
     public function store(StoreCampanaReclutamientoRequest $request): RedirectResponse
     {
+        $this->autorizarVacante($request->validated('vacante_id'));
         $this->servicio->guardar($request->validated(), null, $request->user()?->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Campaña registrada correctamente.']);
@@ -291,9 +294,25 @@ class CampanaReclutamientoController extends Controller
 
     public function update(UpdateCampanaReclutamientoRequest $request, CampanaReclutamiento $campana): RedirectResponse
     {
+        $this->authorize('update', $campana);
+        $this->autorizarVacante($request->validated('vacante_id'));
         $this->servicio->guardar($request->validated(), $campana, $request->user()?->id);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Campaña actualizada correctamente.']);
+    }
+
+    /**
+     * La vacante a la que se liga la campaña (de ella salen su sucursal y
+     * puesto) debe estar dentro del alcance de quien la registra.
+     */
+    private function autorizarVacante(mixed $vacanteId): void
+    {
+        if (! is_numeric($vacanteId)) {
+            return;
+        }
+
+        $vacante = Vacante::query()->whereKey((int) $vacanteId)->firstOrFail();
+        $this->authorize('usarVacante', [CampanaReclutamiento::class, $vacante]);
     }
 
     /**
@@ -318,7 +337,7 @@ class CampanaReclutamientoController extends Controller
 
     public function destroy(Request $request, CampanaReclutamiento $campana): RedirectResponse
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.eliminar'), 403);
+        $this->authorize('delete', $campana);
 
         $campana->delete();
 
@@ -330,7 +349,7 @@ class CampanaReclutamientoController extends Controller
      */
     public function adjunto(Request $request, CampanaReclutamiento $campana, CampanaReclutamientoAdjunto $adjunto): StreamedResponse
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+        $this->authorize('view', $campana);
         abort_unless($adjunto->campana_reclutamiento_id === $campana->id, 404);
 
         return $this->servicio->respuestaAdjunto($adjunto);
@@ -338,7 +357,7 @@ class CampanaReclutamientoController extends Controller
 
     public function eliminarAdjunto(Request $request, CampanaReclutamiento $campana, CampanaReclutamientoAdjunto $adjunto): RedirectResponse
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.editar'), 403);
+        $this->authorize('update', $campana);
         abort_unless($adjunto->campana_reclutamiento_id === $campana->id, 404);
 
         $this->servicio->eliminarAdjunto($adjunto);
