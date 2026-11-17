@@ -221,14 +221,11 @@ class AltaDigitalController extends Controller
     {
         $this->authorize('aprobar', $alta);
 
-        $alta->update([
-            'estado' => EstadoAltaDigital::Aprobada,
-            'aprobado_por' => $request->user()?->id,
-            'aprobado_en' => now(),
-        ]);
-
+        // Aprobación + creación del colaborador en un solo paso transaccional
+        // e idempotente (ConversionColaboradorService::aprobar): nunca queda
+        // «Aprobada» sin colaborador.
         try {
-            $this->conversion->convertir($alta, $request->user());
+            $this->conversion->aprobar($alta, $request->user());
         } catch (RuntimeException $e) {
             return back()->with('toast', ['type' => 'error', 'message' => $e->getMessage()]);
         }

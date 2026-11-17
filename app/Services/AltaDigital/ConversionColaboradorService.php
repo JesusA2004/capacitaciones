@@ -50,9 +50,32 @@ class ConversionColaboradorService
         private readonly FotoColaboradorService $fotos,
     ) {}
 
-    public function convertir(AltaDigital $alta, User $aprobadoPor): User
+    /**
+     * «Aprobar» un alta digital: aprobación y creación del colaborador son UN
+     * solo paso. El alta nunca queda «Aprobada» sin colaborador: el estado y
+     * quién/cuándo aprobó se escriben en la misma transacción que crea el
+     * colaborador, al final (si algo falla, el alta conserva su estado
+     * anterior, aun en un motor sin transacciones). Idempotente: si ya se
+     * convirtió (doble clic, reintento), devuelve la misma cuenta sin crear otra.
+     */
+    public function aprobar(AltaDigital $alta, User $actor): User
     {
-        if ($alta->estado !== EstadoAltaDigital::Aprobada) {
+        $existente = $this->usuarioYaConvertido($alta);
+
+        if ($existente !== null) {
+            return $existente;
+        }
+
+        if (in_array($alta->estado, [EstadoAltaDigital::Rechazada, EstadoAltaDigital::Cancelada], true)) {
+            throw new RuntimeException('Un alta rechazada o cancelada no se puede aprobar.');
+        }
+
+        return $this->convertir($alta, $actor, true);
+    }
+
+    public function convertir(AltaDigital $alta, User $aprobadoPor, bool $aprobando = false): User
+    {
+        if (! $aprobando && $alta->estado !== EstadoAltaDigital::Aprobada) {
             throw new RuntimeException('Solo un alta aprobada puede convertirse en colaborador.');
         }
 
@@ -60,7 +83,14 @@ class ConversionColaboradorService
             throw new RuntimeException('Esta alta ya fue convertida en colaborador.');
         }
 
-        $usuario = DB::transaction(function () use ($alta, $aprobadoPor) {
+        $usuario = DB::transaction(function () use ($alta, $aprobadoPor, $aprobando) {
+            // Dos aprobaciones simultáneas: la segunda espera y ve la primera.
+            $bloqueada = AltaDigital::query()->lockForUpdate()->where('id', $alta->id)->first();
+
+            if ($bloqueada === null || $bloqueada->user_id !== null) {
+                throw new RuntimeException('Esta alta ya fue convertida en colaborador.');
+            }
+
             $colaborador = Colaborador::create([
                 'name' => $alta->nombre,
                 'apellidos' => $alta->apellidos,
@@ -161,6 +191,7 @@ class ConversionColaboradorService
                 'user_id' => $usuario->id,
                 'colaborador_id' => $colaborador->id,
                 'estado' => EstadoAltaDigital::ConvertidaAColaborador,
+                ...($aprobando ? ['aprobado_por' => $aprobadoPor->id, 'aprobado_en' => now()] : []),
             ]);
 
             if ($alta->candidato) {
@@ -252,5 +283,14 @@ class ConversionColaboradorService
             'status' => EstadoDocumento::Cargado,
             'uploaded_by' => $aprobadoPor->id,
         ]);
+    }
+
+    private function usuarioYaConvertido(AltaDigital $alta): ?User
+    {
+        $alta->refresh();
+
+        return $alta->estado === EstadoAltaDigital::ConvertidaAColaborador && $alta->user_id !== null
+            ? User::query()->where('id', $alta->user_id)->first()
+            : null;
     }
 }

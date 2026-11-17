@@ -3,6 +3,7 @@
 use App\Models\AltaDigital;
 use App\Models\AltaDigitalDocumento;
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
@@ -167,9 +168,26 @@ test('si un documento del alta no esta en el NAS, la conversion se revierte: no 
 
     $alta->refresh();
 
+    // Nunca «Aprobada» sin colaborador: conserva su estado anterior.
     expect($alta->user_id)->toBeNull()
         ->and($alta->colaborador_id)->toBeNull()
+        ->and($alta->estado->value)->toBe('en_revision_rh')
+        ->and($alta->aprobado_en)->toBeNull()
         ->and(EmployeeDocument::count())->toBe(0);
+});
+
+test('aprobar dos veces la misma alta no crea un segundo colaborador', function () {
+    $alta = AltaDigital::factory()->create(['estado' => 'en_revision_rh', 'correo' => 'doble.clic@example.com']);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+    $colaboradores = Colaborador::withTrashed()->count();
+
+    $this->actingAs($usuario)->post(route('rh.altas.aprobar', $alta))->assertSessionHasNoErrors();
+    $this->actingAs($usuario)->post(route('rh.altas.aprobar', $alta))->assertSessionHasNoErrors();
+
+    expect(Colaborador::withTrashed()->count())->toBe($colaboradores + 1)
+        ->and($alta->refresh()->estado->value)->toBe('convertida_a_colaborador')
+        ->and($alta->aprobado_por)->toBe($usuario->id);
 });
 
 test('si falla el envio del enlace de acceso, el colaborador y su usuario se conservan (no se revierte la conversion)', function () {
