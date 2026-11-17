@@ -581,7 +581,7 @@ export function useMainNavItems() {
                         icon: FilePen,
                     },
                     tienePermiso('nomina.recibos.ver') && {
-                        title: 'Recibo simple de pago',
+                        title: 'Recibos de nómina',
                         href: indexLotesNomina(),
                         icon: ReceiptText,
                     },

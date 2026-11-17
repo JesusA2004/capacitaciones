@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoReciboNomina;
+use App\Enums\PeriodicidadNomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\ActualizarReciboNominaRequest;
 use App\Http\Requests\Nomina\CambioMasivoRecibosRequest;
@@ -12,6 +13,7 @@ use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Flujos\SiguientePasoService;
+use App\Services\Nomina\LoteNominaService;
 use App\Services\Nomina\NominaQuincenalService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Support\Paginacion;
@@ -36,6 +38,7 @@ class NominaController extends Controller
     public function __construct(
         private readonly NominaQuincenalService $quincenas,
         private readonly ReciboNominaService $recibos,
+        private readonly LoteNominaService $lotes,
     ) {}
 
     public function index(Request $request): Response
@@ -120,14 +123,17 @@ class NominaController extends Controller
         abort_unless($request->user()->can('nomina.recibos.crear'), 403);
         $periodo = $this->quincenas->periodoPorClave((string) $request->validate(['periodo' => ['required', 'string']])['periodo']);
 
-        $resultado = $this->quincenas->preparar($periodo, $request->user());
-        $mensaje = sprintf('%d recibo(s) preparados como borrador; %d ya existían.', $resultado['creados'], $resultado['existentes']);
+        // Regla vigente (docs/NOMINA_QUINCENAL.md): todo recibo nace como
+        // borrador DENTRO de un lote. Este botón del centro ya no crea
+        // recibos sueltos: prepara el lote quincenal del periodo con el mismo
+        // procedimiento que «Recibos de nómina» (grupo de pago, alcance,
+        // duplicados) y lleva a revisarlo.
+        $lote = $this->lotes->preparar(PeriodicidadNomina::Quincenal, $periodo['inicio'], $request->user());
 
-        if ($resultado['omitidos'] !== []) {
-            $mensaje .= sprintf(' %d sin recibo: %s', count($resultado['omitidos']), implode('; ', array_map(fn (array $o) => "{$o['nombre']} ({$o['motivo']})", array_slice($resultado['omitidos'], 0, 5))));
-        }
-
-        return back()->with('toast', ['type' => $resultado['omitidos'] === [] ? 'success' : 'warning', 'message' => $mensaje]);
+        return redirect()->route('rh.nomina.lotes.show', $lote)->with('toast', [
+            'type' => ($lote->errores ?? []) === [] ? 'success' : 'warning',
+            'message' => sprintf('Lote %s preparado: %d de %d recibos listos para revisar. Todavía NO se publican ni se avisa a nadie.', $lote->folio, $lote->preparados, $lote->esperados),
+        ]);
     }
 
     public function emitir(Request $request): RedirectResponse

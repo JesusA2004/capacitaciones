@@ -48,6 +48,7 @@ import { useAlertas } from '@/composables/useAlertas';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
 import { descargar, emitir, index, masivo, preparar } from '@/routes/rh/nomina';
+import { index as indexLotes } from '@/routes/rh/nomina/lotes';
 import {
     emitir as emitirRecibo,
     update as actualizarRecibo,
@@ -130,7 +131,8 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Recibos de nómina', href: index() },
+            { title: 'Recibos de nómina', href: indexLotes() },
+            { title: 'Recibos y descargas', href: index() },
         ],
     },
 });
@@ -225,9 +227,9 @@ const opciones = {
 async function prepararQuincena() {
     if (
         !(await confirmarAccion(
-            'Preparar recibos',
-            `Se crea un borrador para cada colaborador activo con sueldo (${props.periodo.etiqueta}). A quien ya tiene recibo no se le duplica.`,
-            'Preparar',
+            'Preparar lote quincenal',
+            `Se prepara el lote quincenal (corporativo) de ${props.periodo.etiqueta}: un borrador por colaborador activo con sueldo, sin duplicar a quien ya tiene recibo. No se publica ni se avisa a nadie; lo revisas y emites desde el lote.`,
+            'Preparar lote',
         ))
     ) {
         return;
@@ -417,12 +419,12 @@ const opcionesTipo = [
 </script>
 
 <template>
-    <Head title="Recibos de nómina" />
+    <Head title="Recibos y descargas" />
 
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
-            titulo="Recibos de nómina"
-            descripcion="Recibos quincenales: se preparan solos antes del pago y se emiten en la fecha de pago. Aquí los ajustas y los descargas para entregarlos."
+            titulo="Recibos y descargas"
+            descripcion="Recibos de la quincena, siempre preparados dentro de su lote. Aquí los ajustas uno por uno o en bloque y los descargas para entregarlos."
             :icono="ReceiptText"
         >
             <SelectSimple
@@ -502,7 +504,7 @@ const opcionesTipo = [
                 @click="prepararQuincena"
             >
                 <Layers class="size-4" />
-                Preparar recibos
+                Preparar lote
             </Button>
             <Button
                 v-if="puedeEmitir && resumen.borradores > 0"
@@ -652,7 +654,7 @@ const opcionesTipo = [
                 titulo="Sin recibos en esta quincena"
                 :descripcion="
                     puedeEditar
-                        ? 'Usa «Preparar recibos» para crearlos ahora, o espera a que el sistema los prepare solo antes del pago.'
+                        ? 'Usa «Preparar lote» para crearlos ahora dentro de su lote, o espera a que el sistema prepare el lote solo antes del pago.'
                         : 'Todavía no hay recibos para esta quincena.'
                 "
             />

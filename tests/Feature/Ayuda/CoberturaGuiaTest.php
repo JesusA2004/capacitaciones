@@ -149,7 +149,7 @@ const SIDEBAR_SIN_GUIA = [
     'Calificaciones y refuerzo',
     'Activos y responsivas',
     'Evaluaciones de periodo de prueba',
-    'Recibo simple de pago',
+    'Recibos de nómina',
     'Bajas',
     // Pantallas de Etapa 1 que aún no tienen módulo de guía propio.
     // Recepción documental RH: documentada en docs/RECEPCION_DOCUMENTAL_RH.md.

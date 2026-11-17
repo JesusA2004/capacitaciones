@@ -574,7 +574,7 @@ function confirmarDescarte() {
                 </ul>
                 <p class="rounded-lg bg-salvia/60 p-2.5 text-xs">
                     Estos días llegan en automático al
-                    <strong>Recibo simple de pago</strong> y al reporte
+                    <strong>Recibos de nómina</strong> y al reporte
                     <strong>Incidencias de nómina</strong>. Sucursales pagan por
                     semana: el recibo aplica los días de cada semana.
                 </p>

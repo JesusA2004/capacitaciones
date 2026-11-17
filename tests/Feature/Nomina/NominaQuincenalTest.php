@@ -159,3 +159,23 @@ test('un colaborador sin permiso no entra al centro de recibos', function () {
     $this->actingAs($this->cuenta)->get('/rh/nomina')->assertForbidden();
     $this->actingAs($this->cuenta)->post('/rh/nomina/preparar', ['periodo' => '2026-10-1'])->assertForbidden();
 });
+
+test('«Preparar lote» del centro web crea los recibos DENTRO de un lote y el expediente ya no crea recibos sueltos', function () {
+    $this->actingAs($this->rh)
+        ->post('/rh/nomina/preparar', ['periodo' => '2026-10-1'])
+        ->assertRedirect();
+
+    $lote = NominaLote::query()->sole();
+    expect(ReciboNomina::query()->count())->toBe(2)
+        ->and(ReciboNomina::query()->whereNull('nomina_lote_id')->count())->toBe(0)
+        ->and($lote->recibos()->count())->toBe(2);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.expedientes.recibos-nomina.store', $this->conSueldo), [
+            'periodo_inicio' => '2026-10-16', 'periodo_fin' => '2026-10-31', 'fecha_pago' => '2026-10-31', 'sueldo_base' => 6000,
+        ])
+        ->assertRedirect(route('rh.nomina.index', ['colaborador' => $this->conSueldo->id]));
+
+    expect(ReciboNomina::query()->count())->toBe(2);
+    Notification::assertNothingSent();
+});
