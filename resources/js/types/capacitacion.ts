@@ -209,3 +209,19 @@ export type TableroCertificacion = {
     total_constancias: number;
     total_certificados: number;
 };
+
+/** Tarjeta «Mi capacitación» del inicio del colaborador (MiCapacitacionService::resumenPortal). */
+export type ResumenMiCapacitacionPortal = {
+    en_curso: number;
+    pendientes: number;
+    progreso_promedio: number;
+    constancias: number;
+    siguiente: {
+        leccion_id: number;
+        titulo: string;
+        tipo_etiqueta: string;
+        curso_id: number;
+        curso: string;
+        fecha: string | null;
+    } | null;
+};

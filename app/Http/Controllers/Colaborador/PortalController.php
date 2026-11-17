@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Colaborador;
 
 use App\Http\Controllers\Controller;
+use App\Services\Capacitacion\MiCapacitacionService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Colaboradores\ColaboradorPerfilService;
 use App\Services\Notificaciones\NotificationFeedService;
@@ -38,6 +39,8 @@ class PortalController extends Controller
             'pendientes' => $usuario->colaborador !== null ? $this->ciclo->misPendientes($usuario->colaborador, $usuario) : null,
             // «Mi inducción»: pasos y avance (ProgresoInduccionService, mismo DTO que la app).
             'miInduccion' => $usuario->colaborador !== null ? $this->induccion->resumen($usuario->colaborador) : null,
+            // «Mi capacitación»: diferido (calcula avance por lección); null sin cursos o con el módulo apagado.
+            'miCapacitacion' => Inertia::defer(fn () => config('features.capacitacion') ? app(MiCapacitacionService::class)->resumenPortal($usuario) : null),
         ]);
     }
 

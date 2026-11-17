@@ -19,6 +19,7 @@ import { computed } from 'vue';
 import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import MiCapacitacionTarjeta from '@/components/MiCapacitacion/MiCapacitacionTarjeta.vue';
 import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
@@ -36,6 +37,7 @@ import { index as misDocumentosLaborales } from '@/routes/portal/documentos-labo
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
     MiInduccion,
+    ResumenMiCapacitacionPortal,
     MisPendientes,
     NotificacionPortalItem,
     PerfilColaborador,
@@ -51,6 +53,8 @@ const props = defineProps<{
     notificaciones: ResumenNotificaciones;
     pendientes: MisPendientes | null;
     miInduccion?: MiInduccion | null;
+    /** Diferido; null sin cursos o con capacitación apagada. */
+    miCapacitacion?: ResumenMiCapacitacionPortal | null;
 }>();
 
 defineOptions({
@@ -327,6 +331,12 @@ const enlace =
                 !['sin_asignar', 'completada'].includes(miInduccion.estado)
             "
             :induccion="miInduccion"
+        />
+
+        <!-- Mi capacitación (solo con cursos asignados; dato diferido) -->
+        <MiCapacitacionTarjeta
+            v-if="miCapacitacion"
+            :resumen="miCapacitacion"
         />
 
         <CelebracionesHoyCard />

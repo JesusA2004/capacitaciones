@@ -188,6 +188,37 @@ class MiCapacitacionService
     }
 
     /**
+     * Resumen para la tarjeta «Mi capacitación» del inicio del colaborador
+     * (Portal). Mismos números que el panel; null si no tiene cursos.
+     *
+     * @return array{en_curso: int, pendientes: int, progreso_promedio: int, constancias: int, siguiente: array<string, mixed>|null}|null
+     */
+    public function resumenPortal(User $usuario): ?array
+    {
+        if (! $usuario->inscripcionesCurso()->exists()) {
+            return null;
+        }
+
+        $panel = $this->panel($usuario);
+        $siguiente = collect($panel['pendientes'])->firstWhere('estado', 'por_hacer');
+
+        return [
+            'en_curso' => $panel['resumen']['en_curso'],
+            'pendientes' => $panel['resumen']['pendientes'],
+            'progreso_promedio' => $panel['resumen']['progreso_promedio'],
+            'constancias' => $panel['resumen']['constancias'],
+            'siguiente' => $siguiente === null ? null : [
+                'leccion_id' => $siguiente['leccion_id'],
+                'titulo' => $siguiente['titulo'],
+                'tipo_etiqueta' => $siguiente['tipo_etiqueta'],
+                'curso_id' => $siguiente['curso_id'],
+                'curso' => $siguiente['curso'],
+                'fecha' => $siguiente['fecha'],
+            ],
+        ];
+    }
+
+    /**
      * Lecciones del curso en orden, con la relación inversa hidratada a mano
      * (ProgresoService sube lección → módulo → curso; sin esto, N+1).
      *
