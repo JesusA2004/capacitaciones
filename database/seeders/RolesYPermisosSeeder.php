@@ -402,6 +402,9 @@ class RolesYPermisosSeeder extends Seeder
         'contactos_emergencia.importar',
         'prestamos.ver',
         'prestamos.autorizar',
+        // Confirmar la entrega y registrar abonos desde el expediente
+        // (antes con expedientes.editar; migración 2026_11_17_950000).
+        'prestamos.gestionar',
         // --- Cierre definitivo del ciclo laboral (docs/CICLO_LABORAL_FINAL_IMPLEMENTADO.md) ---
         // ROL = permisos; la cadena de mando sale del organigrama. Preautorizar
         // exige además ser superior de la persona; autorizar_rh es la
@@ -585,7 +588,7 @@ class RolesYPermisosSeeder extends Seeder
             // Generar/emitir recibos sí; importarlos por Excel, no (solo
             // super_admin, igual que salarios y vacaciones — 2026-10-20).
             'nomina.recibos.ver', 'nomina.recibos.crear',
-            'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
+            'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar', 'prestamos.gestionar',
             'actas.ver', 'actas.crear', 'actas.gestionar', 'actas.descargar', 'indicadores.ver',
             'incapacidades.ver', 'incapacidades.ver_todos', 'incapacidades.registrar', 'incapacidades.corregir', 'incapacidades.descargar', 'incapacidades.exportar',
             // Responsivas de equipo (docs/responsiva).

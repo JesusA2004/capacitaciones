@@ -97,6 +97,7 @@ const accion = useAccionEnCurso();
 const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
+    puedeGestionarPrestamos?: boolean;
     /** Solo RH (nomina.recibos.crear) genera recibos, nunca el propio. */
     puedeGenerarRecibos?: boolean;
     puedeReactivar: boolean;
@@ -1089,7 +1090,7 @@ function irACompletarExpediente() {
                 <TabsContent value="prestamos">
                     <PestanaPrestamos
                         :prestamos="prestamos"
-                        :puede-editar="puedeEditar"
+                        :puede-editar="puedeGestionarPrestamos ?? false"
                     />
                 </TabsContent>
 

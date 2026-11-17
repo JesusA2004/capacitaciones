@@ -41,6 +41,7 @@ const props = defineProps<{
     siguientePaso?: SiguientePaso | null;
     siguientePasoSueldo?: SiguientePaso | null;
     puedeEditar: boolean;
+    puedeGestionarPrestamos?: boolean;
     puedeGenerarRecibos?: boolean;
     puedeReactivar: boolean;
     cicloUrl: string | null;
@@ -183,6 +184,7 @@ defineOptions({
     <ExpedienteDetalle
         :es-propio="esPropio"
         :puede-editar="puedeEditar"
+        :puede-gestionar-prestamos="puedeGestionarPrestamos ?? false"
         :puede-generar-recibos="puedeGenerarRecibos"
         :puede-reactivar="puedeReactivar"
         :siguiente-paso="siguientePaso"

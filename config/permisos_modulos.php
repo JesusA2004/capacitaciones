@@ -457,7 +457,7 @@ return [
             'grupo' => 'People',
             'acceso' => 'prestamos.ver',
             'alcances' => ['todos' => 'prestamos.ver_todos', 'region' => 'prestamos.ver_region', 'sucursal' => 'prestamos.ver_sucursal', 'equipo' => 'prestamos.ver_equipo'],
-            'acciones' => ['prestamos.autorizar' => 'Autorizar', 'prestamos.resguardar' => 'Resguardar pagaré'],
+            'acciones' => ['prestamos.autorizar' => 'Autorizar', 'prestamos.resguardar' => 'Resguardar pagaré', 'prestamos.gestionar' => 'Confirmar entrega y registrar abonos'],
         ],
         'actas' => [
             'etiqueta' => 'Actas administrativas',

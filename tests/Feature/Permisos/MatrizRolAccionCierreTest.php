@@ -122,3 +122,19 @@ test('la migración quita a Sistemas la descarga y el alcance de recibos y finiq
     $usuario = clUsuario('sistemas', $this->base);
     expect($usuario->can('nomina.recibos.descargar'))->toBeFalse();
 });
+
+test('préstamos: confirmar entrega exige prestamos.gestionar, no basta expedientes.editar; la migración se lo otorga a quien ya editaba expedientes', function () {
+    $rh = clUsuario('rh_admin', $this->base);
+    $prestamo = Prestamo::factory()->create(['colaborador_id' => clUsuario('colaborador', $this->base)->colaborador_id]);
+    $entrega = ['fecha_otorgamiento' => now()->toDateString(), 'fecha_primer_descuento' => now()->addDays(15)->toDateString(), 'periodicidad' => 'quincenal', 'pago_programado' => 500];
+
+    $rh->roles->first()->revokePermissionTo('prestamos.gestionar');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $this->actingAs($rh->fresh())->post(route('rh.expedientes.prestamos.activar', $prestamo), $entrega)->assertForbidden();
+
+    (require database_path('migrations/2026_11_17_950000_otorga_permiso_gestionar_prestamos.php'))->up();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $this->actingAs($rh->fresh())->post(route('rh.expedientes.prestamos.activar', $prestamo), $entrega)->assertSessionHasNoErrors()->assertRedirect();
+    expect($prestamo->refresh()->estado)->toBe('activo');
+});

@@ -44,6 +44,18 @@ class PrestamoPolicy
             && $this->alcance->alcanzaColaborador($usuario, $colaborador);
     }
 
+    /**
+     * Confirmar la entrega del dinero y registrar abonos/ajustes del saldo
+     * (desde el expediente): permiso propio `prestamos.gestionar`, alcance
+     * sobre el expediente y nunca sobre el préstamo propio.
+     */
+    public function operarSaldo(User $usuario, Prestamo $prestamo): bool
+    {
+        return $usuario->can('prestamos.gestionar')
+            && $usuario->colaborador_id !== $prestamo->colaborador_id
+            && $this->alcance->puedeVerExpediente($usuario, $prestamo->colaborador);
+    }
+
     public function resguardar(User $usuario, Prestamo $prestamo): bool
     {
         return $usuario->can('prestamos.resguardar')

@@ -366,6 +366,8 @@ class ExpedienteController extends Controller
             // Nadie edita su propio expediente (ni RH ni administración): en
             // "Mi expediente" se ofrece "Solicitar corrección".
             'puedeEditar' => $usuario->can('expedientes.editar') && ! $esCuentaPropia,
+            // Préstamos: permiso propio (PrestamoPolicy::operarSaldo).
+            'puedeGestionarPrestamos' => ! $esPropio && $usuario->can('prestamos.gestionar') && $this->alcance->puedeVerExpediente($usuario, $colaborador),
             // Recibos de nómina: solo RH (nomina.recibos.crear), nunca el propio.
             'puedeGenerarRecibos' => $usuario->can('nomina.recibos.crear') && ! $esCuentaPropia,
             'puedeReactivar' => $usuario->can('usuarios.reactivar'),
@@ -703,22 +705,13 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * Confirmar la entrega o registrar abonos de un préstamo: RH
-     * (expedientes.editar) con alcance sobre el colaborador y nunca sobre
-     * su propio préstamo — mismo criterio que el botón (`puedeEditar`).
+     * Confirmar la entrega o registrar abonos de un préstamo: permiso propio
+     * `prestamos.gestionar` con alcance, nunca sobre el préstamo propio
+     * (PrestamoPolicy::operarSaldo). La regla vive en PrestamoService.
      */
-    private function exigirGestionPrestamo(Request $request, Prestamo $prestamo): void
+    private function exigirGestionPrestamo(Prestamo $prestamo): void
     {
-        $usuario = $request->user();
-        $colaborador = $prestamo->colaborador;
-
-        abort_unless(
-            $usuario instanceof User
-                && $usuario->can('expedientes.editar')
-                && $usuario->colaborador_id !== $colaborador->id
-                && $this->alcance->puedeVerExpediente($usuario, $colaborador),
-            403,
-        );
+        $this->authorize('operarSaldo', $prestamo);
     }
 
     public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, Colaborador $colaborador): RedirectResponse
@@ -875,7 +868,7 @@ class ExpedienteController extends Controller
      */
     public function registrarPagoPrestamo(Request $request, Prestamo $prestamo): RedirectResponse
     {
-        $this->exigirGestionPrestamo($request, $prestamo);
+        $this->exigirGestionPrestamo($prestamo);
 
         $datos = $request->validate([
             'monto' => ['required', 'numeric', 'min:0.01', 'max:9999999.99'],
@@ -895,7 +888,7 @@ class ExpedienteController extends Controller
      */
     public function activarPrestamo(Request $request, Prestamo $prestamo): RedirectResponse
     {
-        $this->exigirGestionPrestamo($request, $prestamo);
+        $this->exigirGestionPrestamo($prestamo);
 
         $datos = $request->validate([
             'fecha_otorgamiento' => ['required', 'date'],
