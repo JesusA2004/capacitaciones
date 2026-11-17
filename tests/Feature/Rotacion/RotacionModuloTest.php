@@ -319,6 +319,18 @@ test('corregir la causal deja bitácora con antes, después y comentario y actua
         ->and($baja->fresh()->causal_analitica_id)->toBe(rmCausal('salud')->id);
 });
 
+test('la bitácora de un evento responde solo dentro del alcance, sin cargar todo el tablero', function () {
+    $propia = rmHistorica($this->cuernavaca, '2026-07-01');
+    $ajena = rmHistorica($this->tula, '2026-07-02');
+    $gerente = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $this->cuernavaca->id]);
+    $gerente->givePermissionTo(['bajas.tablero.ver', 'bajas.ver']);
+
+    $this->actingAs($gerente)->getJson(route('reportes.rotacion.tablero.bitacora', ['fuente' => 'historico', 'id' => $propia->id]))
+        ->assertOk()->assertJsonStructure(['correcciones']);
+    $this->actingAs($gerente)->getJson(route('reportes.rotacion.tablero.bitacora', ['fuente' => 'historico', 'id' => $ajena->id]))->assertNotFound();
+    $this->actingAs($gerente)->getJson(route('reportes.rotacion.tablero.bitacora', ['fuente' => 'sistema', 'id' => $propia->id]))->assertNotFound();
+});
+
 test('completar la fecha de ingreso de una histórica, nunca posterior a la baja', function () {
     $historica = rmHistorica($this->cuernavaca, '2026-07-01', null);
 

@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Collection;
 
 /**
@@ -421,20 +422,11 @@ class RotacionMotorService
      */
     private function cargarEventos(FiltrosRotacion $f): Collection
     {
-        $ids = $f->sucursales->all();
-        $desde = $f->desde->toDateString();
-        $hasta = $f->hasta->min(FechaMexico::inicioDeHoyInmutable())->toDateString();
         $eventos = collect();
 
         if ($f->fuente !== 'historico') {
-            $bajas = Baja::query()->toBase()
+            $bajas = $this->queryBajas($f)
                 ->select(['id', 'colaborador_id', 'cierre_laboral_id', 'nombre_colaborador', 'numero_empleado', 'sucursal_id', 'puesto_id', 'departamento_id', 'fecha_ingreso', 'fecha_baja', 'forma_salida', 'causal_rotacion_id', 'causal_analitica_id', 'motivo_original', 'estatus', 'origen'])
-                ->whereIn('estatus', [EstatusBaja::EnRevisionRh->value, EstatusBaja::EnRevisionJuridico->value, EstatusBaja::Cerrada->value])
-                ->where('es_rotacion', true)
-                ->whereIn('sucursal_id', $ids)
-                ->whereNotNull('fecha_baja')
-                ->whereDate('fecha_baja', '>=', $desde)
-                ->whereDate('fecha_baja', '<=', $hasta)
                 ->get();
 
             foreach ($bajas as $b) {
@@ -443,11 +435,8 @@ class RotacionMotorService
         }
 
         if ($f->fuente !== 'sistema') {
-            $historicas = BajaHistorica::query()->enAlcanceRotacion($f->sucursales, $f->externas)->toBase()
+            $historicas = $this->queryHistoricas($f)
                 ->select(['id', 'colaborador_id', 'baja_id', 'nombre', 'numero_empleado', 'sucursal_id', 'puesto_id', 'departamento_id', 'fecha_ingreso', 'fecha_baja', 'motivo_original', 'causal_analitica_id', 'estado', 'unidad_externa', 'antiguedad_dias', 'rango_antiguedad'])
-                ->where('estado', BajaHistorica::VALIDA)
-                ->whereDate('fecha_baja', '>=', $desde)
-                ->whereDate('fecha_baja', '<=', $hasta)
                 ->get();
 
             foreach ($historicas as $h) {
@@ -456,6 +445,46 @@ class RotacionMotorService
         }
 
         return $eventos->sortBy([['fecha_baja_texto', 'desc'], ['clave', 'asc']])->values();
+    }
+
+    /**
+     * ¿El evento (`sistema` = bajas, `historico` = bajas_historicas) entra en
+     * el alcance y periodo de `$f`? Mismos criterios que eventos(), sin
+     * filtros de detalle, en una sola consulta (no carga todo el alcance).
+     */
+    public function eventoEnAlcance(FiltrosRotacion $f, string $fuente, int $id): bool
+    {
+        return match ($fuente) {
+            'sistema' => $f->fuente !== 'historico' && $this->queryBajas($f)->where('id', $id)->exists(),
+            'historico' => $f->fuente !== 'sistema' && $this->queryHistoricas($f)->where('id', $id)->exists(),
+            default => false,
+        };
+    }
+
+    /** Bajas del sistema que cuentan en rotación dentro del alcance y periodo. */
+    private function queryBajas(FiltrosRotacion $f): QueryBuilder
+    {
+        return Baja::query()->toBase()
+            ->whereIn('estatus', [EstatusBaja::EnRevisionRh->value, EstatusBaja::EnRevisionJuridico->value, EstatusBaja::Cerrada->value])
+            ->where('es_rotacion', true)
+            ->whereIn('sucursal_id', $f->sucursales->all())
+            ->whereNotNull('fecha_baja')
+            ->whereDate('fecha_baja', '>=', $f->desde->toDateString())
+            ->whereDate('fecha_baja', '<=', $this->hastaEfectivo($f));
+    }
+
+    /** Bajas históricas válidas dentro del alcance y periodo. */
+    private function queryHistoricas(FiltrosRotacion $f): QueryBuilder
+    {
+        return BajaHistorica::query()->enAlcanceRotacion($f->sucursales, $f->externas)->toBase()
+            ->where('estado', BajaHistorica::VALIDA)
+            ->whereDate('fecha_baja', '>=', $f->desde->toDateString())
+            ->whereDate('fecha_baja', '<=', $this->hastaEfectivo($f));
+    }
+
+    private function hastaEfectivo(FiltrosRotacion $f): string
+    {
+        return $f->hasta->min(FechaMexico::inicioDeHoyInmutable())->toDateString();
     }
 
     /**

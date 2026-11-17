@@ -106,8 +106,7 @@ class TableroRotacionController extends Controller
     {
         $this->authorize('verTablero', Baja::class);
         abort_unless($this->puedeVerPersonas($request->user()) && in_array($fuente, ['sistema', 'historico'], true), 403);
-        $visible = $this->motor->eventos($this->alcance($request->user()), false)->firstWhere('clave', sprintf('%s:%d', $fuente, $id));
-        abort_if($visible === null, 404);
+        abort_unless($this->motor->eventoEnAlcance($this->alcance($request->user()), $fuente, $id), 404);
 
         return response()->json(['correcciones' => $this->historico->bitacora($fuente, $id)]);
     }
