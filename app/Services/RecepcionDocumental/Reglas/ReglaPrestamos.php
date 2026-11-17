@@ -24,9 +24,28 @@ class ReglaPrestamos implements ReglaRecepcion
         return ReglaRecepcionDocumental::Prestamos;
     }
 
+    public function documentosPosibles(): array
+    {
+        $posibles = [];
+
+        foreach (self::claves() as $clave) {
+            $posibles[$clave] = EsperadoRecepcion::etiquetaTipo($clave);
+        }
+
+        return $posibles;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function claves(): array
+    {
+        return array_values(array_filter((array) config('documentos_maestros.documentos_prestamo', []), 'is_string'));
+    }
+
     public function esperados(PeriodoRecepcion $periodo): array
     {
-        $claves = array_values(array_filter((array) config('documentos_maestros.documentos_prestamo', []), 'is_string'));
+        $claves = self::claves();
 
         if ($claves === []) {
             return [];

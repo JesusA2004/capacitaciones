@@ -21,11 +21,13 @@ use Illuminate\Support\Carbon;
  *
  * Fuente de verdad = el paquete configurado + los GeneratedDocument reales
  * de su contrato inicial (la unión: si ya se generaron, se ligan; si aún no,
- * se espera el paquete de su puesto). Hoy el paquete solo incluye «No
- * competencia» para Gestor y Gerente, aunque el negocio pidió 3 originales
- * por alta para todos: se respeta la configuración (docs/RECEPCION_DOCUMENTAL_RH.md
- * → «No competencia por puesto»). Un puesto marcado «no requiere documentos
- * laborales» solo espera lo que realmente se haya generado.
+ * se espera el paquete de su puesto). Paquete real (capacitacion_inicial,
+ * la modalidad por defecto): Gestor y Gerente firman 3 (capacitación,
+ * confidencialidad y no competencia); los demás puestos, 2
+ * (docs/RECEPCION_DOCUMENTAL_RH.md → «No competencia por puesto»). Un puesto
+ * marcado «no requiere documentos laborales» solo espera lo que realmente se
+ * haya generado. El catálogo configurable decide cuáles de esos contratos
+ * se esperan en recepción (por defecto, todos).
  *
  * El contrato indeterminado de una RENOVACIÓN no cae aquí (ReglaContratoIndeterminado).
  */
@@ -36,6 +38,17 @@ class ReglaAltas implements ReglaRecepcion
     public function regla(): ReglaRecepcionDocumental
     {
         return ReglaRecepcionDocumental::Altas;
+    }
+
+    public function documentosPosibles(): array
+    {
+        $posibles = [];
+
+        foreach (self::clavesDeAlta() as $clave) {
+            $posibles[$clave] = EsperadoRecepcion::etiquetaTipo($clave);
+        }
+
+        return $posibles;
     }
 
     public function esperados(PeriodoRecepcion $periodo): array

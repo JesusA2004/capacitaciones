@@ -13,7 +13,8 @@ Control **mensual** de los documentos ORIGINALES firmados que RH recibe físicam
 | Tablas | `database/migrations/2026_11_11_100000_create_recepcion_documental_tables.php` (`recepcion_documental_cortes`, `recepcion_documental_renglones`, `recepcion_documental_pdfs`) |
 | Modelos | `RecepcionDocumentalCorte`, `RecepcionDocumentalRenglon` (origen polimórfico `origen_type/origen_id`), `RecepcionDocumentalPdf` |
 | Enums | `EstadoCorteRecepcion`, `EstadoRecepcionDocumento`, `ReglaRecepcionDocumental` (todos con `etiqueta()`) |
-| Configuración | `config/recepcion_documental.php` (reglas y su activación, nombres de tipos, columna de fecha de nómina, programación) |
+| Catálogo de lo que se recibe (fuente de verdad) | Tabla `recepcion_documental_catalogo` (migración `2026_11_17_100000`), modelo `RecepcionDocumentalCatalogo`, `CatalogoReglasRecepcion` (siembra y lee), `ReglaConfigurada` (aplica el filtro), `ConfiguracionCatalogoRecepcionService` (edita, audita, recalcula y vista previa), pantalla `pages/Rh/RecepcionDocumental/Catalogo.vue` |
+| Configuración | `config/recepcion_documental.php` (clase de cada regla y **valores por defecto** con que se siembra el catálogo, nombres de tipos, columna de fecha de nómina, programación) |
 | Reglas | `app/Services/RecepcionDocumental/Reglas/*` — una clase pequeña por evento que implementa `ReglaRecepcion` |
 | Constructor del corte | `MaterializadorCorteService` (idempotente) + `EstadoCorteService` (estado calculado) |
 | Consultas y acciones | `RecepcionDocumentalService` (lo usan igual la web y la API móvil) |
@@ -36,8 +37,18 @@ Control **mensual** de los documentos ORIGINALES firmados que RH recibe físicam
 - Evento nuevo → renglón «Pendiente» con snapshot (nombre, número, puesto, sucursal, fecha y descripción del evento). El snapshot **nunca** se actualiza después.
 - Renglón existente → solo se liga a la versión digital vigente si cambió.
 - Renglón **pendiente** cuyo evento ya no devuelve la regla (cancelado o movido de mes) → «No aplica» con justificación automática (`no_aplica_automatico = true`); si el evento vuelve a aplicar, regresa a «Pendiente». Nada recibido se borra ni se toca.
-- Reglas apagadas: sus renglones no se tocan.
+- Entrada del catálogo **apagada** (o sin documentos): sus renglones **pendientes** pasan a «No aplica» automático con la razón «se desactivó en el catálogo»; lo recibido u observado se conserva. Al encenderla, regresan a «Pendiente» (mismo índice único, sin duplicar).
 - Corte **cerrado**: nunca se recalcula (422 desde la web; el comando lo omite).
+
+## Catálogo de lo que se recibe
+
+Pantalla **Recepción documental → Configurar lo que recibo** (`/rh/recepcion-documental/catalogo`). Una entrada por regla (evento de origen) con: nombre visible, nota, **documentos que genera cada evento** (subconjunto de los que la regla sabe producir: `ReglaRecepcion::documentosPosibles()`), encendida/apagada, orden (arrastrar o flechas; es el orden de los bloques del corte) y, opcionalmente, solo ciertas **empresas** / **sucursales** (vacío = todas).
+
+- **Fuente de verdad = BD.** `config/recepcion_documental.php` solo da los valores con que `CatalogoReglasRecepcion::sembrar()` crea una entrada que falta (idempotente; nunca pisa lo configurado). Se siembra sola al abrir cualquier pantalla del módulo y con `CatalogoRecepcionDocumentalSeeder`. Cambiar el `.env` después de sembrado ya no hace nada.
+- **Cálculo automático mensual**: cada regla devuelve todo lo que sabe producir y `ReglaConfigurada::filtrar()` deja solo los documentos, sucursales y empresas elegidos. Ejemplo: encendidos «Altas» y «Vacaciones», en el mes se dan de alta 3 Gestores → se esperan **9 contratos** (paquete real `documentos_maestros.paquetes.alta.capacitacion_inicial.gestor` = capacitación + confidencialidad + no competencia; un puesto administrativo firma 2) más un formato por cada solicitud de vacaciones **aprobada** en el mes.
+- **Al guardar un cambio** (encender/apagar, documentos, alcance): transacción + bitácora `recepcion_documental_catalogo_actualizado` (antes/después) y se **recalcula el corte del mes en curso** (lo crea si falta). Un corte cerrado no cambia. Si el recálculo falla no se deshace el cambio (se registra en el log y lo retoma la materialización diaria). Reordenar queda en `recepcion_documental_catalogo_reordenado`.
+- **Vista previa**: `POST catalogo/{entrada}/vista-previa` calcula, sin guardar, cuántos originales y eventos se esperarían en el mes con una configuración en borrador; la pantalla la muestra en vivo mientras se eligen documentos/sucursales.
+- No existe nada «pendiente de definir»: INFONAVIT y pensión alimenticia se retiraron (nunca generaron renglones). Si RH las define, se agregan como regla nueva con su clase.
 
 ### Estados
 
@@ -54,21 +65,19 @@ Métricas (por alcance del usuario): Esperados (excluye «No aplica»), Recibido
 | Contrato de capacitación inicial, Confidencialidad, No competencia (paquete de alta) | Alta: `colaboradores.fecha_ingreso` | Mes de la fecha de ingreso (DATE) | Paquete `documentos_maestros.paquetes.alta.<modalidad>.<grupo_documental>` ∪ `GeneratedDocument` reales vigentes del contrato inicial. Gestor y Gerente: 3; demás puestos: 2. Puesto «no requiere documentos laborales»: solo lo realmente generado |
 | Alta IMSS firmada | `colaboradores.fecha_alta_imss` | Mes de la fecha de alta IMSS (DATE) | 1 por colaborador |
 | Contrato por tiempo indeterminado | Renovación: primer `GeneratedDocument` `contrato_indeterminado` de un `ContratoLaboral` con `contrato_anterior_id` | Mes de `MIN(created_at)` en CDMX (no el mes del alta) | 1 por contrato; se liga a la versión vigente. La contratación directa indeterminada va en Altas |
-| Documentos de baja: **solo** carta de renuncia firmada (renuncia voluntaria) y finiquito firmado | Baja (`bajas`) en revisión o cerrada, origen sistema | Mes de `fecha_baja` (DATE) | Del catálogo «Documentos requeridos de la baja» de su forma de salida, solo las filas cuyo `documento_sistema` está en `recepcion_documental.bajas.documentos_sistema` (`carta_renuncia`, `finiquito`). Entrevista de salida, acta con testigos, aviso de rescisión y evidencias de la causal siguen en el expediente de la baja, pero **no** se esperan en recepción (desde 2026-11-06; sus pendientes en cortes abiertos pasan solos a «No aplica», los recibidos se conservan). Liga la carta de renuncia (`GeneratedDocument`) y el finiquito (`finiquito_calculos.generated_document_id`). Baja cancelada/rechazada → «No aplica» automático |
+| Documentos de baja: **solo** carta de renuncia firmada (renuncia voluntaria) y finiquito firmado | Baja (`bajas`) en revisión o cerrada, origen sistema | Mes de `fecha_baja` (DATE) | Del catálogo «Documentos requeridos de la baja» de su forma de salida, solo las filas cuyo `documento_sistema` está elegido en la entrada «Bajas» del catálogo (por defecto `recepcion_documental.bajas.documentos_sistema`: `carta_renuncia`, `finiquito`; se puede sumar `aviso_terminacion`). Entrevista de salida, acta con testigos, aviso de rescisión y evidencias de la causal siguen en el expediente de la baja, pero **no** se esperan en recepción (desde 2026-11-06; sus pendientes en cortes abiertos pasan solos a «No aplica», los recibidos se conservan). Liga la carta de renuncia (`GeneratedDocument`) y el finiquito (`finiquito_calculos.generated_document_id`). Baja cancelada/rechazada → «No aplica» automático |
 | Formato de vacaciones firmado | Solicitud interna de vacaciones **aprobada** | Mes de `revisado_en` en CDMX | 1 por solicitud, solo si `solicitudes.formatos.vacaciones.requiere_firma` |
 | Contrato de crédito, Pagaré, Carta de retención | Préstamo autorizado (no cancelado) | Mes de `autorizado_en` en CDMX | `documentos_maestros.documentos_prestamo` (3 por préstamo) |
 | Recibo de nómina firmado | Recibo **emitido** real (`recibos_nomina.estado = emitido`) | Mes de `fecha_pago` (configurable a `periodo_fin`) | 1 por recibo emitido; borradores no cuentan, cancelados pasan a «No aplica». Nunca se suponen 4 semanas ni 2 quincenas |
-| INFONAVIT | — | — | **Registrada y apagada** (pendiente de definir por RH) |
-| Pensión alimenticia | — | — | **Registrada y apagada** (pendiente de definir por RH) |
 | Lote de lista de asistencias firmadas | Semana lunes–domingo (la de la nómina semanal) × sucursal (`sucursal_principal_id`, sin corporativo salvo `RECEPCION_DOC_LISTAS_CORPORATIVO=true`) | Mes del **domingo** de la semana; solo semanas ya empezadas (CDMX) | 1 lote por sucursal y semana; cantidad = colaboradores **activos** esa semana (estatus `activo` como la nómina; ingreso ≤ domingo; con baja, solo si `fecha_baja` ≥ lunes; en incorporación no cuenta). Mientras está pendiente, cada cálculo diario actualiza la cantidad; el renglón muestra los nombres |
 
 Decisión de bajas: se usa `fecha_baja` (fecha legal) y no la fecha de cada documento porque el paquete de salida viaja junto; usar la firma de cada pieza lo repartiría entre meses.
 
 ## Permisos
 
-Módulo `recepcion_documental` (Permanencia): acceso `recepcion_documental.ver`; alcances `ver_todos / ver_region / ver_sucursal` (por sucursal del renglón, vía `AlcanceOrganizacionalService::limitarPorSucursal`); acciones `generar`, `recibir` (palomear / regresar a pendiente), `observar` (observación, no recibido, no aplica), `cerrar`, `reabrir`, `descargar_pdf`.
+Módulo `recepcion_documental` (Permanencia): acceso `recepcion_documental.ver`; alcances `ver_todos / ver_region / ver_sucursal` (por sucursal del renglón, vía `AlcanceOrganizacionalService::limitarPorSucursal`); acciones `generar`, `recibir` (palomear / regresar a pendiente), `observar` (observación, no recibido, no aplica), `cerrar`, `reabrir`, `descargar_pdf`, `configurar` (catálogo de lo que se recibe; `RecepcionDocumentalCatalogoPolicy`).
 
-- `rh_admin`: todas. `rh_auxiliar`: todas menos `reabrir`. `super_admin`: todo (catálogo operativo). Colaborador y demás roles: ninguna (403 web y API).
+- `rh_admin`: todas. `rh_auxiliar`: todas menos `reabrir` y `configurar` (ve el catálogo en solo lectura). `super_admin`: todo (catálogo operativo). Colaborador y demás roles: ninguna (403 web y API).
 - En producción: `php artisan migrate --force` y `php artisan people:sincronizar-permisos`.
 
 ## PDF operativo
@@ -87,11 +96,11 @@ Módulo `recepcion_documental` (Permanencia): acceso `recepcion_documental.ver`;
 
 La app no calcula reglas, métricas ni estados.
 
-## Pendientes de definir por RH
+## Notas para RH
 
-1. **INFONAVIT**: qué documento se firma (aviso de retención, alta/modificación de crédito), con qué evento del sistema se detecta y si es uno por crédito o por movimiento. No hay modelo ni evento en el sistema.
-2. **Pensión alimenticia**: qué documento (oficio, constancia de descuento), en qué evento y si se espera por resolución o por cada recibo.
-3. ~~Listas de asistencia~~: definido 2026-11-06 — lote semanal por sucursal con los activos (ver tabla).
+1. ~~INFONAVIT y pensión alimenticia~~: retiradas del catálogo el 2026-11-17 (no había documento ni evento en el sistema; nunca generaron renglones). Se agregan como regla nueva el día que RH defina qué se firma y cuándo.
+2. ~~Listas de asistencia~~: definido 2026-11-06 — lote semanal por sucursal con los activos (ver tabla).
+3. Vacaciones capturadas por el endpoint legacy `solicitudes_vacaciones` no se esperan en recepción (hoy sin registros); solo las solicitudes internas de vacaciones aprobadas.
 4. **No competencia por puesto**: el negocio pidió 3 originales por alta para todos, pero el paquete configurado (`documentos_maestros.paquetes.alta`) solo incluye «No competencia» para Gestor y Gerente (y no hay plantilla para otros grupos). El módulo sigue la configuración; si RH decide que todos la firman, se agrega la clave al paquete de cada grupo (y Jurídico entrega el formato) y la regla lo tomará sola.
 5. **Registros viejos** con `generated_documents.requiere_envio_corporativo = 0`: no se usan como criterio; las reglas se basan en el evento y el paquete, no en esa bandera.
 6. Documentos generados con envío a corporativo que no son de alta/baja/préstamo (actas administrativas, permiso extraordinario con goce): no tienen regla todavía; agregar una regla si RH los concilia en este control.

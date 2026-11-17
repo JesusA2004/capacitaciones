@@ -20,7 +20,9 @@ use Illuminate\Support\Collection;
  * cae en el mes, SOLO los originales que RH recibe en paquetería: la carta
  * de renuncia firmada (renuncia voluntaria) y el finiquito firmado. Salen
  * del catálogo «Documentos requeridos de la baja» de su forma de salida,
- * filtrado por documento_sistema (config recepcion_documental.bajas.documentos_sistema).
+ * filtrado por documento_sistema: la entrada «Bajas» del catálogo
+ * configurable decide cuáles (por defecto
+ * config recepcion_documental.bajas.documentos_sistema).
  * Lo demás del catálogo (entrevista de salida, acta con testigos, aviso de
  * rescisión, evidencias de la causal) sigue en el expediente de la baja,
  * pero no se espera aquí: sus renglones pendientes de cortes abiertos pasan
@@ -58,7 +60,7 @@ class ReglaBajas implements ReglaRecepcion
             return [];
         }
 
-        $sistema = self::documentosEsperados();
+        $sistema = array_keys($this->documentosPosibles());
 
         if ($sistema === []) {
             return [];
@@ -72,7 +74,7 @@ class ReglaBajas implements ReglaRecepcion
             ->get();
 
         $colaboradores = $bajas->pluck('colaborador_id')->filter()->unique()->values()->all();
-        $documentos = $this->documentosSistema($colaboradores);
+        $documentos = $this->documentosSistema($colaboradores, $sistema);
         $finiquitos = FiniquitoCalculo::query()
             ->whereIn('colaborador_id', $colaboradores)
             ->whereNotNull('generated_document_id')
@@ -109,6 +111,8 @@ class ReglaBajas implements ReglaRecepcion
                     $baja->sucursal?->nombre,
                     $baja->fecha_baja?->toDateString(),
                     $descripcion,
+                    1,
+                    $requerido->documento_sistema,
                 );
             }
         }
@@ -117,12 +121,41 @@ class ReglaBajas implements ReglaRecepcion
     }
 
     /**
-     * documento_sistema que Recepción documental espera de una baja
-     * (por defecto carta_renuncia y finiquito).
+     * Originales de baja que el catálogo puede pedir: cada documento_sistema
+     * del catálogo «Documentos requeridos de la baja» (activo) más los
+     * valores por defecto de la configuración, con el nombre del catálogo.
+     */
+    public function documentosPosibles(): array
+    {
+        $posibles = [];
+
+        foreach (self::documentosPorDefecto() as $clave) {
+            $posibles[$clave] = EsperadoRecepcion::etiquetaTipo($clave);
+        }
+
+        DocumentoRequeridoBaja::query()
+            ->where('activo', true)
+            ->whereNotNull('documento_sistema')
+            ->orderBy('orden')
+            ->get(['documento_sistema', 'nombre'])
+            ->each(function (DocumentoRequeridoBaja $r) use (&$posibles): void {
+                $clave = (string) $r->documento_sistema;
+
+                if ($clave !== '' && (! isset($posibles[$clave]) || $posibles[$clave] === $clave)) {
+                    $posibles[$clave] = $r->nombre;
+                }
+            });
+
+        return $posibles;
+    }
+
+    /**
+     * documento_sistema que la entrada «Bajas» del catálogo espera por
+     * defecto al sembrarse (carta_renuncia y finiquito).
      *
      * @return list<string>
      */
-    public static function documentosEsperados(): array
+    public static function documentosPorDefecto(): array
     {
         return array_values(array_filter((array) config('recepcion_documental.bajas.documentos_sistema', ['carta_renuncia', 'finiquito']), fn (mixed $v): bool => is_string($v) && $v !== ''));
     }
@@ -132,9 +165,10 @@ class ReglaBajas implements ReglaRecepcion
      * (carta de renuncia, aviso de terminación…): «colaborador|clave» => id.
      *
      * @param  array<int, mixed>  $colaboradores
+     * @param  list<string>  $claves
      * @return Collection<string, int>
      */
-    private function documentosSistema(array $colaboradores): Collection
+    private function documentosSistema(array $colaboradores, array $claves): Collection
     {
         if ($colaboradores === []) {
             return collect();
@@ -144,7 +178,7 @@ class ReglaBajas implements ReglaRecepcion
 
         GeneratedDocument::query()
             ->whereIn('colaborador_id', $colaboradores)
-            ->whereIn('clave_plantilla', array_values(array_diff(self::documentosEsperados(), ['finiquito'])))
+            ->whereIn('clave_plantilla', array_values(array_diff($claves, ['finiquito'])))
             ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
             ->orderByDesc('id')
             ->get(['id', 'colaborador_id', 'clave_plantilla'])

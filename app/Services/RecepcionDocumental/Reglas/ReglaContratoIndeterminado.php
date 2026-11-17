@@ -31,6 +31,11 @@ class ReglaContratoIndeterminado implements ReglaRecepcion
         return ReglaRecepcionDocumental::ContratoIndeterminado;
     }
 
+    public function documentosPosibles(): array
+    {
+        return [self::TIPO => EsperadoRecepcion::etiquetaTipo(self::TIPO)];
+    }
+
     public function esperados(PeriodoRecepcion $periodo): array
     {
         [$desde, $hasta] = $periodo->rangoUtc();

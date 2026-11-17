@@ -476,6 +476,7 @@ return [
                 'recepcion_documental.cerrar' => 'Cerrar el corte',
                 'recepcion_documental.reabrir' => 'Reabrir un corte cerrado (con motivo)',
                 'recepcion_documental.descargar_pdf' => 'Generar / descargar el PDF de control',
+                'recepcion_documental.configurar' => 'Configurar el catálogo de lo que se recibe (encender/apagar, documentos, orden)',
             ],
         ],
         // Información médica: por defecto solo RH (Etapa 1, Incapacidades).

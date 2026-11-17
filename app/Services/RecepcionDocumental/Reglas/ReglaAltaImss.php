@@ -21,6 +21,11 @@ class ReglaAltaImss implements ReglaRecepcion
         return ReglaRecepcionDocumental::AltaImss;
     }
 
+    public function documentosPosibles(): array
+    {
+        return [self::TIPO => EsperadoRecepcion::etiquetaTipo(self::TIPO)];
+    }
+
     public function esperados(PeriodoRecepcion $periodo): array
     {
         $colaboradores = Colaborador::query()

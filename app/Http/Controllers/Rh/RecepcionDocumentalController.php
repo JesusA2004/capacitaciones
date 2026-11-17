@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RecepcionDocumental\MarcarRecepcionRequest;
+use App\Models\RecepcionDocumentalCatalogo;
 use App\Models\RecepcionDocumentalCorte;
 use App\Models\RecepcionDocumentalPdf;
 use App\Models\RecepcionDocumentalRenglon;
@@ -49,6 +50,7 @@ class RecepcionDocumentalController extends Controller
             'cortes' => $cortes->through(fn (RecepcionDocumentalCorte $c): array => $this->servicio->filaCorte($c, $metricas[$c->id] ?? RecepcionDocumentalService::metricasVacias())),
             'periodoActual' => ['clave' => $actual->clave(), 'etiqueta' => ucfirst($actual->etiqueta())],
             'puedeGenerar' => $usuario->can('generar', RecepcionDocumentalCorte::class),
+            'puedeConfigurar' => $usuario->can('configurar', RecepcionDocumentalCatalogo::class),
             'reglas' => $this->catalogo->resumen(),
         ]);
     }

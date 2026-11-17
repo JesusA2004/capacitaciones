@@ -5,9 +5,9 @@ namespace App\Enums;
 /**
  * Regla (evento de origen) que genera lo esperado en Recepción documental
  * RH. Cada caso tiene su clase en App\Services\RecepcionDocumental\Reglas y
- * su activación en config/recepcion_documental.php. INFONAVIT y pensión
- * están registradas pero APAGADAS: no hay evidencia en
- * el sistema de qué documento, cuándo ni cuántos (RH debe definirlas).
+ * su entrada en el catálogo configurable (recepcion_documental_catalogo,
+ * sembrado con los valores por defecto de config/recepcion_documental.php).
+ * Solo existen reglas COMPLETAMENTE definidas: nada «pendiente de definir».
  */
 enum ReglaRecepcionDocumental: string
 {
@@ -18,8 +18,6 @@ enum ReglaRecepcionDocumental: string
     case Vacaciones = 'vacaciones';
     case Prestamos = 'prestamos';
     case RecibosNomina = 'recibos_nomina';
-    case Infonavit = 'infonavit';
-    case Pension = 'pension';
     case ListasAsistencia = 'listas_asistencia';
 
     public function etiqueta(): string
@@ -32,13 +30,11 @@ enum ReglaRecepcionDocumental: string
             self::Vacaciones => 'Vacaciones',
             self::Prestamos => 'Préstamos',
             self::RecibosNomina => 'Nómina',
-            self::Infonavit => 'INFONAVIT',
-            self::Pension => 'Pensión alimenticia',
             self::ListasAsistencia => 'Listas de asistencia',
         };
     }
 
-    /** Orden de los bloques en pantalla y en el PDF (ALTAS → … → BAJAS). */
+    /** Orden por defecto de los bloques (el catálogo puede reordenarlos). */
     public function orden(): int
     {
         return match ($this) {
@@ -49,9 +45,22 @@ enum ReglaRecepcionDocumental: string
             self::Vacaciones => 5,
             self::Prestamos => 6,
             self::Bajas => 7,
-            self::Infonavit => 8,
-            self::Pension => 9,
-            self::ListasAsistencia => 10,
+            self::ListasAsistencia => 8,
+        };
+    }
+
+    /** Qué evento real del sistema dispara lo esperado (texto para la pantalla). */
+    public function evento(): string
+    {
+        return match ($this) {
+            self::Altas => 'Cada colaborador cuya fecha de ingreso cae en el mes: los contratos del paquete de alta de su puesto.',
+            self::AltaImss => 'Cada colaborador cuya fecha de alta ante el IMSS cae en el mes.',
+            self::ContratoIndeterminado => 'Cada renovación cuyo contrato indeterminado se generó por primera vez en el mes.',
+            self::Bajas => 'Cada baja (en trámite o cerrada) cuya fecha de baja cae en el mes.',
+            self::Vacaciones => 'Cada solicitud de vacaciones aprobada en el mes (aprobación final).',
+            self::Prestamos => 'Cada préstamo autorizado en el mes que no se canceló.',
+            self::RecibosNomina => 'Cada recibo de nómina emitido con fecha de pago en el mes.',
+            self::ListasAsistencia => 'Un lote por sucursal y semana (lunes a domingo) con sus colaboradores activos.',
         };
     }
 
@@ -67,7 +76,6 @@ enum ReglaRecepcionDocumental: string
             self::Prestamos => sprintf('No se autorizaron préstamos durante %s.', $periodo),
             self::RecibosNomina => sprintf('No se emitieron recibos de nómina con pago en %s.', $periodo),
             self::ListasAsistencia => sprintf('No hubo colaboradores activos en sucursales durante las semanas de %s.', $periodo),
-            self::Infonavit, self::Pension => sprintf('Regla pendiente de definir por RH: no genera esperados en %s.', $periodo),
         };
     }
 }

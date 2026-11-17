@@ -4,9 +4,7 @@ use App\Services\RecepcionDocumental\Reglas\ReglaAltaImss;
 use App\Services\RecepcionDocumental\Reglas\ReglaAltas;
 use App\Services\RecepcionDocumental\Reglas\ReglaBajas;
 use App\Services\RecepcionDocumental\Reglas\ReglaContratoIndeterminado;
-use App\Services\RecepcionDocumental\Reglas\ReglaInfonavit;
 use App\Services\RecepcionDocumental\Reglas\ReglaListasAsistencia;
-use App\Services\RecepcionDocumental\Reglas\ReglaPension;
 use App\Services\RecepcionDocumental\Reglas\ReglaPrestamos;
 use App\Services\RecepcionDocumental\Reglas\ReglaRecibosNomina;
 use App\Services\RecepcionDocumental\Reglas\ReglaVacaciones;
@@ -18,14 +16,17 @@ use App\Services\RecepcionDocumental\Reglas\ReglaVacaciones;
 |
 | Control MENSUAL de los originales firmados que RH recibe por paquetería.
 | Lo esperado NO se captura a mano: cada regla lo calcula desde eventos
-| reales del sistema (alta, baja, recibo emitido…). Una regla apagada no
-| genera ni toca renglones.
+| reales del sistema (alta, baja, recibo emitido…).
+|
+| FUENTE DE VERDAD = el catálogo configurable en BD
+| (recepcion_documental_catalogo, pantalla «Configurar lo que recibo»,
+| permiso recepcion_documental.configurar). Aquí solo quedan las clases de
+| cada regla y los VALORES POR DEFECTO con que se siembra una entrada que
+| todavía no existe (CatalogoReglasRecepcion::sembrar): `activa` (env) y,
+| para bajas, bajas.documentos_sistema. Cambiar el env después de sembrado
+| ya no cambia nada: se configura desde la pantalla (auditado).
 |
 | Listas de asistencia: un lote semanal por sucursal (ReglaListasAsistencia).
-| INFONAVIT y pensión alimenticia están REGISTRADAS
-| pero APAGADAS a propósito: no hay en el sistema evidencia de qué
-| documento se firma, en qué evento ni con qué granularidad. RH debe
-| definir la regla (y, si aplica, la plantilla) antes de encenderlas.
 */
 
 return [
@@ -39,9 +40,6 @@ return [
         'prestamos' => ['clase' => ReglaPrestamos::class, 'activa' => (bool) env('RECEPCION_DOC_PRESTAMOS', true)],
         'recibos_nomina' => ['clase' => ReglaRecibosNomina::class, 'activa' => (bool) env('RECEPCION_DOC_NOMINA', true)],
         'listas_asistencia' => ['clase' => ReglaListasAsistencia::class, 'activa' => (bool) env('RECEPCION_DOC_LISTAS_ASISTENCIA', true)],
-        // Pendientes de definir por RH: no generan nada aunque se enciendan.
-        'infonavit' => ['clase' => ReglaInfonavit::class, 'activa' => false],
-        'pension' => ['clase' => ReglaPension::class, 'activa' => false],
     ],
 
     /*
@@ -62,6 +60,9 @@ return [
         'prestamo_pagare' => 'Pagaré para trabajadores',
         'prestamo_consentimiento_retencion' => 'Carta consentimiento de retención en nómina',
         'recibo_nomina' => 'Recibo de nómina firmado',
+        // Bajas: nombre por defecto si el catálogo de la baja aún no existe.
+        'carta_renuncia' => 'Carta de renuncia firmada',
+        'finiquito' => 'Finiquito firmado',
     ],
 
     /*

@@ -162,9 +162,55 @@ export type HistorialRecepcion = {
     propiedades: Record<string, unknown>;
 };
 
-export type ReglaResumenRecepcion = {
+/** Documento que una entrada del catálogo puede esperar por evento. */
+export type DocumentoCatalogoRecepcion = {
     clave: string;
     etiqueta: string;
+    elegido: boolean;
+};
+
+/**
+ * Entrada del catálogo configurable de «lo que recibo» (una por regla).
+ * Nada queda «pendiente de definir»: solo existen reglas definidas.
+ */
+export type EntradaCatalogoRecepcion = {
+    id: number;
+    clave: string;
+    etiqueta: string;
+    nombre: string;
+    descripcion: string | null;
+    evento: string;
     activa: boolean;
-    pendiente: string | null;
+    orden: number;
+    documentos: DocumentoCatalogoRecepcion[];
+    sucursal_ids: number[];
+    empresa_ids: number[];
+    actualizado_en: string | null;
+    actualizado_por: string | null;
+};
+
+/** Cuánto se esperaría en un mes con una configuración (sin guardar). */
+export type VistaPreviaRecepcion = {
+    periodo: string;
+    periodo_etiqueta: string;
+    activa: boolean;
+    eventos: number;
+    documentos: number;
+    por_documento: { clave: string; etiqueta: string; cantidad: number }[];
+};
+
+export type RecalculoCatalogoRecepcion = {
+    periodo: string;
+    recalculado: boolean;
+    cerrado: boolean;
+    nuevos: number;
+    no_aplica: number;
+    reactivados: number;
+};
+
+export type RespuestaCatalogoRecepcion = {
+    entradas: EntradaCatalogoRecepcion[];
+    previas: Record<number, VistaPreviaRecepcion>;
+    recalculo: RecalculoCatalogoRecepcion | null;
+    entrada_id: number | null;
 };

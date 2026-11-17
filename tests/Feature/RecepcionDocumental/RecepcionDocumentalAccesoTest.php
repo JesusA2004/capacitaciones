@@ -5,10 +5,12 @@ use App\Enums\EstadoRecepcionDocumento;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\Puesto;
+use App\Models\RecepcionDocumentalCatalogo;
 use App\Models\RecepcionDocumentalCorte;
 use App\Models\RecepcionDocumentalPdf;
 use App\Models\RecepcionDocumentalRenglon;
 use App\Models\Sucursal;
+use App\Services\RecepcionDocumental\CatalogoReglasRecepcion;
 use App\Services\RecepcionDocumental\PeriodoRecepcion;
 use App\Services\RecepcionDocumental\RecepcionDocumentalPdfService;
 use App\Services\RecepcionDocumental\RecepcionDocumentalService;
@@ -35,6 +37,11 @@ beforeEach(function () {
     $this->rh = clUsuario('rh_admin', ['sucursal_principal_id' => $this->sucursal->id]);
     $this->auxiliar = clUsuario('rh_auxiliar', ['sucursal_principal_id' => $this->sucursal->id]);
     $this->colaborador = clUsuario('colaborador', ['sucursal_principal_id' => $this->sucursal->id]);
+
+    // Se cuentan los 3 originales del alta; el lote semanal de listas de
+    // asistencia se apaga en el catálogo para no mezclarlo.
+    app(CatalogoReglasRecepcion::class)->sembrar();
+    RecepcionDocumentalCatalogo::query()->where('regla', 'listas_asistencia')->update(['activa' => false]);
 
     Colaborador::factory()->create([
         'name' => 'Adriana', 'apellidos' => 'Cortés Lima', 'fecha_ingreso' => '2026-11-05',

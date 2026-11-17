@@ -16,6 +16,7 @@ use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
 use App\Models\Prestamo;
 use App\Models\Puesto;
+use App\Models\RecepcionDocumentalCatalogo;
 use App\Models\RecepcionDocumentalCorte;
 use App\Models\RecepcionDocumentalRenglon;
 use App\Models\ReciboNomina;
@@ -23,6 +24,7 @@ use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Bajas\CatalogoBajasService;
+use App\Services\RecepcionDocumental\CatalogoReglasRecepcion;
 use App\Services\RecepcionDocumental\PeriodoRecepcion;
 use App\Services\RecepcionDocumental\RecepcionDocumentalService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -43,6 +45,10 @@ beforeEach(function () {
     $this->sucursal = Sucursal::factory()->create(['nombre' => 'Toluca Centro']);
     $this->gestor = Puesto::factory()->create(['nombre' => 'Gestor', 'grupo_documental' => 'gestor']);
     $this->administrativo = Puesto::factory()->create(['nombre' => 'Auxiliar administrativo', 'grupo_documental' => 'administrativo_no_confianza']);
+    // Estas pruebas cuentan originales por persona: el lote semanal de listas
+    // de asistencia (por sucursal) se apaga en el catálogo para no mezclarlo.
+    app(CatalogoReglasRecepcion::class)->sembrar();
+    RecepcionDocumentalCatalogo::query()->where('regla', ReglaRecepcionDocumental::ListasAsistencia->value)->update(['activa' => false]);
 });
 
 afterEach(function () {
@@ -276,11 +282,13 @@ test('un corte cerrado no se recalcula y su snapshot no cambia si cambian nombre
         ->and($renglones->pluck('sucursal_nombre')->unique()->all())->toBe(['Toluca Centro']);
 });
 
-test('INFONAVIT y pensión están registradas pero no generan nada', function () {
+test('no existen reglas «pendientes de definir»: INFONAVIT y pensión ya no están en el catálogo', function () {
     rdAlta($this, '2026-11-05');
     $corte = rdGenerar('2026-11');
 
-    expect(RecepcionDocumentalRenglon::query()->where('corte_id', $corte->id)->whereIn('regla', ['infonavit', 'pension'])->count())->toBe(0);
+    expect(ReglaRecepcionDocumental::tryFrom('infonavit'))->toBeNull()
+        ->and(ReglaRecepcionDocumental::tryFrom('pension'))->toBeNull()
+        ->and(RecepcionDocumentalRenglon::query()->where('corte_id', $corte->id)->whereIn('regla', ['infonavit', 'pension'])->count())->toBe(0);
 });
 
 test('el estado del corte se calcula: abierto en el mes, con pendientes al terminar y completo al recibir todo', function () {

@@ -40,6 +40,14 @@ class ReglaListasAsistencia implements ReglaRecepcion
         return ReglaRecepcionDocumental::ListasAsistencia;
     }
 
+    /** Clave del lote en el catálogo (el tipo del renglón lleva la semana). */
+    public const DOCUMENTO = 'lista_asistencia';
+
+    public function documentosPosibles(): array
+    {
+        return [self::DOCUMENTO => 'Lote semanal de listas de asistencia firmadas'];
+    }
+
     public function esperados(PeriodoRecepcion $periodo): array
     {
         $semanas = self::semanas($periodo);
@@ -86,6 +94,7 @@ class ReglaListasAsistencia implements ReglaRecepcion
                     $fin->toDateString(),
                     self::descripcion($inicio, $fin, $activos->count()),
                     $activos->count(),
+                    self::DOCUMENTO,
                 );
             }
         }

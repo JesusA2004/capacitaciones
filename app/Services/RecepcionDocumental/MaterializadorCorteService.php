@@ -26,7 +26,12 @@ use Illuminate\Validation\ValidationException;
  *    movido de mes) → «No aplica» con justificación automática.
  *  - Renglón que el sistema puso en «No aplica» y cuyo evento vuelve a
  *    aplicar → regresa a «Pendiente».
- *  - Reglas apagadas: sus renglones no se tocan.
+ *  - Entrada del catálogo APAGADA (o sin documentos): sus renglones
+ *    PENDIENTES pasan a «No aplica» automático con la razón; lo ya
+ *    recibido u observado se conserva intacto. Al encenderla de nuevo, esos
+ *    renglones regresan a «Pendiente» (mismo índice único, sin duplicar).
+ *  - Lo esperado sale del catálogo configurable (CatalogoReglasRecepcion):
+ *    solo los documentos, sucursales y empresas elegidos.
  */
 class MaterializadorCorteService
 {
@@ -51,15 +56,25 @@ class MaterializadorCorteService
         /** @var array<string, array<string, EsperadoRecepcion>> $porRegla */
         $porRegla = [];
 
-        foreach ($this->catalogo->activas() as $regla) {
-            $porRegla[$regla->regla()->value] = [];
+        /** @var array<string, string> $apagadas regla => nombre de la entrada apagada */
+        $apagadas = [];
 
-            foreach ($regla->esperados($periodo) as $esperado) {
-                $porRegla[$regla->regla()->value][$esperado->clave()] ??= $esperado;
+        foreach ($this->catalogo->entradas() as $configurada) {
+            $clave = $configurada->entrada->regla->value;
+            $porRegla[$clave] = [];
+
+            if (! $configurada->activa()) {
+                $apagadas[$clave] = $configurada->entrada->nombre;
+
+                continue;
+            }
+
+            foreach ($configurada->esperados($periodo) as $esperado) {
+                $porRegla[$clave][$esperado->clave()] ??= $esperado;
             }
         }
 
-        $conteo = DB::transaction(function () use ($corte, $porRegla, $periodo): array {
+        $conteo = DB::transaction(function () use ($corte, $porRegla, $periodo, $apagadas): array {
             $bloqueado = RecepcionDocumentalCorte::query()->lockForUpdate()->findOrFail($corte->id);
 
             if ($bloqueado->estaCerrado()) {
@@ -116,7 +131,9 @@ class MaterializadorCorteService
                     $conteo['nuevos'] += count($lote);
                 }
 
-                $justificacion = sprintf('Automático: ya no se espera en %s — el evento de origen se canceló, cambió de mes o el documento dejó de pedirse en recepción (detectado el %s).', $periodo->etiqueta(), Carbon::now('America/Mexico_City')->format('d/m/Y'));
+                $justificacion = isset($apagadas[$regla])
+                    ? sprintf('Automático: «%s» se desactivó en el catálogo de lo que se recibe; ya no se espera en %s (detectado el %s). Si se vuelve a activar, regresa a «Pendiente».', $apagadas[$regla], $periodo->etiqueta(), Carbon::now('America/Mexico_City')->format('d/m/Y'))
+                    : sprintf('Automático: ya no se espera en %s — el evento de origen se canceló, cambió de mes o el documento dejó de pedirse en recepción (detectado el %s).', $periodo->etiqueta(), Carbon::now('America/Mexico_City')->format('d/m/Y'));
 
                 foreach ($existentes as $clave => $renglon) {
                     if (! isset($esperados[$clave]) && $renglon->estado === EstadoRecepcionDocumento::Pendiente) {

@@ -25,6 +25,11 @@ class ReglaRecibosNomina implements ReglaRecepcion
         return ReglaRecepcionDocumental::RecibosNomina;
     }
 
+    public function documentosPosibles(): array
+    {
+        return [self::TIPO => EsperadoRecepcion::etiquetaTipo(self::TIPO)];
+    }
+
     public function esperados(PeriodoRecepcion $periodo): array
     {
         $columna = config('recepcion_documental.nomina.columna_fecha') === 'periodo_fin' ? 'periodo_fin' : 'fecha_pago';

@@ -16,16 +16,19 @@ import {
 } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
 import { computed, reactive, ref, watch } from 'vue';
+import type { Component } from 'vue';
 import { toast } from 'vue-sonner';
 import EmptyState from '@/components/Common/EmptyState.vue';
-import SelectSimple from '@/components/Common/SelectSimple.vue';
+import DashboardChartCard from '@/components/Dashboard/DashboardChartCard.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
-import CrudStats from '@/components/DataTable/CrudStats.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import KpiRecepcion from '@/components/recepcion-documental/KpiRecepcion.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import type { OpcionBuscable } from '@/components/ui/combobox-buscable';
+import { ComboboxBuscable } from '@/components/ui/combobox-buscable';
 import {
     Dialog,
     DialogContent,
@@ -136,40 +139,67 @@ watch(
 
 const cerrado = computed(() => estadoCorte.value.value === 'cerrado');
 
-const estadisticas = computed(() => [
+type Estadistica = {
+    etiqueta: string;
+    valor: number;
+    icono: Component;
+    tono: 'info' | 'success' | 'warning' | 'danger' | 'neutro';
+    subvalor?: string;
+    sufijo?: string;
+    decimales?: number;
+    avance?: number | null;
+};
+
+const estadisticas = computed<Estadistica[]>(() => [
     {
         etiqueta: 'Esperados',
         valor: metricas.value.esperados,
         subvalor: `${metricas.value.no_aplica} no aplican`,
         icono: PackageCheck,
-        tono: 'info' as const,
+        tono: 'info',
     },
     {
         etiqueta: 'Recibidos',
         valor: metricas.value.recibidos,
         icono: CircleCheck,
-        tono: 'success' as const,
+        tono: 'success',
     },
     {
         etiqueta: 'Pendientes',
         valor: metricas.value.pendientes,
         subvalor: `${metricas.value.no_recibidos} no recibidos`,
         icono: Clock,
-        tono: 'warning' as const,
+        tono: 'warning',
     },
     {
         etiqueta: 'Con incidencia',
         valor: metricas.value.incidencias,
         icono: AlertTriangle,
-        tono: 'danger' as const,
+        tono: 'danger',
     },
     {
         etiqueta: 'Cumplimiento',
-        valor: `${metricas.value.cumplimiento}%`,
+        valor: metricas.value.cumplimiento,
+        sufijo: '%',
+        decimales: 1,
+        avance: metricas.value.cumplimiento,
         icono: Percent,
-        tono: 'default' as const,
+        tono: 'neutro',
     },
 ]);
+
+const distribucionEstados = computed(() => [
+    { estado: 'Recibidos', cantidad: metricas.value.recibidos },
+    { estado: 'Pendientes', cantidad: metricas.value.pendientes },
+    { estado: 'No recibidos', cantidad: metricas.value.no_recibidos },
+    { estado: 'No aplican', cantidad: metricas.value.no_aplica },
+]);
+
+const esperadosPorEvento = computed(() =>
+    props.agrupaciones.reglas
+        .filter((r) => r.metricas.renglones > 0)
+        .map((r) => ({ evento: r.etiqueta, esperados: r.metricas.esperados })),
+);
 
 const VARIANTE_RENGLON: Record<
     EstadoRecepcionDocumento,
@@ -208,7 +238,17 @@ function esRecibido(fila: RenglonRecepcion): boolean {
 }
 
 // ───────────── Filtros ─────────────
-const f = reactive({
+const f = reactive<
+    Record<
+        | 'sucursal_id'
+        | 'regla'
+        | 'tipo_documento'
+        | 'estado'
+        | 'recibido'
+        | 'colaborador',
+        string
+    >
+>({
     sucursal_id: props.filtros.sin_sucursal
         ? 'sin'
         : props.filtros.sucursal_id !== null
@@ -637,6 +677,68 @@ const opcionesFiltroRecibido = [
     { value: 'si', label: 'Solo recibidos' },
     { value: 'no', label: 'Solo sin recibir' },
 ];
+
+type CampoFiltro =
+    'sucursal_id' | 'regla' | 'tipo_documento' | 'estado' | 'recibido';
+
+/** Selects con buscador: lista completa al abrir, filtro al escribir. */
+const filtrosBuscables = computed<
+    {
+        campo: CampoFiltro;
+        etiqueta: string;
+        placeholder: string;
+        ancho: string;
+        opciones: OpcionBuscable[];
+    }[]
+>(() => [
+    {
+        campo: 'sucursal_id',
+        etiqueta: 'Sucursal',
+        placeholder: 'Todas las sucursales',
+        ancho: 'w-full lg:w-52',
+        opciones: props.opciones.sucursales.map((o) => ({
+            value: String(o.value),
+            label: o.label,
+        })),
+    },
+    {
+        campo: 'regla',
+        etiqueta: 'Evento',
+        placeholder: 'Todos los eventos',
+        ancho: 'w-full lg:w-48',
+        opciones: props.opciones.reglas.map((o) => ({
+            value: String(o.value),
+            label: o.label,
+        })),
+    },
+    {
+        campo: 'tipo_documento',
+        etiqueta: 'Tipo documental',
+        placeholder: 'Todos los documentos',
+        ancho: 'w-full lg:w-60',
+        opciones: props.opciones.tipos.map((o) => ({
+            value: String(o.value),
+            label: o.label,
+        })),
+    },
+    {
+        campo: 'estado',
+        etiqueta: 'Estado',
+        placeholder: 'Todos los estados',
+        ancho: 'w-full lg:w-48',
+        opciones: props.opciones.estados.map((o) => ({
+            value: String(o.value),
+            label: o.label,
+        })),
+    },
+    {
+        campo: 'recibido',
+        etiqueta: 'Recibido',
+        placeholder: 'Recibido y no recibido',
+        ancho: 'w-full lg:w-48',
+        opciones: opcionesFiltroRecibido,
+    },
+]);
 </script>
 
 <template>
@@ -706,7 +808,50 @@ const opcionesFiltroRecibido = [
             >
         </div>
 
-        <CrudStats :estadisticas="estadisticas" />
+        <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5">
+            <KpiRecepcion
+                v-for="e in estadisticas"
+                :key="e.etiqueta"
+                :etiqueta="e.etiqueta"
+                :valor="e.valor"
+                :icono="e.icono"
+                :tono="e.tono"
+                :sufijo="e.sufijo"
+                :decimales="e.decimales"
+                :subtitulo="e.subvalor"
+                :avance="e.avance"
+            />
+        </div>
+
+        <div v-if="metricas.renglones" class="grid gap-3 lg:grid-cols-3">
+            <DashboardChartCard
+                title="Estado de los originales"
+                description="Cómo va la recepción de este corte."
+                type="donut"
+                :data="distribucionEstados"
+                label-key="estado"
+                value-key="cantidad"
+                :colors="[
+                    'var(--success)',
+                    'var(--warning)',
+                    'var(--destructive)',
+                    'var(--muted-foreground)',
+                ]"
+                :height="170"
+            />
+            <DashboardChartCard
+                class="lg:col-span-2"
+                title="Esperados por evento de origen"
+                description="Originales esperados de cada entrada del catálogo."
+                type="bar"
+                :data="esperadosPorEvento"
+                x-key="evento"
+                y-key="esperados"
+                :height="200"
+                empty-title="Sin eventos"
+                empty-description="Ninguna entrada generó originales este mes."
+            />
+        </div>
 
         <!-- Agrupaciones: localizar rápido dónde falta -->
         <div class="grid gap-3 lg:grid-cols-3">
@@ -797,45 +942,22 @@ const opcionesFiltroRecibido = [
         <div
             class="flex flex-col gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 lg:flex-row lg:flex-wrap lg:items-center"
         >
-            <SelectSimple
-                v-model="f.sucursal_id"
-                :opciones="opciones.sucursales"
-                opcion-vacia="Todas las sucursales"
-                placeholder="Todas las sucursales"
-                class="w-full lg:w-48"
-                aria-label="Sucursal"
-            />
-            <SelectSimple
-                v-model="f.regla"
-                :opciones="opciones.reglas"
-                opcion-vacia="Todos los eventos"
-                placeholder="Todos los eventos"
-                class="w-full lg:w-44"
-                aria-label="Evento"
-            />
-            <SelectSimple
-                v-model="f.tipo_documento"
-                :opciones="opciones.tipos"
-                opcion-vacia="Todos los documentos"
-                placeholder="Todos los documentos"
-                class="w-full lg:w-56"
-                aria-label="Tipo documental"
-            />
-            <SelectSimple
-                v-model="f.estado"
-                :opciones="opciones.estados"
-                opcion-vacia="Todos los estados"
-                placeholder="Todos los estados"
-                class="w-full lg:w-48"
-                aria-label="Estado"
-            />
-            <SelectSimple
-                v-model="f.recibido"
-                :opciones="opcionesFiltroRecibido"
-                opcion-vacia="Recibido y no recibido"
-                placeholder="Recibido y no recibido"
-                class="w-full lg:w-48"
-                aria-label="Recibido"
+            <ComboboxBuscable
+                v-for="filtro in filtrosBuscables"
+                :key="filtro.campo"
+                :model-value="f[filtro.campo] || null"
+                :opciones="filtro.opciones"
+                :placeholder="filtro.placeholder"
+                :aria-label="filtro.etiqueta"
+                :class="filtro.ancho"
+                limpiable
+                size="sm"
+                @update:model-value="
+                    f[filtro.campo] =
+                        $event === null || $event === undefined
+                            ? ''
+                            : String($event)
+                "
             />
             <CrudSearchInput
                 v-model="f.colaborador"

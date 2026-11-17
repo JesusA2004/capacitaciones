@@ -27,7 +27,19 @@ final class EsperadoRecepcion
         public readonly ?string $fechaEvento,
         public readonly string $descripcion,
         public readonly int $cantidad = 1,
+        /**
+         * Clave del documento en el catálogo configurable cuando no es
+         * igual al tipo del renglón (bajas: «finiquito» para
+         * «baja.RV.finiquito»; listas: «lista_asistencia» para cada semana).
+         */
+        public readonly ?string $documentoCatalogo = null,
     ) {}
+
+    /** Clave con que el catálogo decide si este documento se espera. */
+    public function documento(): string
+    {
+        return $this->documentoCatalogo ?? $this->tipoDocumento;
+    }
 
     /** Snapshot tomado del colaborador (su puesto y sucursal de hoy). */
     public static function deColaborador(

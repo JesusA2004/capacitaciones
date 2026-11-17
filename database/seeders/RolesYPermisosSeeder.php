@@ -593,6 +593,8 @@ class RolesYPermisosSeeder extends Seeder
             // Recepción documental RH: control mensual de originales firmados.
             'recepcion_documental.ver', 'recepcion_documental.generar', 'recepcion_documental.recibir', 'recepcion_documental.observar',
             'recepcion_documental.cerrar', 'recepcion_documental.reabrir', 'recepcion_documental.descargar_pdf',
+            // Catálogo de lo que se recibe (qué se espera cada mes): RH Admin.
+            'recepcion_documental.configurar',
             'ciclo.autorizar_rh', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.gestionar', 'onboarding.entregar_activos', 'cierres.solicitar', 'cierres.programar_pago', 'reingresos.solicitar', 'reingresos.gestionar',
             'formularios_evaluacion.administrar',
             // RH administra jefes directos, ruteo de avisos y parámetros de

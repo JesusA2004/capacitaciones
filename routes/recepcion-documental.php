@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Rh\RecepcionDocumentalCatalogoController;
 use App\Http\Controllers\Rh\RecepcionDocumentalController;
 use Illuminate\Support\Facades\Route;
 
@@ -8,6 +9,12 @@ use Illuminate\Support\Facades\Route;
 // recepcion_documental.* en las Policies; mismo servicio que la API móvil.
 Route::middleware(['auth', 'verified'])->prefix('rh/recepcion-documental')->name('rh.recepcion-documental.')->group(function () {
     Route::get('/', [RecepcionDocumentalController::class, 'index'])->name('index');
+
+    // Catálogo configurable de «lo que recibo» (permiso recepcion_documental.configurar).
+    Route::get('catalogo', [RecepcionDocumentalCatalogoController::class, 'index'])->name('catalogo.index');
+    Route::post('catalogo/orden', [RecepcionDocumentalCatalogoController::class, 'reordenar'])->name('catalogo.reordenar')->middleware('throttle:60,1');
+    Route::patch('catalogo/{entrada}', [RecepcionDocumentalCatalogoController::class, 'update'])->name('catalogo.update')->whereNumber('entrada')->middleware('throttle:60,1');
+    Route::post('catalogo/{entrada}/vista-previa', [RecepcionDocumentalCatalogoController::class, 'vistaPrevia'])->name('catalogo.vista-previa')->whereNumber('entrada')->middleware('throttle:120,1');
     Route::post('/', [RecepcionDocumentalController::class, 'generar'])->name('generar')->middleware('throttle:20,1');
 
     Route::patch('renglones/{renglon}', [RecepcionDocumentalController::class, 'marcar'])->name('renglones.marcar')->whereNumber('renglon')->middleware('throttle:240,1');

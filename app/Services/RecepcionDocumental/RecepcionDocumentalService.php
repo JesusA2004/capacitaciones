@@ -54,6 +54,9 @@ class RecepcionDocumentalService
 
     public const PERMISO_DESCARGAR_PDF = 'recepcion_documental.descargar_pdf';
 
+    /** Editar el catálogo de «lo que recibo» (RecepcionDocumentalCatalogoPolicy). */
+    public const PERMISO_CONFIGURAR = 'recepcion_documental.configurar';
+
     public function __construct(
         private readonly MaterializadorCorteService $materializador,
         private readonly EstadoCorteService $estados,
@@ -66,6 +69,19 @@ class RecepcionDocumentalService
 
     /** @var array<string, list<array{id: int, nombre: string, numero_empleado: string|null}>> */
     private array $integrantesMemo = [];
+
+    /** @var array<string, int>|null */
+    private ?array $ordenMemo = null;
+
+    /**
+     * Orden de los bloques según el catálogo configurable (memo por petición).
+     *
+     * @return array<string, int>
+     */
+    public function ordenReglas(): array
+    {
+        return $this->ordenMemo ??= $this->catalogo->ordenPorRegla();
+    }
 
     // ───────────────────────── Cortes ─────────────────────────
 
@@ -220,18 +236,21 @@ class RecepcionDocumentalService
         $periodo = PeriodoRecepcion::delCorte($corte);
         $reglas = [];
 
-        foreach ($this->catalogo->resumen() as $regla) {
-            $caso = ReglaRecepcionDocumental::from($regla['clave']);
+        $orden = $this->ordenReglas();
 
-            if (! $regla['activa'] && ! isset($porRegla[$caso->value])) {
+        foreach ($this->catalogo->entradas() as $configurada) {
+            $caso = $configurada->entrada->regla;
+            $activa = $configurada->activa();
+
+            if (! $activa && ! isset($porRegla[$caso->value])) {
                 continue;
             }
 
             $reglas[] = [
                 'regla' => $caso->value,
-                'etiqueta' => $caso->etiqueta(),
-                'orden' => $caso->orden(),
-                'activa' => $regla['activa'],
+                'etiqueta' => $configurada->entrada->nombre,
+                'orden' => $orden[$caso->value] ?? $caso->orden(),
+                'activa' => $activa,
                 'sin_eventos' => $caso->sinEventos($periodo->etiqueta()),
                 'metricas' => $porRegla[$caso->value] ?? self::metricasVacias(),
             ];
@@ -264,7 +283,8 @@ class RecepcionDocumentalService
         }
 
         $casos = ReglaRecepcionDocumental::cases();
-        usort($casos, fn (ReglaRecepcionDocumental $a, ReglaRecepcionDocumental $b): int => $a->orden() <=> $b->orden());
+        $orden = $this->ordenReglas();
+        usort($casos, fn (ReglaRecepcionDocumental $a, ReglaRecepcionDocumental $b): int => ($orden[$a->value] ?? $a->orden()) <=> ($orden[$b->value] ?? $b->orden()));
 
         return [
             'sucursales' => $sucursales,
@@ -317,7 +337,7 @@ class RecepcionDocumentalService
             'corte_id' => $r->corte_id,
             'regla' => $r->regla->value,
             'regla_etiqueta' => $r->regla->etiqueta(),
-            'regla_orden' => $r->regla->orden(),
+            'regla_orden' => $this->ordenReglas()[$r->regla->value] ?? $r->regla->orden(),
             'tipo_documento' => $r->tipo_documento,
             'tipo_etiqueta' => $r->tipo_etiqueta,
             'origen' => ['tipo' => class_basename($r->origen_type), 'id' => $r->origen_id],
@@ -662,10 +682,12 @@ class RecepcionDocumentalService
         $casos = [];
         $valores = [];
 
+        $orden = $this->ordenReglas();
+
         foreach (ReglaRecepcionDocumental::cases() as $regla) {
             $casos[] = 'WHEN ? THEN ?';
             $valores[] = $regla->value;
-            $valores[] = $regla->orden();
+            $valores[] = $orden[$regla->value] ?? $regla->orden();
         }
 
         return $consulta

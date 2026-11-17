@@ -28,6 +28,11 @@ class ReglaVacaciones implements ReglaRecepcion
         return ReglaRecepcionDocumental::Vacaciones;
     }
 
+    public function documentosPosibles(): array
+    {
+        return [self::TIPO => EsperadoRecepcion::etiquetaTipo(self::TIPO)];
+    }
+
     public function esperados(PeriodoRecepcion $periodo): array
     {
         if (! (bool) config(sprintf('solicitudes.formatos.%s.requiere_firma', TipoSolicitudInterna::Vacaciones->value), false)) {
