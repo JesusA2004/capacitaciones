@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { index as tableroRotacion } from '@/routes/reportes/rotacion/tablero';
 import rutasBajas from '@/routes/rh/bajas';
 import rutasFiniquitos from '@/routes/rh/bajas/finiquitos';
+import { index as cierresIndex } from '@/routes/rh/cierres';
 import type { PestanasBajas } from '@/types';
 
 /**
@@ -14,7 +15,8 @@ import type { PestanasBajas } from '@/types';
  */
 const props = defineProps<{
     pestanas: PestanasBajas;
-    actual?: 'bajas' | 'finiquitos' | 'rotacion' | 'causales' | null;
+    actual?:
+        'bajas' | 'finiquitos' | 'documentos' | 'rotacion' | 'causales' | null;
 }>();
 
 const lista = computed(() =>
@@ -30,6 +32,14 @@ const lista = computed(() =>
             etiqueta: 'Finiquitos',
             conteo: props.pestanas.conteo_finiquitos,
             href: rutasFiniquitos.index(),
+        },
+        // «Documentos por persona» (rh.cierres.index): la recopilación de
+        // documentos de salida, ahora dentro de las pestañas de Bajas.
+        props.pestanas.documentos && {
+            clave: 'documentos',
+            etiqueta: 'Documentos',
+            conteo: null,
+            href: cierresIndex(),
         },
         props.pestanas.rotacion && {
             clave: 'rotacion',

@@ -47,13 +47,14 @@ class BajaConsultaService
     /**
      * Pestañas de Cierres laborales → Bajas que el usuario puede abrir.
      *
-     * @return array{bajas: bool, finiquitos: bool, rotacion: bool, causales: bool, conteo_bajas: int|null, conteo_finiquitos: int|null}
+     * @return array{bajas: bool, finiquitos: bool, documentos: bool, rotacion: bool, causales: bool, conteo_bajas: int|null, conteo_finiquitos: int|null}
      */
     public function pestanas(User $usuario): array
     {
         return [
             'bajas' => $this->puedeEntrar($usuario),
             'finiquitos' => $usuario->can('finiquitos.ver'),
+            'documentos' => $usuario->can('cierres.ver'),
             'rotacion' => $usuario->can('bajas.tablero.ver'),
             'causales' => $usuario->can('administrar', CausalRotacion::class),
             'conteo_bajas' => $this->puedeEntrar($usuario) ? $this->consulta($usuario)->whereIn('estatus', EstatusBaja::valoresAbiertos())->count() : null,

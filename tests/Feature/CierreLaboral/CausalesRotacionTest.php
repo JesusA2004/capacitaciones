@@ -177,10 +177,9 @@ test('el diálogo de iniciar baja ofrece las formas en orden RV, NR, RE, OT con 
         ->and($rescision['causales'][0]['comentario_obligatorio'])->toBeTrue();
 });
 
-test('RH administra el catálogo desde Bajas y finiquitos; las causales nunca se borran; sin permiso no', function () {
+test('RH administra el catálogo desde Bajas → Catálogo de causales; las causales nunca se borran; sin permiso no', function () {
     $this->actingAs($this->rh)->get(route('rh.cierres.index', ['seccion' => 'causales']))
-        ->assertOk()
-        ->assertInertia(fn ($pagina) => $pagina->component('Rh/Cierres/Index')->where('seccion', 'causales')->has('causales', 20));
+        ->assertRedirect(route('rh.bajas.causales'));
 
     $this->actingAs($this->rh)
         ->post(route('rh.causales-rotacion.store'), ['tipo' => 'rescision', 'nombre' => 'Acoso laboral', 'requiere_juridico' => true])
@@ -209,9 +208,10 @@ test('RH administra el catálogo desde Bajas y finiquitos; las causales nunca se
     $this->actingAs($this->gerente)
         ->post(route('rh.causales-rotacion.store'), ['tipo' => 'renuncia', 'nombre' => 'Otra'])
         ->assertForbidden();
-    $this->actingAs($this->gerente)->get(route('rh.cierres.index'))
+    // Sin permiso, el enlace viejo no redirige al catálogo: abre Documentos.
+    $this->actingAs($this->gerente)->get(route('rh.cierres.index', ['seccion' => 'causales']))
         ->assertOk()
-        ->assertInertia(fn ($pagina) => $pagina->where('causales', null));
+        ->assertInertia(fn ($pagina) => $pagina->where('seccion', 'documentos')->where('pestanas.causales', false));
 });
 
 test('una causal ya usada no cambia de forma de salida: solo se desactiva', function () {

@@ -20,7 +20,6 @@ use App\Models\Sucursal;
 use App\Services\Bajas\BajaConsultaService;
 use App\Services\Bajas\BajaRecopilacionService;
 use App\Services\Bajas\TableroRotacionService;
-use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Http\RedirectResponse;
@@ -39,7 +38,6 @@ class CierreLaboralController extends Controller
     public function __construct(
         private readonly CierreLaboralService $cierres,
         private readonly FiniquitoService $finiquitos,
-        private readonly CausalRotacionService $causales,
         private readonly BajaRecopilacionService $recopilacion,
         private readonly TableroRotacionService $tablero,
         private readonly BajaConsultaService $bajas,
@@ -52,20 +50,22 @@ class CierreLaboralController extends Controller
      * NO expone acciones del flujo legacy (preautorizar / autorizar baja /
      * programar pago / cita / autorizar finiquito): el panorama es de lectura.
      */
-    public function index(Request $request): InertiaResponse
+    public function index(Request $request): InertiaResponse|RedirectResponse
     {
         $usuario = $request->user();
         abort_unless($usuario->can('cierres.ver'), 403);
 
-        // Pestañas: «Documentos» (recopilación por persona, por defecto),
-        // «Cierres y finiquitos» (tabla) y «Causales» (solo RH). Solo se
-        // calcula la de la pestaña abierta.
-        $administraCausales = $usuario->can('administrar', CausalRotacion::class);
-        $seccion = match ($request->query('seccion')) {
-            'cierres', 'bajas' => 'cierres',
-            'causales' => $administraCausales ? 'causales' : 'documentos',
-            default => 'documentos',
-        };
+        // COMPATIBILIDAD: el catálogo de causales tiene UN destino canónico,
+        // Bajas → «Catálogo de causales» (rh.bajas.causales, el panel
+        // completo con grupos, documentos e historial). El enlace viejo
+        // `?seccion=causales` redirige allá.
+        if ($request->query('seccion') === 'causales' && $usuario->can('administrar', CausalRotacion::class)) {
+            return redirect()->route('rh.bajas.causales', [], 301);
+        }
+
+        // Pestañas: «Documentos» (recopilación por persona, por defecto) y
+        // «Cierres y finiquitos» (tabla). Solo se calcula la abierta.
+        $seccion = in_array($request->query('seccion'), ['cierres', 'bajas'], true) ? 'cierres' : 'documentos';
         $puedeVerFiniquito = $usuario->can('finiquitos.ver');
         $listado = null;
 
@@ -117,11 +117,6 @@ class CierreLaboralController extends Controller
             ],
             'estados' => array_map(fn (EstadoCierreLaboral $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoCierreLaboral::cases()),
             'puede_ver_finiquito' => $puedeVerFiniquito,
-            // Pestaña «Causales de rotación» (subcatálogo del tipo de baja):
-            // solo para quien la administra.
-            'causales' => $administraCausales ? $this->causales->listado() : null,
-            // Formas de salida en su orden (RV, NR, RE) con el tipo de baja equivalente.
-            'tipos_baja' => array_map(fn (FormaSalida $f): array => ['value' => $f->tipoBaja()->value, 'label' => $f->etiqueta(), 'forma' => $f->value, 'token' => $f->token()], FormaSalida::cases()),
             'seccion' => $seccion,
         ]);
     }

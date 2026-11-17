@@ -7,7 +7,6 @@ import {
     FileWarning,
     FolderOpen,
     Hourglass,
-    ListTree,
     Lock,
     Search,
     UserMinus,
@@ -24,7 +23,6 @@ import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
-import CausalesRotacionPanel from '@/components/Rh/CausalesRotacionPanel.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,7 +37,6 @@ import documentosBaja from '@/routes/rh/bajas/documentos';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
 import type {
     ArchivoPrevisualizable,
-    CausalRotacionAdmin,
     DocumentoRecopilacion,
     PestanasBajas,
     ResumenRecopilacion,
@@ -54,7 +51,7 @@ import type {
  *    falta» sin ir a Expedientes (BajaRecopilacionService).
  *  - «Cierres y finiquitos»: estado del cierre laboral y del finiquito; la
  *    acción se ejecuta en el ciclo laboral de la persona.
- *  - «Causales»: catálogo (solo RH).
+ *  El catálogo de causales vive en Bajas → «Catálogo de causales».
  * Solo se calcula la pestaña abierta; el alcance lo aplica el backend.
  */
 type FilaCierre = {
@@ -90,7 +87,7 @@ type Paginador<T> = {
     links?: { url: string | null; label: string; active: boolean }[];
 };
 
-type Seccion = 'documentos' | 'cierres' | 'causales';
+type Seccion = 'documentos' | 'cierres';
 type Opcion = { value: string; label: string };
 
 const props = defineProps<{
@@ -114,9 +111,6 @@ const props = defineProps<{
     limites_documentos: { max_kb: number; mimes: string[] };
     estados: Opcion[];
     puede_ver_finiquito: boolean;
-    /** null = sin permiso para administrar las causales de rotación. */
-    causales: CausalRotacionAdmin[] | null;
-    tipos_baja: Opcion[];
     seccion: Seccion;
 }>();
 
@@ -389,7 +383,7 @@ function neto(fila: FilaCierre): string {
             </Button>
         </CrudPageHeader>
 
-        <PestanasBajasNav :pestanas="pestanas" />
+        <PestanasBajasNav :pestanas="pestanas" actual="documentos" />
 
         <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4">
             <TarjetaMetrica
@@ -449,15 +443,6 @@ function neto(fila: FilaCierre): string {
                 @click="cambiarSeccion('cierres')"
             >
                 <DoorOpen class="size-4" />Cierres y finiquitos
-            </button>
-            <button
-                v-if="causales"
-                type="button"
-                :class="claseTab(seccion === 'causales')"
-                :aria-current="seccion === 'causales' ? 'page' : undefined"
-                @click="cambiarSeccion('causales')"
-            >
-                <ListTree class="size-4" />Causales
             </button>
         </nav>
 
@@ -577,12 +562,6 @@ function neto(fila: FilaCierre): string {
                 @change="alElegirArchivo"
             />
         </template>
-
-        <CausalesRotacionPanel
-            v-else-if="seccion === 'causales' && causales"
-            :causales="causales"
-            :tipos="tipos_baja"
-        />
 
         <!-- ───── Cierres y finiquitos ───── -->
         <template v-else-if="seccion === 'cierres' && cierres">

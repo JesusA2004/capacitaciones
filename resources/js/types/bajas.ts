@@ -135,6 +135,7 @@ export type FilaBaja = {
 export type PestanasBajas = {
     bajas: boolean;
     finiquitos: boolean;
+    documentos: boolean;
     rotacion: boolean;
     causales: boolean;
     conteo_bajas: number | null;

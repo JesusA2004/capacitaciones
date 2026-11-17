@@ -170,11 +170,11 @@ test('alcance: el gerente solo ve las tarjetas de su sucursal; sin «cierres.ver
 
     $this->actingAs(clUsuario('colaborador'))->get(route('rh.cierres.index'))->assertForbidden();
 
-    // Las pestañas «Cierres y finiquitos» y «Causales» siguen.
+    // «Cierres y finiquitos» sigue; «Causales» tiene un solo destino
+    // canónico (Bajas → Catálogo de causales) y el enlace viejo redirige.
     $this->actingAs($this->rh)->get(route('rh.cierres.index', ['seccion' => 'cierres']))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->where('seccion', 'cierres')->has('cierres.data', 2)->where('recopilacion', null));
+        ->assertInertia(fn ($p) => $p->where('seccion', 'cierres')->has('cierres.data', 2)->where('recopilacion', null)->where('pestanas.documentos', true));
     $this->actingAs($this->rh)->get(route('rh.cierres.index', ['seccion' => 'causales']))
-        ->assertOk()
-        ->assertInertia(fn ($p) => $p->where('seccion', 'causales')->has('causales'));
+        ->assertRedirect(route('rh.bajas.causales'));
 });
