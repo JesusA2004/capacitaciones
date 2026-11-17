@@ -1,19 +1,3 @@
-import type { OpcionSimple } from './administracion';
-import type { OpcionEnum } from './reclutamiento';
-
-export type PlantillaItem = {
-    id: number;
-    nombre: string;
-    tipo: string;
-    descripcion: string | null;
-    empresa: OpcionSimple | null;
-    sucursal: OpcionSimple | null;
-    puesto: OpcionSimple | null;
-    original_name: string;
-    version: number;
-    activo: boolean;
-};
-
 export type DocumentoGeneradoItem = {
     id: number;
     plantilla: { id: number; nombre: string; tipo: string } | null;
@@ -23,22 +7,4 @@ export type DocumentoGeneradoItem = {
     generated_name: string;
     status: string;
     created_at: string;
-};
-
-export type FormatoCatalogoItem = {
-    id: number;
-    nombre: string;
-    tipo: string;
-    tipo_etiqueta: string;
-    descripcion: string | null;
-    variables: string[];
-    veces_generado: number;
-    ultimo_uso: string | null;
-};
-
-export type OpcionesPlantillas = {
-    empresas: OpcionSimple[];
-    sucursales: (OpcionSimple & { empresa_id: number | null })[];
-    puestos: OpcionSimple[];
-    tipos: OpcionEnum[];
 };
