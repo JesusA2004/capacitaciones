@@ -38,6 +38,7 @@ use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
+use App\Services\Notificaciones\AvisoBajaSistemasService;
 use App\Services\Salarios\AccesoSueldoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Tareas\NotificadorRhService;
@@ -110,6 +111,7 @@ class CierreLaboralService
         private readonly BajaRegistroService $bajas,
         private readonly BajaAlertasService $alertasBaja,
         private readonly FotoColaboradorService $fotos,
+        private readonly AvisoBajaSistemasService $avisoBajaSistemas,
     ) {}
 
     /**
@@ -277,6 +279,9 @@ class CierreLaboralService
             Log::warning('CierreLaboralService: no se pudo avisar la baja registrada.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
         }
 
+        // Correo a Sistemas «dar de baja accesos» (una vez por cierre; nunca lanza).
+        $this->avisoBajaSistemas->alAplicarBaja($cierre, $actor);
+
         $this->auditoria->registrar('cierre_laboral_aplicado', $cierre, $actor, [
             'colaborador_id' => $colaborador->id,
             'tipo_baja' => $tipoBaja->value,
@@ -369,6 +374,9 @@ class CierreLaboralService
             'aplicada_por' => 'Recursos Humanos (no renovación del periodo de prueba)',
             'evaluacion_id' => $evaluacion->id,
         ]);
+
+        // Correo a Sistemas «dar de baja accesos» (una vez por cierre; nunca lanza).
+        $this->avisoBajaSistemas->alAplicarBaja($cierre, $actor);
 
         $this->generarDocumentosDeCausa($cierre, $actor, $this->documentosProceso->clavesCausa($cierre));
         $this->sincronizarPendientes($cierre->refresh(), $actor);
@@ -610,7 +618,10 @@ class CierreLaboralService
             return $this->cerrarExpediente($cierre, $actor);
         });
 
-        return $cierre->refresh();
+        // Correo a Sistemas «baja concluida» (una vez por cierre; nunca lanza).
+        $this->avisoBajaSistemas->alEntregarFiniquito($cierre->refresh(), $actor);
+
+        return $cierre;
     }
 
     /**
@@ -959,6 +970,9 @@ class CierreLaboralService
 
         $this->auditoria->registrar('cierre_laboral_cancelado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'motivo' => $motivo]);
         $this->devolverAcceso($cierre, $actor, 'Baja cancelada');
+        // Lo que aún no salía a Sistemas ya no sale; si ya lo recibió, se le
+        // avisa que reactive (nunca lanza).
+        $this->avisoBajaSistemas->alCancelarCierre($cierre, $actor);
         $this->sincronizarPendientes($cierre->refresh(), $actor);
 
         return $cierre;

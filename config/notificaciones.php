@@ -34,6 +34,10 @@ return [
         'activo' => (bool) env('SISTEMAS_ALTA_CORREO_ACTIVO', false),
         'para' => $lista(env('SISTEMAS_ALTA_CORREO_PARA', 'sistemas@mr-lana.com')),
         'cc' => $lista(env('SISTEMAS_ALTA_CORREO_CC', '')),
+        // Correos de BAJA a Sistemas (App\Services\Notificaciones\AvisoBajaSistemasService):
+        // mismo interruptor y destinatarios. Lista de verificación de las
+        // plataformas a desactivar, separadas por comas; vacía = sin lista.
+        'plataformas' => $lista(env('SISTEMAS_PLATAFORMAS', '')),
     ],
 
 ];

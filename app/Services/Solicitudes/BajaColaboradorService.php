@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Administracion\AccesoCuentaService;
 use App\Services\Colaboradores\AvisoAltaBajaService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Notificaciones\AvisoBajaSistemasService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use App\Support\FechaMexico;
 use Illuminate\Support\Facades\DB;
@@ -33,11 +34,12 @@ class BajaColaboradorService
         private readonly VacanteAutoGenerationService $vacantes,
         private readonly AccesoCuentaService $acceso,
         private readonly AvisoAltaBajaService $avisoAltaBaja,
+        private readonly AvisoBajaSistemasService $avisoBajaSistemas,
     ) {}
 
     public function ejecutar(Colaborador $colaborador, User $actor, ?string $motivo = null): void
     {
-        DB::transaction(function () use ($colaborador, $actor, $motivo): void {
+        $movimientoId = DB::transaction(function () use ($colaborador, $actor, $motivo): int {
             $sucursalId = $colaborador->sucursal_principal_id;
             $puestoId = $colaborador->puesto_id;
 
@@ -46,7 +48,7 @@ class BajaColaboradorService
             // la baja administrativa directa, sin crear una vacante manual
             // aquí — la vacante automática se sincroniza abajo a partir del
             // headcount real.
-            $this->movimientos->registrarBaja($colaborador, $actor, $motivo, false);
+            $movimiento = $this->movimientos->registrarBaja($colaborador, $actor, $motivo, false)['movimiento'];
 
             // $colaborador tiene LogsActivity (App\Models\Colaborador) con
             // 'estatus' en logOnly(): este cambio ya queda auditado solo.
@@ -82,10 +84,16 @@ class BajaColaboradorService
             if ($sucursalId !== null && $puestoId !== null) {
                 $this->vacantes->sincronizar($sucursalId, $puestoId);
             }
+
+            return $movimiento->id;
         });
 
         // Después del commit: RH + Sistemas (retiro de accesos y equipo).
         $this->avisoAltaBaja->baja($colaborador, $motivo);
+
+        // Correo a Sistemas «dar de baja accesos» de una baja directa (si la
+        // baja viene de un cierre laboral abierto, su aviso ya salió por él).
+        $this->avisoBajaSistemas->alBajaDirecta($colaborador, $movimientoId, $actor);
     }
 
     /**
@@ -108,5 +116,9 @@ class BajaColaboradorService
                 'expediente_cerrado_por' => null,
             ]);
         });
+
+        // Lo que aún no salía a Sistemas ya no sale; si ya lo recibió, se le
+        // avisa que reactive (nunca lanza).
+        $this->avisoBajaSistemas->alReactivar($colaborador);
     }
 }

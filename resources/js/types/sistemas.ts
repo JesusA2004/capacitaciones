@@ -55,3 +55,56 @@ export type TotalesPendientesAlta = {
     atendidos: number;
     atrasados: number;
 };
+
+// Bandeja «Pendientes de baja en sistemas»
+// (App\Services\Sistemas\PendientesBajaSistemasService::fila).
+
+export type EventoBajaSistemas =
+    'accesos_bloqueados' | 'baja_concluida' | 'baja_cancelada';
+
+export type EstadoCorreoBajaSistemas =
+    'pendiente' | 'enviado' | 'fallido' | 'sin_enviar' | 'cancelado';
+
+export type SeccionBajaSistemas = {
+    clave: 'persona' | 'puesto' | 'baja' | 'accesos';
+    titulo: string;
+    datos: DatoAltaSistemas[];
+};
+
+export type PendienteBajaSistemas = {
+    id: number;
+    evento: EventoBajaSistemas;
+    evento_etiqueta: string;
+    colaborador: {
+        id: number;
+        nombre: string;
+        foto_url: string | null;
+        numero_empleado: string | null;
+        puesto: string | null;
+        sucursal: string | null;
+        url_expediente: string | null;
+    };
+    origen: string;
+    fecha_baja: string | null;
+    correo: {
+        estado: EstadoCorreoBajaSistemas;
+        etiqueta: string;
+        enviado_en: string | null;
+        error: string | null;
+    };
+    cancelado: boolean;
+    creado_en: string | null;
+    dias: number;
+    atendido: { en: string | null; por: string; notas: string | null } | null;
+    accion: string;
+    secciones: SeccionBajaSistemas[];
+    texto_copiar: string;
+    url_detalle: string;
+    puede_atender: boolean;
+    puede_reenviar: boolean;
+};
+
+export type TotalesPendientesBaja = {
+    pendientes: number;
+    atendidos: number;
+};
