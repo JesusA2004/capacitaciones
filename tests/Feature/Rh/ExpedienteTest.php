@@ -92,6 +92,25 @@ test('el expediente muestra el historial de vacaciones desde solicitudes_interna
         );
 });
 
+test('las pestañas de historial del expediente conservan su forma (solicitudes, préstamos, movimientos, avisos)', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('rh_admin');
+    $persona = User::factory()->create();
+    $persona->assignRole('colaborador');
+    SolicitudInterna::factory()->create(['user_id' => $persona->id, 'tipo' => TipoSolicitudInterna::Vacaciones, 'dias_solicitados' => 2]);
+
+    $this->actingAs($admin)->get(route('rh.expedientes.show', $persona->colaborador_id))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('solicitudesVacaciones.0', fn ($s) => $s->hasAll(['id', 'user_id', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'comentario', 'estado', 'motivo_rechazo', 'created_at']))
+            ->has('solicitudes.0', fn ($s) => $s->hasAll(['id', 'folio', 'tipo', 'tipo_etiqueta', 'estado', 'motivo', 'created_at']))
+            ->has('prestamos', 0)
+            ->has('movimientosLaborales')
+            ->where('altaDigital', null)
+            ->has('avisosManual', fn ($a) => $a->hasAll(['aviso_privacidad_aceptado', 'aviso_privacidad_aceptado_en', 'consentimiento_datos_aceptado', 'consentimiento_datos_aceptado_en', 'registrado_por']))
+        );
+});
+
 test('un rh_admin ve el listado de expedientes de toda la organizacion', function () {
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');

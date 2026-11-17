@@ -6,8 +6,6 @@ use App\Enums\EstadoCivil;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoUsuario;
 use App\Enums\Genero;
-use App\Enums\TipoMovimientoLaboral;
-use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Colaboradores\SubirFotoRequest;
@@ -16,17 +14,14 @@ use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
 use App\Http\Requests\Rh\GenerarReciboNominaRequest;
 use App\Http\Requests\Rh\RegistrarAvisosRequest;
 use App\Http\Requests\Rh\VistaPreviaReciboNominaRequest;
-use App\Models\AltaDigital;
 use App\Models\Baja;
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
-use App\Models\MovimientoLaboral;
 use App\Models\OfficialFormatGeneration;
 use App\Models\Prestamo;
-use App\Models\PrestamoMovimiento;
 use App\Models\Puesto;
 use App\Models\ReciboNomina;
 use App\Models\SolicitudInterna;
@@ -51,6 +46,7 @@ use App\Services\Expedientes\DocumentoDosCarasService;
 use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteCentroService;
+use App\Services\Expedientes\ExpedienteHistorialService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Expedientes\HistorialCambiosDatosService;
@@ -104,6 +100,7 @@ class ExpedienteController extends Controller
         private readonly DomicilioService $domicilios,
         private readonly DocumentoParService $pares,
         private readonly BajaService $bajas,
+        private readonly ExpedienteHistorialService $historial,
     ) {}
 
     /**
@@ -347,7 +344,6 @@ class ExpedienteController extends Controller
         $resumen = $this->expediente->resumenCompletitud($colaborador);
         $completitudDatos = $this->documentoProceso->completitudAlta($colaborador);
         $documentos = $this->expediente->documentosVigentes($colaborador);
-        $alta = AltaDigital::query()->where('colaborador_id', $colaborador->id)->first();
 
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
@@ -520,46 +516,10 @@ class ExpedienteController extends Controller
             // vacaciones), no en la tabla legacy solicitudes_vacaciones —
             // leer de ahí dejaría el expediente mostrando historial viejo
             // congelado mientras RH aprueba/rechaza desde el Kanban actual.
-            'solicitudesVacaciones' => SolicitudInterna::query()
-                ->where(fn ($q) => $q->where('colaborador_id', $colaborador->id)->when(
-                    $idUsuarioColaborador !== null,
-                    fn ($sub) => $sub->orWhere('user_id', $idUsuarioColaborador),
-                ))
-                ->where('tipo', TipoSolicitudInterna::Vacaciones)
-                ->orderByDesc('created_at')
-                ->limit(10)
-                ->get(['id', 'user_id', 'fecha_inicio', 'fecha_fin', 'dias_solicitados', 'motivo', 'estado', 'motivo_rechazo', 'created_at'])
-                ->map(fn (SolicitudInterna $solicitud) => [
-                    'id' => $solicitud->id,
-                    'user_id' => $solicitud->user_id,
-                    'fecha_inicio' => $solicitud->fecha_inicio?->toDateString(),
-                    'fecha_fin' => $solicitud->fecha_fin?->toDateString(),
-                    'dias_solicitados' => $solicitud->dias_solicitados,
-                    'comentario' => $solicitud->motivo,
-                    'estado' => $solicitud->estado->value,
-                    'motivo_rechazo' => $solicitud->motivo_rechazo,
-                    'created_at' => $solicitud->created_at?->toISOString(),
-                ]),
+            'solicitudesVacaciones' => $this->historial->solicitudesVacaciones($colaborador, $idUsuarioColaborador),
             // Tab "Solicitudes" del expediente (sección 40 del encargo): todo
-            // tipo de solicitud interna de este colaborador, no solo
-            // vacaciones — mismo modelo unificado de arriba.
-            'solicitudes' => SolicitudInterna::query()
-                ->where(fn ($q) => $q->where('colaborador_id', $colaborador->id)->when(
-                    $idUsuarioColaborador !== null,
-                    fn ($sub) => $sub->orWhere('user_id', $idUsuarioColaborador),
-                ))
-                ->orderByDesc('created_at')
-                ->limit(20)
-                ->get(['id', 'folio', 'tipo', 'estado', 'motivo', 'created_at'])
-                ->map(fn (SolicitudInterna $solicitud) => [
-                    'id' => $solicitud->id,
-                    'folio' => $solicitud->folio,
-                    'tipo' => $solicitud->tipo->value,
-                    'tipo_etiqueta' => $solicitud->tipo->etiqueta(),
-                    'estado' => $solicitud->estado->value,
-                    'motivo' => $solicitud->motivo,
-                    'created_at' => $solicitud->created_at?->toISOString(),
-                ]),
+            // tipo de solicitud interna de este colaborador, no solo vacaciones.
+            'solicitudes' => $this->historial->solicitudes($colaborador, $idUsuarioColaborador),
             // PDF(s) históricos únicos de la migración inicial: sección
             // aparte, NO cuentan en el checklist de 14 documentos.
             'expedienteHistorico' => app(ExpedientesInitialMigrationService::class)->historicosDe($colaborador),
@@ -587,72 +547,14 @@ class ExpedienteController extends Controller
             // El colaborador NUNCA ve sus propios recibos (se entregan
             // impresos; features.recibos_colaborador=false): null oculta la
             // pestaña. RH y quien tenga nómina dentro de su alcance sí.
-            'recibosNomina' => ! $this->puedeVerRecibosEnExpediente($usuario, $colaborador, $esPropio) ? null : $colaborador->recibosNomina()
-                ->limit(20)
-                ->get()
-                ->map(fn (ReciboNomina $recibo) => [
-                    'id' => $recibo->id,
-                    'periodo_inicio' => $recibo->periodo_inicio->toDateString(),
-                    'periodo_fin' => $recibo->periodo_fin->toDateString(),
-                    'fecha_pago' => $recibo->fecha_pago->toDateString(),
-                    'sueldo_base' => (float) $recibo->sueldo_base,
-                    'percepciones' => $recibo->percepciones,
-                    'deducciones' => $recibo->deducciones,
-                    'total_percepciones' => (float) $recibo->total_percepciones,
-                    'total_deducciones' => (float) $recibo->total_deducciones,
-                    'neto' => (float) $recibo->neto,
-                    'tiene_pdf' => $recibo->pdf_path !== null,
-                    'created_at' => $recibo->created_at?->toISOString(),
-                ]),
-            // Tab "Préstamos": préstamos reales del colaborador (ver
-            // App\Services\Nomina\PrestamoService), cada uno con su
+            'recibosNomina' => ! $this->puedeVerRecibosEnExpediente($usuario, $colaborador, $esPropio) ? null : $this->historial->recibosNomina($colaborador),
+            // Tab "Préstamos": préstamos reales del colaborador con su
             // historial de movimientos (ledger append-only).
-            'prestamos' => collect(array_map(
-                $this->prestamoResumen(...),
-                $colaborador->prestamos()
-                    ->with('movimientos.registradoPor:id,name,apellidos')
-                    ->limit(10)
-                    ->get()
-                    ->all(),
-            )),
-            'movimientosLaborales' => MovimientoLaboral::query()
-                ->where('colaborador_id', $colaborador->id)
-                ->when(! $puedeVerSueldo, fn (Builder $q) => $q->where('tipo_movimiento', '!=', TipoMovimientoLaboral::CambioSueldo->value))
-                ->with([
-                    'colaborador:id,name,apellidos',
-                    'puestoAnterior:id,nombre', 'puestoNuevo:id,nombre',
-                    'sucursalAnterior:id,nombre', 'sucursalNueva:id,nombre',
-                    'departamentoAnterior:id,nombre', 'departamentoNuevo:id,nombre',
-                    'empresaAnterior:id,nombre', 'empresaNueva:id,nombre',
-                    'jefeAnterior:id,name,apellidos', 'jefeNuevo:id,name,apellidos',
-                    'vacante:id,puesto_id', 'vacante.puesto:id,nombre',
-                    'documento:id,original_name',
-                    'registradoPor:id,name,apellidos',
-                ])
-                ->orderByDesc('fecha_movimiento')
-                ->orderByDesc('id')
-                ->limit(30)
-                ->get(),
-            'altaDigital' => $alta ? [
-                'id' => $alta->id,
-                'estado' => $alta->estado->value,
-                'aviso_privacidad_aceptado' => $alta->aviso_privacidad_aceptado,
-                'aviso_privacidad_aceptado_en' => $alta->aviso_privacidad_aceptado_en?->toDateTimeString(),
-                'consentimiento_datos_aceptado' => $alta->consentimiento_datos_aceptado,
-                'consentimiento_datos_aceptado_en' => $alta->consentimiento_datos_aceptado_en?->toDateTimeString(),
-            ] : null,
-            // Solo tiene sentido cuando NO hay alta digital: si ya existe una
-            // (bloque de arriba), esa es la fuente de verdad y esta pestaña
-            // no ofrece el registro manual (ver AvisoPrivacidadService).
-            'avisosManual' => $alta ? null : [
-                'aviso_privacidad_aceptado' => $colaborador->aviso_privacidad_aceptado,
-                'aviso_privacidad_aceptado_en' => $colaborador->aviso_privacidad_aceptado_en?->toDateTimeString(),
-                'consentimiento_datos_aceptado' => $colaborador->consentimiento_datos_aceptado,
-                'consentimiento_datos_aceptado_en' => $colaborador->consentimiento_datos_aceptado_en?->toDateTimeString(),
-                'registrado_por' => $colaborador->avisosRegistradoPor
-                    ? trim("{$colaborador->avisosRegistradoPor->name} {$colaborador->avisosRegistradoPor->apellidos}")
-                    : null,
-            ],
+            'prestamos' => $this->historial->prestamos($colaborador),
+            'movimientosLaborales' => $this->historial->movimientosLaborales($colaborador, $puedeVerSueldo),
+            // Si ya hay alta digital, ella es la fuente de verdad y no se
+            // ofrece el registro manual (ver AvisoPrivacidadService).
+            ...$this->historial->avisosPrivacidad($colaborador),
             'puedeGestionarAvisos' => $usuario->can('expedientes.editar') || $esCuentaPropia,
             'avisoPrivacidadTexto' => config('legal.aviso_privacidad'),
             'consentimientoDatosTexto' => config('legal.consentimiento_datos'),
@@ -1109,75 +1011,6 @@ class ExpedienteController extends Controller
                 ];
             })
             ->all();
-    }
-
-    /**
-     * "Nombre apellidos" de un actor opcional — tipo de retorno nativo
-     * `?string` (no inferido de un ternario inline) para que PHPStan no
-     * derive `string` en vez de `string|null` en los `map()` que lo usan
-     * (Collection<TValue> no es covariante, ver VacanteController).
-     */
-    private function nombreActor(?User $actor): ?string
-    {
-        return $actor ? trim("{$actor->name} {$actor->apellidos}") : null;
-    }
-
-    /**
-     * @return array{id: int, monto_original: float, saldo: float, plazo: int, periodicidad: string, pago_programado: float, porcentaje_pagado: int, fecha_otorgamiento: string|null, fecha_primer_descuento: string|null, estado: string, movimientos: Collection<int, array<string, mixed>>}
-     */
-    private function prestamoResumen(Prestamo $prestamo): array
-    {
-        return [
-            'id' => $prestamo->id,
-            'monto_original' => (float) $prestamo->monto_original,
-            'saldo' => (float) $prestamo->saldo,
-            'plazo' => $prestamo->plazo,
-            'periodicidad' => $prestamo->periodicidad,
-            'pago_programado' => (float) $prestamo->pago_programado,
-            'porcentaje_pagado' => (float) $prestamo->monto_original > 0
-                ? (int) round((1 - ((float) $prestamo->saldo / (float) $prestamo->monto_original)) * 100)
-                : 0,
-            'fecha_otorgamiento' => $prestamo->fecha_otorgamiento?->toDateString(),
-            'fecha_primer_descuento' => $prestamo->fecha_primer_descuento?->toDateString(),
-            'estado' => $prestamo->estado,
-            'movimientos' => collect(array_map(
-                fn (PrestamoMovimiento $m): array => $this->item($this->movimientoResumen($m)),
-                $prestamo->movimientos->all(),
-            )),
-        ];
-    }
-
-    /**
-     * @return array{id: int, fecha: string, monto: float, tipo: string, saldo_anterior: float, saldo_nuevo: float, registrado_por: string|null}
-     */
-    private function movimientoResumen(PrestamoMovimiento $movimiento): array
-    {
-        return [
-            'id' => $movimiento->id,
-            'fecha' => $movimiento->fecha->toDateString(),
-            'monto' => (float) $movimiento->monto,
-            'tipo' => $movimiento->tipo,
-            'saldo_anterior' => (float) $movimiento->saldo_anterior,
-            'saldo_nuevo' => (float) $movimiento->saldo_nuevo,
-            'registrado_por' => $this->nombreActor($movimiento->registradoPor),
-        ];
-    }
-
-    /**
-     * Illuminate\Support\Collection no es covariante (ver
-     * https://phpstan.org/blog/whats-up-with-template-covariant): un shape
-     * de array literal preciso no se acepta donde se declaro
-     * `Collection<int, array<string, mixed>>` aunque sea estructuralmente
-     * compatible. Ensanchar aqui en la frontera de la funcion si es una
-     * operacion valida para PHPStan (mismo patron que
-     * RhPendientesService::item()).
-     *
-     * @param  array<string, mixed>  $item
-     * @return array<string, mixed>
-     */
-    private function item(array $item): array
-    {
-        return $item;
     }
 
     /**
