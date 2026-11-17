@@ -235,8 +235,13 @@ test('los datos que faltan se muestran como «Sin capturar» y el correo se rend
 
     $mail->assertSeeInHtml('Sin capturar')
         ->assertSeeInHtml('Persona')
-        ->assertSeeInHtml('Para copiar y pegar')
-        ->assertSeeInHtml('Ver expediente en PEOPLE');
+        ->assertSeeInHtml(sprintf('Faltan %d datos por capturar', $mail->faltantes()))
+        ->assertSeeInHtml('Ver expediente en PEOPLE')
+        // Sin el bloque duplicado «Para copiar y pegar» ni emojis: la versión
+        // de texto plano es la que sirve para copiar (un dato por renglón).
+        ->assertDontSeeInHtml('Para copiar y pegar')
+        ->assertDontSeeInHtml('📋')
+        ->assertSeeInText('CURP: Sin capturar');
 });
 
 test('repetir la contratación o reintentar el job no duplica el correo', function () {

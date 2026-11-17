@@ -15,10 +15,11 @@ use Illuminate\Queue\SerializesModels;
  * resultado (enviado / fallido) en avisos_alta_sistemas. El remitente es el
  * global del .env (MAIL_FROM_ADDRESS / MAIL_FROM_NAME). Sin adjuntos.
  *
- * HTML con tablas y estilos en línea (resources/views/mail/alta-colaborador-sistemas.blade.php)
- * + texto plano (alta-colaborador-sistemas-texto): Outlook y Gmail descartan
- * hojas de estilo, SVG y JavaScript. El botón «Abrir y copiar datos» lleva al
- * detalle autenticado del aviso, donde cada dato tiene su botón Copiar.
+ * HTML (resources/views/mail/alta-colaborador-sistemas.blade.php, sobre el
+ * layout compartido mail/sistemas/layout) + texto plano
+ * (alta-colaborador-sistemas-texto, un dato por renglón: es la versión para
+ * copiar y pegar). El botón «Abrir y copiar datos» lleva al detalle
+ * autenticado del aviso, donde cada dato tiene su botón Copiar.
  */
 class AltaColaboradorSistemasMail extends Mailable
 {
@@ -53,7 +54,7 @@ class AltaColaboradorSistemasMail extends Mailable
         return new Content(
             view: 'mail.alta-colaborador-sistemas',
             text: 'mail.alta-colaborador-sistemas-texto',
-            with: ['faltantes' => $this->faltantes(), 'lineasCopiar' => $this->lineasCopiar()],
+            with: ['faltantes' => $this->faltantes()],
         );
     }
 
@@ -70,21 +71,5 @@ class AltaColaboradorSistemasMail extends Mailable
             AvisoAltaSistemasService::aplanar($this->secciones),
             fn (string $valor): bool => $valor === AvisoAltaSistemasService::SIN_CAPTURAR,
         ));
-    }
-
-    /**
-     * Bloque «Para copiar y pegar»: un dato por renglón.
-     *
-     * @return list<string>
-     */
-    public function lineasCopiar(): array
-    {
-        $lineas = [];
-
-        foreach (AvisoAltaSistemasService::aplanar($this->secciones) as $etiqueta => $valor) {
-            $lineas[] = sprintf('%s: %s', $etiqueta, $valor);
-        }
-
-        return $lineas;
     }
 }
