@@ -37,13 +37,13 @@ class DashboardController extends Controller
                 return to_route('rh.bajas.index');
             }
 
-            $vista = $usuario->can('dashboard.global.ver') ? 'Dashboard/Global' : 'Dashboard/Sucursal';
-
             // Inicio operativo = SOLO el tablero de RH definido por el negocio
             // (8 indicadores, embudo por hito máximo, tiempo de contratación
             // por nivel y rotación mensual), con filtros de mes y sucursal
-            // acotados al alcance. Nada más en la pantalla.
-            return Inertia::render($vista, [
+            // acotados al alcance. Una sola página para global y sucursal
+            // (antes Global.vue y Sucursal.vue eran idénticas): lo que cambia
+            // es el ALCANCE de los datos, que resuelven los servicios.
+            return Inertia::render('Dashboard/Operativo', [
                 // Arriba: qué necesita atención hoy y 4 cifras para decidir.
                 'inicio' => $this->inicioOperativo($usuario),
                 // El tablero completo (8 indicadores, embudo, tiempos,

@@ -248,7 +248,7 @@ test('Aniversarios está en la guía con su ruta, permiso y temas', function () 
  * validar sus anclajes contra SU pantalla).
  */
 const PANTALLAS_GUIA = [
-    'dashboard' => ['pages/Dashboard/Global.vue', 'pages/Dashboard/Sucursal.vue'],
+    'dashboard' => ['pages/Dashboard/Operativo.vue'],
     'expedientes' => ['pages/Rh/Expedientes/Index.vue', 'pages/Rh/Expedientes/Show.vue'],
     'solicitudes' => ['pages/Rh/Solicitudes/Index.vue'],
     'organigrama' => ['pages/Administracion/JerarquiaPuestos/Index.vue'],

@@ -103,7 +103,7 @@ test('6) cambiar de modo persiste en cookie y el Inicio respeta el modo elegido'
         ->withUnencryptedCookie(NavigationService::nombreCookie(), 'operativo')
         ->get(route('dashboard'))
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard/Global')
+            ->component('Dashboard/Operativo')
             ->where('navegacion.modoActual', 'operativo'));
 });
 

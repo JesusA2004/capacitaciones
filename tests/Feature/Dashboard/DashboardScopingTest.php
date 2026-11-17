@@ -29,7 +29,7 @@ test('un gerente de sucursal ve el dashboard de sucursal', function () {
     $this->actingAs($gerente)
         ->get(route('dashboard'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Dashboard/Sucursal'));
+        ->assertInertia(fn ($page) => $page->component('Dashboard/Operativo'));
 });
 
 test('un administrador de capacitacion ve el dashboard global', function () {
@@ -39,5 +39,5 @@ test('un administrador de capacitacion ve el dashboard global', function () {
     $this->actingAs($admin)
         ->get(route('dashboard'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Dashboard/Global'));
+        ->assertInertia(fn ($page) => $page->component('Dashboard/Operativo'));
 });
