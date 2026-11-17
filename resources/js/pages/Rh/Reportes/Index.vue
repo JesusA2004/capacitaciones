@@ -1,6 +1,21 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { BarChart3, Download, FileOutput, Plus, Settings2 } from '@lucide/vue';
+import {
+    BarChart3,
+    Briefcase,
+    CalendarDays,
+    Download,
+    FileOutput,
+    FolderOpen,
+    Plane,
+    Plus,
+    Receipt,
+    Search,
+    Settings2,
+    TrendingUp,
+    Users,
+} from '@lucide/vue';
+import type { Component } from 'vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -15,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { useFiltros } from '@/composables/useFiltros';
 import { usePaginacionLocal } from '@/composables/usePaginacion';
 import { VueApexCharts } from '@/lib/apexDiferido';
+import { normalizar } from '@/lib/guia/buscador';
 import { opcionesDe } from '@/lib/opcionesSelect';
 import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
@@ -224,6 +240,44 @@ const opcionesCatalogo = computed(() =>
         })),
     ),
 );
+
+// Buscador del catálogo (solo filtra lo que se ve, no cambia el reporte).
+const busquedaCatalogo = ref('');
+
+const catalogoVisible = computed(() => {
+    const termino = normalizar(busquedaCatalogo.value.trim());
+
+    if (!termino) {
+        return props.catalogo;
+    }
+
+    return props.catalogo
+        .map((grupo) => ({
+            ...grupo,
+            opciones: grupo.opciones.filter((o) =>
+                normalizar(`${grupo.grupo} ${o.label}`).includes(termino),
+            ),
+        }))
+        .filter((grupo) => grupo.opciones.length > 0);
+});
+
+const ICONOS_GRUPO: [string, Component][] = [
+    ['plantilla', Users],
+    ['nómina', Receipt],
+    ['altas y bajas', TrendingUp],
+    ['reclutamiento', Briefcase],
+    ['expediente', FolderOpen],
+    ['vacaciones', Plane],
+    ['fechas', CalendarDays],
+];
+
+function iconoGrupo(grupo: string): Component {
+    const nombre = grupo.toLowerCase();
+
+    return (
+        ICONOS_GRUPO.find(([clave]) => nombre.includes(clave))?.[1] ?? BarChart3
+    );
+}
 </script>
 
 <template>
@@ -257,25 +311,53 @@ const opcionesCatalogo = computed(() =>
             </label>
 
             <nav
-                class="hidden rounded-2xl border border-border/60 bg-card p-3 lg:sticky lg:top-4 lg:block"
+                class="hidden rounded-2xl border border-border/60 bg-card p-3 shadow-sm lg:sticky lg:top-4 lg:block lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto"
                 aria-label="Catálogo de reportes"
                 data-tour="reportes-tipo"
             >
-                <div v-for="grupo in catalogo" :key="grupo.grupo" class="mb-3">
+                <div class="relative mb-3">
+                    <Search
+                        class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                        aria-hidden="true"
+                    />
+                    <Input
+                        v-model="busquedaCatalogo"
+                        type="search"
+                        placeholder="Buscar reporte…"
+                        aria-label="Buscar reporte"
+                        class="h-9 pl-8"
+                    />
+                </div>
+                <p
+                    v-if="!catalogoVisible.length"
+                    class="px-2 py-4 text-center text-xs text-muted-foreground"
+                >
+                    Ningún reporte coincide con «{{ busquedaCatalogo }}».
+                </p>
+                <div
+                    v-for="grupo in catalogoVisible"
+                    :key="grupo.grupo"
+                    class="mb-3"
+                >
                     <p
-                        class="mb-1 px-2 text-[11px] font-semibold tracking-wide text-bronce uppercase"
+                        class="mb-1 flex items-center gap-1.5 px-2 text-[11px] font-semibold tracking-wide text-bronce uppercase"
                     >
+                        <component
+                            :is="iconoGrupo(grupo.grupo)"
+                            class="size-3.5 shrink-0"
+                            aria-hidden="true"
+                        />
                         {{ grupo.grupo }}
                     </p>
                     <button
                         v-for="opcion in grupo.opciones"
                         :key="opcion.value"
                         type="button"
-                        class="block w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        class="block w-full presionable rounded-lg px-2 py-1.5 text-left text-sm transicion-ui focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         :class="
                             reporte === opcion.value
-                                ? 'bg-salvia font-medium'
-                                : 'hover:bg-muted/60'
+                                ? 'bg-salvia font-medium text-primary shadow-[inset_3px_0_0_var(--pastel-oro)]'
+                                : 'text-foreground/85 hover:bg-menta/60 hover:text-foreground'
                         "
                         :aria-current="
                             reporte === opcion.value ? 'page' : undefined
@@ -322,7 +404,7 @@ const opcionesCatalogo = computed(() =>
             <div class="flex min-w-0 flex-col gap-5">
                 <div
                     data-tour="reportes-filtros"
-                    class="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-4"
+                    class="grid items-end gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:grid-cols-2 xl:grid-cols-4"
                 >
                     <template v-if="opcionActual?.periodo">
                         <div
@@ -577,7 +659,7 @@ const opcionesCatalogo = computed(() =>
                     <div
                         v-if="opcionesGrafica"
                         data-tour="reportes-grafica"
-                        class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
+                        class="entrada-suave rounded-2xl border border-border/60 bg-card p-4 shadow-sm transicion-ui hover:shadow-md"
                     >
                         <p class="mb-2 text-sm font-semibold">
                             {{ resultado.titulo }}
@@ -600,15 +682,23 @@ const opcionesCatalogo = computed(() =>
 
                     <div
                         data-tour="reportes-tabla"
-                        class="overflow-hidden rounded-2xl border border-border/60 bg-card"
+                        class="entrada-suave overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
                     >
-                        <div class="border-b border-border/60 px-5 py-3">
+                        <div
+                            class="flex items-center justify-between gap-3 border-b border-border/60 bg-crema/30 px-5 py-3"
+                        >
                             <h2 class="text-sm font-semibold">
                                 {{ resultado.titulo }}
                             </h2>
-                            <p class="text-xs text-muted-foreground">
-                                {{ resultado.filas.length }} resultado(s)
-                            </p>
+                            <span
+                                class="shrink-0 rounded-full bg-salvia px-2.5 py-0.5 text-xs font-semibold text-primary tabular-nums"
+                                >{{ resultado.filas.length }}
+                                {{
+                                    resultado.filas.length === 1
+                                        ? 'resultado'
+                                        : 'resultados'
+                                }}</span
+                            >
                         </div>
 
                         <CrudEmptyState
@@ -638,7 +728,7 @@ const opcionesCatalogo = computed(() =>
                                         v-for="(fila, i) in paginacion
                                             .filasPagina.value"
                                         :key="i"
-                                        class="border-b border-border/40 last:border-0 hover:bg-muted/30"
+                                        class="border-b border-border/40 transicion-ui last:border-0 even:bg-crema/15 hover:bg-menta/40"
                                     >
                                         <td
                                             v-for="(valor, j) in fila"
