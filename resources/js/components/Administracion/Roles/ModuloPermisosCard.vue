@@ -12,9 +12,11 @@ import {
 } from '@/components/ui/tooltip';
 import {
     accionesVisibles,
+    DESCRIPCION_NIVEL,
     ETIQUETA_NIVEL,
     moduloActivo,
     nivelDe,
+    opcionesNivel,
 } from '@/lib/rolesPermisos';
 import type { ModuloCatalogo, NivelAlcance } from '@/types/roles';
 
@@ -51,17 +53,33 @@ const nivelComparado = computed(() =>
     props.comparacion ? nivelDe(props.modulo, props.comparacion) : null,
 );
 
-const niveles = computed(() =>
-    (['propios', 'equipo', 'sucursal', 'region', 'todos'] as const).filter(
-        (n) => n === 'propios' || props.modulo.alcances[n] !== undefined,
-    ),
-);
-
-const opcionesNivel = computed(() =>
-    niveles.value.map((n) => ({ value: n, label: ETIQUETA_NIVEL[n] })),
-);
+const opcionesDelNivel = computed(() => opcionesNivel(props.modulo));
+const niveles = computed(() => opcionesDelNivel.value.map((o) => o.value));
 
 const acciones = computed(() => accionesVisibles(props.modulo, props.filtro));
+
+/**
+ * Acciones agrupadas por paso cuando el módulo lo define (p. ej. Candidatos:
+ * «Paso 4 · Socioeconómico» → Ver / Cargar / Revisar). Sin grupos, un solo
+ * bloque sin título, como siempre.
+ */
+const gruposAcciones = computed(() => {
+    const grupos: { titulo: string | null; acciones: typeof acciones.value }[] =
+        [];
+
+    for (const accion of acciones.value) {
+        const titulo = accion.grupo ?? null;
+        const grupo = grupos.find((g) => g.titulo === titulo);
+
+        if (grupo) {
+            grupo.acciones.push(accion);
+        } else {
+            grupos.push({ titulo, acciones: [accion] });
+        }
+    }
+
+    return grupos;
+});
 const marcadas = computed(
     () =>
         props.modulo.acciones.filter((a) => props.permisos.has(a.permiso))
@@ -147,15 +165,18 @@ const accesoDifiere = computed(() =>
             <span class="text-sm text-muted-foreground">Alcance de datos</span>
             <SelectSimple
                 :model-value="nivel"
-                :opciones="opcionesNivel"
+                :opciones="opcionesDelNivel"
                 :disabled="soloLectura || !tieneAcceso"
-                class="w-40"
+                class="w-full sm:w-80"
                 size="sm"
+                :buscable="true"
+                placeholder-busqueda="Buscar alcance…"
                 :aria-label="`Alcance de datos en ${modulo.etiqueta}`"
                 @update:model-value="emit('nivel', $event)"
             />
-            <span class="text-xs text-muted-foreground"
-                >Qué registros ve. Ver todo no permite aprobar todo.</span
+            <span class="basis-full text-xs text-muted-foreground"
+                >{{ DESCRIPCION_NIVEL[nivel] }} Ver no permite aprobar: las
+                acciones van aparte.</span
             >
             <Badge
                 v-if="nivelComparado !== null && nivelComparado !== nivel"
@@ -165,12 +186,20 @@ const accesoDifiere = computed(() =>
             >
         </div>
 
-        <ul
-            v-if="acciones.length > 0"
-            class="grid gap-1.5 @md:grid-cols-2 @4xl:grid-cols-3"
+        <div
+            v-for="grupo in gruposAcciones"
+            :key="grupo.titulo ?? '—'"
+            class="flex flex-col gap-1.5"
         >
+        <h5
+            v-if="grupo.titulo"
+            class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+        >
+            {{ grupo.titulo }}
+        </h5>
+        <ul class="grid gap-1.5 @md:grid-cols-2 @4xl:grid-cols-3">
             <li
-                v-for="accion in acciones"
+                v-for="accion in grupo.acciones"
                 :key="accion.permiso"
                 class="flex items-center gap-2.5 rounded-xl border px-3 py-2"
                 :class="[
@@ -220,8 +249,9 @@ const accesoDifiere = computed(() =>
                 </Tooltip>
             </li>
         </ul>
+        </div>
         <p
-            v-else-if="modulo.acciones.length === 0"
+            v-if="modulo.acciones.length === 0"
             class="text-xs text-muted-foreground"
         >
             Este módulo solo tiene acceso y alcance de datos.

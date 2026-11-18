@@ -91,6 +91,6 @@ class AgendaEventoPolicy
         $nivel = $this->alcance->nivel($usuario, 'agenda');
 
         return $nivel === AlcanceDatos::Todos
-            || $this->alcance->sucursalesPara($usuario, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)->contains($sucursalId);
+            || $this->alcance->sucursalesDelNivel($usuario, $nivel)->contains($sucursalId);
     }
 }

@@ -288,7 +288,7 @@ class RotacionImportService
             return null;
         }
 
-        return array_values($this->alcance->sucursalesPara($usuario, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)->all());
+        return array_values($this->alcance->sucursalesDelNivel($usuario, $nivel)->all());
     }
 
     /**

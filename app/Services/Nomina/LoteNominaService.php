@@ -859,7 +859,7 @@ class LoteNominaService
             return true;
         }
 
-        if (! in_array($this->alcanceModulo->nivel($actor, 'recibos'), [AlcanceDatos::Region, AlcanceDatos::Sucursal], true)) {
+        if (! $this->alcanceModulo->nivel($actor, 'recibos')->esPorSucursales()) {
             throw ValidationException::withMessages(['lote' => 'Tu cuenta no tiene alcance de nómina sobre sucursales (Roles y permisos → Recibos de nómina: Todos, Región o Sucursal): no se puede preparar el lote.']);
         }
 

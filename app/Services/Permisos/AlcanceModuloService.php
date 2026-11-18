@@ -10,6 +10,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Organigrama\AutoridadJerarquicaService;
+use App\Support\AlcancesModulo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -44,7 +45,10 @@ class AlcanceModuloService
     {
         $alcances = $this->alcancesDe($modulo);
 
-        if ($alcances === [] || ! $this->existenEnBase($alcances)) {
+        // «Sucursal y corporativo» es opcional para decidir si el módulo ya
+        // tiene sus alcances en la base: sin él (deploy antes de
+        // `people:sincronizar-permisos`) los demás niveles siguen mandando.
+        if ($alcances === [] || ! $this->existenEnBase($this->sinOpcionales($alcances))) {
             $acceso = $this->modulos()[$modulo]['acceso'] ?? '';
 
             // Sin acceso al módulo, el alcance histórico por rol no aplica.
@@ -72,7 +76,7 @@ class AlcanceModuloService
     {
         return match ($this->nivel($usuario, $modulo)) {
             AlcanceDatos::Todos => $query,
-            AlcanceDatos::Region, AlcanceDatos::Sucursal => $query->where(fn (Builder $q) => $q
+            AlcanceDatos::Region, AlcanceDatos::SucursalCorporativo, AlcanceDatos::Sucursal => $query->where(fn (Builder $q) => $q
                 ->whereIn('sucursal_principal_id', $this->sucursalesPara($usuario, $this->nivel($usuario, $modulo))->all())
                 ->orWhere('id', $usuario->colaborador_id ?? 0)),
             AlcanceDatos::Equipo => $query->where(fn (Builder $q) => $q
@@ -121,7 +125,7 @@ class AlcanceModuloService
             return $query;
         }
 
-        $sucursales = $this->sucursalesPara($usuario, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)->all();
+        $sucursales = $this->sucursalesDelNivel($usuario, $nivel)->all();
 
         return $query->where(fn (Builder $q) => $q->whereIn($columna, $sucursales)->orWhereNull($columna));
     }
@@ -139,8 +143,7 @@ class AlcanceModuloService
             return true;
         }
 
-        return $this->sucursalesPara($usuario, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)
-            ->contains($sucursalId);
+        return $this->sucursalesDelNivel($usuario, $nivel)->contains($sucursalId);
     }
 
     /**
@@ -156,7 +159,7 @@ class AlcanceModuloService
 
         return $nivel === AlcanceDatos::Todos
             ? Sucursal::query()
-            : Sucursal::query()->whereIn('id', $this->sucursalesPara($usuario, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)->all());
+            : Sucursal::query()->whereIn('id', $this->sucursalesDelNivel($usuario, $nivel)->all());
     }
 
     public function alcanzaColaborador(User $usuario, ?Colaborador $colaborador, string $modulo): bool
@@ -171,7 +174,7 @@ class AlcanceModuloService
 
         return match ($this->nivel($usuario, $modulo)) {
             AlcanceDatos::Todos => true,
-            AlcanceDatos::Region, AlcanceDatos::Sucursal => $colaborador->sucursal_principal_id !== null
+            AlcanceDatos::Region, AlcanceDatos::SucursalCorporativo, AlcanceDatos::Sucursal => $colaborador->sucursal_principal_id !== null
                 && $this->sucursalesPara($usuario, $this->nivel($usuario, $modulo))->contains($colaborador->sucursal_principal_id),
             AlcanceDatos::Equipo => $usuario->colaborador_id !== null
                 && ($colaborador->jefe_id === $usuario->colaborador_id || $colaborador->gerente_id === $usuario->colaborador_id),
@@ -192,7 +195,7 @@ class AlcanceModuloService
     {
         $modulo = $this->moduloDeAviso($permiso);
 
-        if ($modulo === null || ! $this->existenEnBase($this->alcancesDe($modulo))) {
+        if ($modulo === null || ! $this->existenEnBase($this->sinOpcionales($this->alcancesDe($modulo)))) {
             return $this->organizacional->alcanzaColaborador($usuario, $colaborador);
         }
 
@@ -208,9 +211,24 @@ class AlcanceModuloService
     }
 
     /**
+     * Sucursales que abarca un nivel ya resuelto con nivel(): Propios y
+     * Equipo cuentan como «su sucursal» (módulos que se acotan por sucursal);
+     * Región y «Sucursal y corporativo» conservan su amplitud. Úsalo en vez
+     * de decidir a mano qué nivel pasar a sucursalesPara().
+     *
+     * @return Collection<int, int>
+     */
+    public function sucursalesDelNivel(User $usuario, AlcanceDatos $nivel): Collection
+    {
+        return $this->sucursalesPara($usuario, $nivel->esPorSucursales() ? $nivel : AlcanceDatos::Sucursal);
+    }
+
+    /**
      * Sucursales propias (principal + adicionales) o, en «región», todas las
      * sucursales de las regiones de la matriz comercial a las que pertenecen
      * (zona ligada a la sucursal → su región). Nunca menos que las propias.
+     * En «Sucursal y corporativo»: las propias + las de Corporativo
+     * (es_corporativo), nunca las demás sucursales.
      *
      * @return Collection<int, int>
      */
@@ -234,6 +252,13 @@ class AlcanceModuloService
         // (Una sola Gerencia Regional para toda la empresa: el rol regional basta.)
         if ($nivel === AlcanceDatos::Region && ($this->autoridad->tieneAlcanceDeEmpresa($usuario) || $this->organizacional->esRegionalDeEmpresa($usuario))) {
             return Sucursal::query()->where('es_corporativo', false)->pluck('id')->map(fn ($id): int => (int) $id)->merge($propias)->unique()->values();
+        }
+
+        if ($nivel === AlcanceDatos::SucursalCorporativo) {
+            return $propias
+                ->merge(Sucursal::query()->where('es_corporativo', true)->pluck('id')->map(fn ($id): int => (int) $id))
+                ->unique()
+                ->values();
         }
 
         if ($nivel !== AlcanceDatos::Region || $propias->isEmpty()) {
@@ -279,7 +304,8 @@ class AlcanceModuloService
                 'etiqueta' => (string) ($definicion['etiqueta'] ?? $clave),
                 'grupo' => (string) ($definicion['grupo'] ?? 'Otros'),
                 'acceso' => (string) ($definicion['acceso'] ?? ''),
-                'alcances' => array_map('strval', (array) ($definicion['alcances'] ?? [])),
+                // Con los derivados («Sucursal y corporativo»): AlcancesModulo.
+                'alcances' => AlcancesModulo::de($definicion),
                 // 'perm' => 'Etiqueta' o 'perm' => ['etiqueta' => …, 'descripcion' => …].
                 'acciones' => array_map(
                     fn ($accion): string => is_array($accion) ? (string) ($accion['etiqueta'] ?? '') : (string) $accion,
@@ -297,6 +323,20 @@ class AlcanceModuloService
     private function alcancesDe(string $modulo): array
     {
         return $this->modulos()[$modulo]['alcances'] ?? [];
+    }
+
+    /**
+     * Alcances sin los niveles opcionales (los que se agregaron después a
+     * todos los módulos y cuya falta en la base no debe tumbar el resto).
+     *
+     * @param  array<string, string>  $alcances
+     * @return array<string, string>
+     */
+    private function sinOpcionales(array $alcances): array
+    {
+        unset($alcances[AlcanceDatos::SucursalCorporativo->value]);
+
+        return $alcances;
     }
 
     /**

@@ -19,6 +19,7 @@ const FRASE_ALCANCE: Record<NivelAlcance | 'propios', string> = {
     propios: 'solo lo propio',
     equipo: 'lo de su equipo directo',
     sucursal: 'lo de su sucursal',
+    sucursal_corporativo: 'lo de su sucursal y todo Corporativo',
     region: 'lo de su región',
     todos: 'lo de toda la empresa',
 };

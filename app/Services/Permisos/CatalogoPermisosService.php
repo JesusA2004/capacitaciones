@@ -2,6 +2,7 @@
 
 namespace App\Services\Permisos;
 
+use App\Enums\AlcanceDatos;
 use Database\Seeders\RolesYPermisosSeeder;
 use Spatie\Permission\Models\Permission;
 
@@ -40,7 +41,7 @@ class CatalogoPermisosService
      * @return array{
      *     etapas: list<array{clave: string, etiqueta: string, numero: int|null, modulos: list<array<string, mixed>>}>,
      *     otros: array<string, list<string>>,
-     *     niveles: list<array{valor: string, etiqueta: string}>
+     *     niveles: list<array{valor: string, etiqueta: string, descripcion: string}>
      * }
      */
     public function paraPantalla(): array
@@ -117,13 +118,11 @@ class CatalogoPermisosService
         return [
             'etapas' => array_values(array_filter($etapas, fn (array $etapa): bool => $etapa['modulos'] !== [])),
             'otros' => $this->otrosPermisos(),
-            'niveles' => [
-                ['valor' => 'propios', 'etiqueta' => 'Propios'],
-                ['valor' => 'equipo', 'etiqueta' => 'Equipo'],
-                ['valor' => 'sucursal', 'etiqueta' => 'Sucursal'],
-                ['valor' => 'region', 'etiqueta' => 'Región'],
-                ['valor' => 'todos', 'etiqueta' => 'Todos'],
-            ],
+            'niveles' => array_map(fn (AlcanceDatos $nivel): array => [
+                'valor' => $nivel->value,
+                'etiqueta' => $nivel->etiqueta(),
+                'descripcion' => $nivel->descripcion(),
+            ], [AlcanceDatos::Propios, AlcanceDatos::Equipo, AlcanceDatos::Sucursal, AlcanceDatos::SucursalCorporativo, AlcanceDatos::Region, AlcanceDatos::Todos]),
         ];
     }
 

@@ -8,17 +8,57 @@ import type {
 export const ORDEN_ALCANCE: NivelAlcance[] = [
     'todos',
     'region',
+    'sucursal_corporativo',
     'sucursal',
     'equipo',
 ];
 
+/**
+ * Etiquetas EXPLÍCITAS del alcance (qué registros ve): nada de «Todos» a
+ * secas. Mismo texto que App\Enums\AlcanceDatos::etiqueta().
+ */
 export const ETIQUETA_NIVEL: Record<NivelAlcance | 'propios', string> = {
-    propios: 'Propios',
-    equipo: 'Equipo',
-    sucursal: 'Sucursal',
-    region: 'Región',
-    todos: 'Todos',
+    propios: 'Solo lo propio',
+    equipo: 'Lo suyo + su equipo directo',
+    sucursal: 'Solo su sucursal',
+    sucursal_corporativo: 'Su sucursal + Corporativo (no las demás sucursales)',
+    region: 'Las sucursales de su región',
+    todos: 'Todas las sucursales (toda la empresa)',
 };
+
+/** Una línea que explica cada alcance (selector y vista por persona). */
+export const DESCRIPCION_NIVEL: Record<NivelAlcance | 'propios', string> = {
+    propios: 'Solo los registros de la propia persona.',
+    equipo: 'Los suyos y los de quienes le reportan directamente.',
+    sucursal:
+        'Los de su sucursal (y las adicionales que tenga asignadas). Ninguna otra.',
+    sucursal_corporativo:
+        'Los de su sucursal más todo el personal de Corporativo. No ve las demás sucursales.',
+    region: 'Los de todas las sucursales de su región (matriz comercial).',
+    todos: 'Toda la organización: todas las sucursales y Corporativo.',
+};
+
+/** Opciones del selector de alcance de un módulo, de menor a mayor. */
+export function opcionesNivel(
+    modulo: ModuloCatalogo,
+): { value: NivelAlcance | 'propios'; label: string; descripcion: string }[] {
+    return (
+        [
+            'propios',
+            'equipo',
+            'sucursal',
+            'sucursal_corporativo',
+            'region',
+            'todos',
+        ] as const
+    )
+        .filter((n) => n === 'propios' || modulo.alcances[n] !== undefined)
+        .map((n) => ({
+            value: n,
+            label: ETIQUETA_NIVEL[n],
+            descripcion: DESCRIPCION_NIVEL[n],
+        }));
+}
 
 /** Texto sin acentos y en minúsculas para buscar «aprobacion» = «aprobación». */
 export function normalizar(texto: string): string {

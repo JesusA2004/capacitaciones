@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Services\Permisos\SincronizadorPermisosService;
+use App\Support\AlcancesModulo;
 use Illuminate\Database\Seeder;
 
 class RolesYPermisosSeeder extends Seeder
@@ -1130,8 +1131,9 @@ class RolesYPermisosSeeder extends Seeder
 
             $permisos[] = (string) ($modulo['acceso'] ?? '');
 
-            foreach ((array) ($modulo['alcances'] ?? []) as $permiso) {
-                $permisos[] = (string) $permiso;
+            // Incluye los derivados («Sucursal y corporativo»): AlcancesModulo.
+            foreach (AlcancesModulo::de($modulo) as $permiso) {
+                $permisos[] = $permiso;
             }
 
             foreach (array_keys((array) ($modulo['acciones'] ?? [])) as $permiso) {

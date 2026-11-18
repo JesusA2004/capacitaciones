@@ -3,7 +3,13 @@
  * etapas del sidebar → módulos → acceso / alcance / acciones.
  */
 
-export type NivelAlcance = 'todos' | 'region' | 'sucursal' | 'equipo';
+/** «sucursal_corporativo» = su sucursal + todo Corporativo (no las demás). */
+export type NivelAlcance =
+    | 'todos'
+    | 'region'
+    | 'sucursal_corporativo'
+    | 'sucursal'
+    | 'equipo';
 
 export type RolItem = {
     id: number;
@@ -42,7 +48,11 @@ export type CatalogoPermisos = {
     etapas: EtapaCatalogo[];
     /** Permisos sin módulo, por prefijo: nada queda oculto. */
     otros: Record<string, string[]>;
-    niveles: { valor: NivelAlcance | 'propios'; etiqueta: string }[];
+    niveles: {
+        valor: NivelAlcance | 'propios';
+        etiqueta: string;
+        descripcion: string;
+    }[];
 };
 
 /**

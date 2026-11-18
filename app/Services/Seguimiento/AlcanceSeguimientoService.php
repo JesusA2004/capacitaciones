@@ -33,7 +33,7 @@ class AlcanceSeguimientoService
 
         return match ($nivel) {
             AlcanceDatos::Todos => null,
-            AlcanceDatos::Region, AlcanceDatos::Sucursal => array_values(array_unique(array_map(
+            AlcanceDatos::Region, AlcanceDatos::SucursalCorporativo, AlcanceDatos::Sucursal => array_values(array_unique(array_map(
                 fn ($id): int => (int) $id,
                 $this->alcanceModulo->sucursalesPara($usuario, $nivel)->all(),
             ))),

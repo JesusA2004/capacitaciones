@@ -173,7 +173,7 @@ class NineBoxService
 
         // Alcance del módulo «nine_box».
         $nivel = $this->alcanceModulo->nivel($usuario, self::MODULO);
-        $sucursalesAlcance = in_array($nivel, [AlcanceDatos::Region, AlcanceDatos::Sucursal], true)
+        $sucursalesAlcance = $nivel->esPorSucursales()
             ? array_values(array_map(fn ($id): int => (int) $id, $this->alcanceModulo->sucursalesPara($usuario, $nivel)->all()))
             : [];
 
@@ -361,7 +361,7 @@ class NineBoxService
     {
         return match ($nivel) {
             AlcanceDatos::Todos => true,
-            AlcanceDatos::Region, AlcanceDatos::Sucursal => $sucursal !== null && in_array($sucursal, $sucursalesAlcance, true),
+            AlcanceDatos::Region, AlcanceDatos::SucursalCorporativo, AlcanceDatos::Sucursal => $sucursal !== null && in_array($sucursal, $sucursalesAlcance, true),
             AlcanceDatos::Equipo => $colaborador !== null && $usuario->colaborador_id !== null
                 && ($colaborador->jefe_id === $usuario->colaborador_id || $colaborador->gerente_id === $usuario->colaborador_id),
             AlcanceDatos::Propios => false,

@@ -417,7 +417,7 @@ class FotoColaboradorService
 
         return match ($visor['nivel']) {
             AlcanceDatos::Todos => true,
-            AlcanceDatos::Region, AlcanceDatos::Sucursal => $colaborador->sucursal_principal_id !== null
+            AlcanceDatos::Region, AlcanceDatos::SucursalCorporativo, AlcanceDatos::Sucursal => $colaborador->sucursal_principal_id !== null
                 && isset($visor['sucursales'][(int) $colaborador->sucursal_principal_id]),
             AlcanceDatos::Equipo, AlcanceDatos::Propios => false,
         };
@@ -448,7 +448,7 @@ class FotoColaboradorService
         $nivel = $this->alcanceModulos->nivel($viewer, 'expedientes');
         $sucursales = [];
 
-        if ($nivel === AlcanceDatos::Region || $nivel === AlcanceDatos::Sucursal) {
+        if ($nivel->esPorSucursales()) {
             foreach ($this->alcanceModulos->sucursalesPara($viewer, $nivel) as $id) {
                 $sucursales[$id] = true;
             }

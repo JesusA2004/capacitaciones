@@ -529,7 +529,7 @@ class SolicitudesService
             return $query;
         }
 
-        if ($nivel === AlcanceDatos::Sucursal || $nivel === AlcanceDatos::Region) {
+        if ($nivel->esPorSucursales()) {
             $sucursales = $this->alcanceModulo->sucursalesPara($revisor, $nivel)->all();
 
             // Baja de colaborador: cuenta la sucursal de quien SE VA (la de

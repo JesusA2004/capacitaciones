@@ -227,9 +227,8 @@ class DirectorioColaboradoresService
         }
 
         // Propios / Equipo = su propia sucursal (y adicionales asignadas).
-        return array_values($this->alcanceModulo
-            ->sucursalesPara($viewer, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)
-            ->all());
+        // «Sucursal y corporativo» = la suya + todo Corporativo (no las demás).
+        return array_values($this->alcanceModulo->sucursalesDelNivel($viewer, $nivel)->all());
     }
 
     /**
@@ -404,7 +403,8 @@ class DirectorioColaboradoresService
     /**
      * Círculo de sucursal: quien no ve región ni toda la empresa (gerente,
      * subgerente, coordinadora) ve a su sucursal sin gestores + la gerencia
-     * regional + su jefe directo.
+     * regional + su jefe directo. Con «Sucursal y corporativo» sigue siendo
+     * su círculo, más todo el personal de Corporativo (que no tiene gestores).
      */
     private function veSoloSuCirculo(User $viewer): bool
     {
