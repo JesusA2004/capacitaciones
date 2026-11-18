@@ -194,16 +194,27 @@ class CatalogoPermisosService
     }
 
     /**
-     * Permisos que se pueden asignar a un rol: todo el catálogo (seeder +
-     * módulos) que ya exista en la base.
+     * Permisos que se pueden asignar a un rol o a una persona: TODO el
+     * catálogo (seeder + módulos). La pantalla ya los muestra desde la
+     * configuración, así que si un deploy no corrió
+     * `people:sincronizar-permisos` y faltan filas en la base, se crean aquí
+     * con la misma sincronización segura del deploy (crea los faltantes,
+     * reparte base/herencia solo de los recién creados, nunca quita nada) en
+     * vez de rechazar el guardado con «no existe en el catálogo».
      *
      * @return list<string>
      */
     public function asignables(): array
     {
+        $catalogo = RolesYPermisosSeeder::catalogoPermisos();
         $existentes = Permission::query()->where('guard_name', 'web')->pluck('name')->map(fn ($p): string => (string) $p)->all();
 
-        return array_values(array_intersect(RolesYPermisosSeeder::catalogoPermisos(), $existentes));
+        if (array_diff($catalogo, $existentes) !== []) {
+            app(SincronizadorPermisosService::class)->sincronizar();
+            $existentes = Permission::query()->where('guard_name', 'web')->pluck('name')->map(fn ($p): string => (string) $p)->all();
+        }
+
+        return array_values(array_intersect($catalogo, $existentes));
     }
 
     /**

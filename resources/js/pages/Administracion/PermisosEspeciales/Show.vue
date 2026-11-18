@@ -833,10 +833,17 @@ const hoy = new Date().toISOString().slice(0, 10);
             </aside>
         </div>
 
-        <!-- Barra de cambios -->
+        <!-- Barra de cambios: flotante y siempre a la vista (no hay que bajar
+             hasta el final para guardar). El espaciador evita que tape lo
+             último de la matriz. -->
         <div
             v-if="cambios > 0 && !soloLectura"
-            class="sticky bottom-20 z-20 flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg md:bottom-4"
+            class="h-48 md:h-36"
+            aria-hidden="true"
+        />
+        <div
+            v-if="cambios > 0 && !soloLectura"
+            class="fixed inset-x-4 bottom-20 z-40 flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg md:inset-x-auto md:right-6 md:bottom-6 md:w-[min(48rem,calc(100vw-20rem))]"
             role="status"
         >
             <span class="text-sm">

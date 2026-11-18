@@ -714,9 +714,7 @@ const dialogClonar = ref(false);
                                             class="text-[11px] text-muted-foreground"
                                             >{{ coberturaDe(r) }} de
                                             {{ totalModulos }} módulos ·
-                                            {{
-                                                r.permisos.length
-                                            }}
+                                            {{ r.permisos.length }}
                                             permisos</span
                                         >
                                     </template>
@@ -1161,7 +1159,9 @@ const dialogClonar = ref(false);
             </section>
         </div>
 
-        <!-- Barra de cambios sin guardar -->
+        <!-- Barra de cambios sin guardar: flotante y siempre a la vista
+             (no hay que bajar hasta el final para guardar). El espaciador
+             evita que tape lo último de la matriz. -->
         <div
             v-if="
                 totalCambios > 0 &&
@@ -1169,7 +1169,17 @@ const dialogClonar = ref(false);
                 !soloLectura &&
                 vista !== 'notificaciones'
             "
-            class="sticky bottom-20 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg md:bottom-4"
+            class="h-24"
+            aria-hidden="true"
+        />
+        <div
+            v-if="
+                totalCambios > 0 &&
+                rol &&
+                !soloLectura &&
+                vista !== 'notificaciones'
+            "
+            class="fixed inset-x-4 bottom-20 z-40 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg md:inset-x-auto md:right-6 md:bottom-6 md:max-w-xl"
             role="status"
         >
             <span class="text-sm">

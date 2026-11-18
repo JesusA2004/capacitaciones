@@ -6,6 +6,7 @@ use Database\Seeders\RolesYPermisosSeeder;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * «Roles y permisos» como matriz por etapa → módulo → acceso / alcance /
@@ -98,6 +99,42 @@ test('guardar valida contra el catálogo: un permiso inventado se rechaza', func
         ->assertSessionHasErrors('permisos.0');
 
     expect($rol->fresh()->permissions)->toHaveCount(0);
+});
+
+test('un permiso del catálogo que falta en la base (deploy sin sincronizar) se crea al guardar en vez de rechazarse', function () {
+    // Producción: se agregó candidatos.consultar_referencias al catálogo,
+    // pero el deploy no corrió people:sincronizar-permisos.
+    Permission::query()->where('name', 'candidatos.consultar_referencias')->delete();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $rol = Role::findByName('rh_admin');
+    $permisos = [...$rol->permissions->pluck('name')->all(), 'candidatos.consultar_referencias'];
+
+    $this->actingAs(adminDeRoles())
+        ->put(route('administracion.roles.update', $rol), ['nombre' => 'rh_admin', 'permisos' => $permisos])
+        ->assertSessionHasNoErrors();
+
+    expect($rol->fresh()->permissions->pluck('name')->all())->toContain('candidatos.consultar_referencias');
+});
+
+test('permisos especiales: se concede un permiso del catálogo que falta en la base y se quita uno del rol', function () {
+    Permission::query()->where('name', 'candidatos.consultar_referencias')->delete();
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $persona = adminDeRoles('gerente');
+    $quitar = $persona->getPermissionsViaRoles()->pluck('name')->first();
+
+    $this->actingAs(adminDeRoles())
+        ->put(route('administracion.usuarios.permisos.update', $persona), [
+            'ajustes' => [
+                ['permiso' => 'candidatos.consultar_referencias', 'tipo' => 'conceder'],
+                ['permiso' => $quitar, 'tipo' => 'revocar'],
+            ],
+            'motivo' => 'Prueba de cobertura',
+        ])
+        ->assertSessionHasNoErrors();
+
+    $persona = $persona->fresh();
+    expect($persona->hasPermissionTo('candidatos.consultar_referencias'))->toBeTrue()
+        ->and($persona->hasPermissionTo($quitar))->toBeFalse();
 });
 
 test('un permiso legado que el rol ya tenía se puede conservar al guardar', function () {
