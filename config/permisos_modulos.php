@@ -1,5 +1,8 @@
 <?php
 
+use App\Support\CatalogoPermisosAppMovil;
+use App\Support\CatalogoPermisosPendientes;
+
 /*
 |--------------------------------------------------------------------------
 | Permisos por módulo: acceso + alcance de datos + acciones
@@ -38,7 +41,7 @@ return [
             'etapa' => 'inicio',
             'acceso' => null,
             'alcances' => [],
-            'acciones' => \App\Support\CatalogoPermisosPendientes::acciones(),
+            'acciones' => CatalogoPermisosPendientes::acciones(),
         ],
         // Tarjetas de la pantalla «Roles y permisos» para permisos que ya
         // existían sin módulo (solo agrupan; sin alcances, no cambian nada).
@@ -222,12 +225,12 @@ return [
         // todos los roles (herencia de mobile.bootstrap.ver + migración
         // 2026_11_18_600100_otorga_permisos_app_movil); la API los exige con
         // PermisosAppMovilService y la app oculta el botón con `permisos_app`.
-        'app_movil_solicitudes' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_solicitudes'),
-        'app_movil_vacaciones' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_vacaciones'),
-        'app_movil_expediente' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_expediente'),
-        'app_movil_induccion' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_induccion'),
-        'app_movil_comunidad' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_comunidad'),
-        'app_movil_equipo' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_equipo'),
+        'app_movil_solicitudes' => CatalogoPermisosAppMovil::modulo('app_movil_solicitudes'),
+        'app_movil_vacaciones' => CatalogoPermisosAppMovil::modulo('app_movil_vacaciones'),
+        'app_movil_expediente' => CatalogoPermisosAppMovil::modulo('app_movil_expediente'),
+        'app_movil_induccion' => CatalogoPermisosAppMovil::modulo('app_movil_induccion'),
+        'app_movil_comunidad' => CatalogoPermisosAppMovil::modulo('app_movil_comunidad'),
+        'app_movil_equipo' => CatalogoPermisosAppMovil::modulo('app_movil_equipo'),
         // --- Organización y Configuración (permisos por acción) ---
         // El acceso es el permiso que ya revisa el menú; cada acción nueva
         // se separó de él (ver 'herencia') y la exigen las Policies.
@@ -356,10 +359,10 @@ return [
                 'usuarios.desactivar' => 'Revocar acceso',
                 'usuarios.restablecer_acceso' => 'Restablecer acceso suspendido',
                 'usuarios.reactivar' => 'Reactivar colaborador dado de baja',
+                'usuarios.permisos_especiales' => 'Dar o quitar permisos especiales a una persona (sin tocar su rol)',
             ],
         ],
         'importar_datos' => [
-                'usuarios.permisos_especiales' => 'Dar o quitar permisos especiales a una persona (sin tocar su rol)',
             'etiqueta' => 'Importar datos',
             'grupo' => 'Configuración',
             'etapa' => 'configuracion',
@@ -964,7 +967,7 @@ return [
 
     'herencia' => [
         // App móvil por botón: lo tiene de inicio quien ya abría la app.
-        ...array_fill_keys(\App\Support\CatalogoPermisosAppMovil::permisos(), 'mobile.bootstrap.ver'),
+        ...array_fill_keys(CatalogoPermisosAppMovil::permisos(), 'mobile.bootstrap.ver'),
         // Checklist de avisos por rol: quien hoy administra roles o notificaciones.
         'notificaciones_rol.editar' => ['roles.administrar', 'configuracion.notificaciones'],
         // Contratación y expediente (contratos, candidatos). ver_documento y
@@ -1031,12 +1034,12 @@ return [
         'causales_rotacion.activar' => 'finiquitos.causales_rotacion',
         'causales_rotacion.ordenar' => 'finiquitos.causales_rotacion',
         'usuarios.restablecer_password' => 'usuarios.editar',
-        'configuracion.notificaciones.editar' => 'configuracion.notificaciones',
-        'configuracion.rh.editar_parametros' => 'configuracion.rh',
-        'configuracion.rh.puestos' => 'configuracion.rh',
         // Permisos especiales por persona: de inicio, quien administra roles
         // (super_admin y Sistemas, o cualquier rol con roles.administrar).
         'usuarios.permisos_especiales' => 'roles.administrar',
+        'configuracion.notificaciones.editar' => 'configuracion.notificaciones',
+        'configuracion.rh.editar_parametros' => 'configuracion.rh',
+        'configuracion.rh.puestos' => 'configuracion.rh',
         'configuracion.rh.tipos_documento' => 'configuracion.rh',
         'configuracion.rh.reclutamiento' => 'configuracion.rh',
         // Reclutamiento / Onboarding / Periodo de prueba / Reportes.
@@ -1108,6 +1111,7 @@ return [
         'directorio.ver_todos' => 'En el directorio ve al personal de toda la empresa.',
         'directorio.ver_region' => 'En el directorio ve al personal de las sucursales de su región (matriz comercial).',
         'directorio.ver_sucursal' => 'En el directorio ve al personal de sus sucursales asignadas. Sin ningún alcance, solo ve su propia sucursal y a su jefe directo.',
+        'directorio.ver_sucursal_corporativo' => 'En el directorio ve a su círculo de sucursal más todo el personal de Corporativo, sin las demás sucursales.',
         'roles.administrar' => 'Entrar a «Roles y permisos»: crear, editar, clonar y eliminar roles y decidir qué puede hacer cada uno. Muy sensible.',
         'auditoria.ver' => 'Consultar la bitácora de quién hizo qué.',
         'headcount.ver' => 'Ver la plantilla autorizada y las vacantes por sucursal y puesto.',
@@ -1178,7 +1182,6 @@ return [
         'salarios.importar' => 'Carga el tabulador desde Excel con vista previa. No cambia sueldos.',
         'sucursales.administrar' => 'Entra al catálogo de sucursales y consulta su detalle.',
         'sucursales.crear' => 'Da de alta una sucursal nueva.',
-        'directorio.ver_sucursal_corporativo' => 'En el directorio ve a su círculo de sucursal más todo el personal de Corporativo, sin las demás sucursales.',
         'sucursales.editar' => 'Cambia los datos de una sucursal (nombre, clave, domicilio).',
         'sucursales.eliminar' => 'Elimina una sucursal.',
         'departamentos.administrar' => 'Entra al catálogo de departamentos y consulta quién pertenece a cada uno.',
@@ -1209,10 +1212,10 @@ return [
         'usuarios.editar' => 'Cambia usuario, correo y zona horaria de una cuenta.',
         'usuarios.asignar_roles' => 'Cambia los roles de una cuenta.',
         'usuarios.restablecer_password' => 'Genera credenciales o una contraseña nueva para otra persona.',
+        'usuarios.permisos_especiales' => 'Concede o quita permisos (y alcance por módulo) a UNA persona sin tocar su rol, con motivo y vigencia opcional que vence sola (p. ej. un gerente que cubre a otro). Solo concede lo que él mismo tiene; nunca a sí mismo ni a una cuenta de rol superior. Muy sensible.',
         'usuarios.desactivar' => 'Revoca el acceso de una cuenta (no da de baja al colaborador).',
         'usuarios.restablecer_acceso' => 'Rehabilita una cuenta suspendida.',
         'usuarios.reactivar' => 'Reactiva a un colaborador dado de baja desde su expediente.',
-        'usuarios.permisos_especiales' => 'Concede o quita permisos (y alcance por módulo) a UNA persona sin tocar su rol, con motivo y vigencia opcional que vence sola (p. ej. un gerente que cubre a otro). Solo concede lo que él mismo tiene; nunca a sí mismo ni a una cuenta de rol superior. Muy sensible.',
         'expedientes.migrar' => 'Migración y carga inicial de colaboradores y expedientes históricos.',
         'expedientes.editar_fechas' => 'Edita las fechas laborales (ingreso, capacitación inicial, inducción, alta IMSS) y el periodo de prueba específico de una persona, con motivo e historial; incluye la captura masiva.',
         'expedientes.cambiar_sucursal' => 'Cambia a una persona de sucursal sin cambiar su puesto: valida plaza libre en destino, registra el movimiento laboral y recalcula su jefe directo.',
