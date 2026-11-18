@@ -76,6 +76,7 @@ import { create as registrarBaja } from '@/routes/rh/bajas';
 import { reactivar } from '@/routes/rh/expedientes';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
+    AccesoSistema,
     SiguientePaso,
     AltaDigitalResumenExpediente,
     CompletitudDatos,
@@ -193,6 +194,66 @@ const props = defineProps<{
 // Acuse de alta IMSS: lo sube RH al concluir el alta. Verde = registrado,
 // naranja = falta. Es un indicador, no un pendiente de la bandeja.
 const { mostrarExito, mostrarError } = useAlertas();
+
+/**
+ * «Acceso al sistema» con la regla del backend (EstatusLaboralService):
+ * sin cuenta, bloqueado o dado de baja nunca se muestran como «Sí».
+ */
+const acceso = computed<AccesoSistema>(() => {
+    const c = props.colaborador;
+
+    if (c.acceso) {
+        return c.acceso;
+    }
+
+    const base = {
+        tiene_cuenta: c.tiene_cuenta,
+        bloqueado_en: c.acceso_bloqueado_en,
+        sesiones_app: 0,
+        motivo: null,
+    };
+
+    if (!c.tiene_cuenta) {
+        return {
+            ...base,
+            clave: 'sin_cuenta',
+            etiqueta: 'Sin cuenta',
+            puede_entrar: false,
+        };
+    }
+
+    if (c.acceso_bloqueado_en) {
+        return {
+            ...base,
+            clave: 'bloqueado',
+            etiqueta: 'Bloqueado',
+            puede_entrar: false,
+        };
+    }
+
+    if (c.estatus === 'inactivo' || c.deleted_at) {
+        return {
+            ...base,
+            clave: 'sin_acceso_baja',
+            etiqueta: 'Sin acceso (baja)',
+            puede_entrar: false,
+        };
+    }
+
+    return {
+        ...base,
+        clave: 'con_acceso',
+        etiqueta: 'Con acceso',
+        puede_entrar: true,
+    };
+});
+
+/** Dado de baja (o con baja ya aplicada): banner y sin acciones de alta. */
+const dadoDeBaja = computed(
+    () =>
+        props.colaborador.estado_laboral?.clave === 'baja' ||
+        props.colaborador.estatus === 'inactivo',
+);
 
 function reactivarColaborador() {
     accion.ejecutar('reactivarColaborador', (estado) => {
@@ -518,7 +579,13 @@ function irACompletarExpediente() {
                                 {{ colaborador.name }}
                                 {{ colaborador.apellidos }}
                             </h1>
-                            <EstadoBadge :estado="colaborador.estatus" />
+                            <EstadoBadge
+                                :estado="
+                                    colaborador.estado_laboral?.clave ??
+                                    colaborador.estatus
+                                "
+                                :etiqueta="colaborador.estado_laboral?.etiqueta"
+                            />
                         </div>
                         <p class="text-sm text-muted-foreground">
                             {{
@@ -545,20 +612,19 @@ function irACompletarExpediente() {
                                     colaborador.departamento?.nombre ?? '—'
                                 }}</span
                             >
-                            <span class="flex items-center gap-1">
+                            <span
+                                class="flex items-center gap-1"
+                                :title="acceso.motivo ?? undefined"
+                            >
                                 Acceso al sistema:
                                 <span
                                     :class="
-                                        colaborador.acceso_bloqueado_en
-                                            ? 'font-medium text-destructive'
-                                            : 'font-medium text-success'
+                                        acceso.puede_entrar
+                                            ? 'font-medium text-success'
+                                            : 'font-medium text-destructive'
                                     "
                                 >
-                                    {{
-                                        colaborador.acceso_bloqueado_en
-                                            ? 'No (bloqueado)'
-                                            : 'Sí'
-                                    }}
+                                    {{ acceso.etiqueta }}
                                 </span>
                             </span>
                             <span
@@ -610,15 +676,13 @@ function irACompletarExpediente() {
                         v-if="
                             !esPropio &&
                             puedeAvisarDatosFaltantes &&
-                            colaborador.estatus !== 'inactivo'
+                            !dadoDeBaja
                         "
                         :colaborador-id="colaborador.id"
                     />
                     <Button
                         :disabled="accion.ocupado.value"
-                        v-if="
-                            colaborador.estatus === 'inactivo' && puedeReactivar
-                        "
+                        v-if="dadoDeBaja && puedeReactivar"
                         size="sm"
                         variant="success"
                         @click="reactivarColaborador"
@@ -626,7 +690,7 @@ function irACompletarExpediente() {
                         Reactivar colaborador
                     </Button>
                     <p
-                        v-else-if="colaborador.estatus === 'inactivo'"
+                        v-else-if="dadoDeBaja"
                         class="text-xs text-muted-foreground"
                     >
                         Baja — solo un administrador puede reactivar.
@@ -683,8 +747,7 @@ function irACompletarExpediente() {
                                         class="text-xs whitespace-normal text-muted-foreground"
                                     >
                                         Vuelve a permitir el inicio de sesión.
-                                        El colaborador nunca dejó de estar
-                                        activo en la plantilla.
+                                        No cambia su estatus laboral.
                                     </span>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
@@ -756,6 +819,50 @@ function irACompletarExpediente() {
                 :paso="siguientePasoSueldo"
             />
         </div>
+
+        <!-- Baja aplicada o programada: lo primero que se ve en el expediente
+             y su carpeta (EstatusLaboralService::estado). -->
+        <Card
+            v-if="colaborador.estado_laboral?.mensaje"
+            data-test="banner-baja"
+            :class="
+                colaborador.estado_laboral.clave === 'baja'
+                    ? 'border-danger/30 bg-danger-soft/50 py-0'
+                    : 'border-warning/30 bg-warning-soft/50 py-0'
+            "
+        >
+            <CardContent
+                class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm sm:px-6"
+            >
+                <AlertTriangle
+                    class="size-4 shrink-0"
+                    :class="
+                        colaborador.estado_laboral.clave === 'baja'
+                            ? 'text-danger'
+                            : 'text-warning'
+                    "
+                />
+                <span class="font-medium">
+                    {{ colaborador.estado_laboral.mensaje }}
+                </span>
+                <span
+                    v-if="colaborador.estado_laboral.folio"
+                    class="text-muted-foreground"
+                >
+                    Folio {{ colaborador.estado_laboral.folio }}
+                </span>
+                <span class="text-muted-foreground">
+                    Su expediente, documentos e historial se conservan.
+                </span>
+                <Link
+                    v-if="cicloUrl"
+                    :href="cicloUrl"
+                    class="enlace-animado font-medium text-primary"
+                >
+                    Ver baja en su ciclo laboral
+                </Link>
+            </CardContent>
+        </Card>
 
         <Card
             v-if="completitudDatos.aplica && completitudDatos.porcentaje < 100"

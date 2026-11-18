@@ -86,6 +86,9 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     borrador: { variante: 'secondary', etiqueta: 'Borrador' },
     archivado: { variante: 'secondary', etiqueta: 'Archivado' },
     inactivo: { variante: 'secondary', etiqueta: 'Inactivo' },
+    // Estado laboral (EstatusLaboralService::estado).
+    baja: { variante: 'destructive', etiqueta: 'Baja' },
+    baja_programada: { variante: 'warning', etiqueta: 'Baja programada' },
     cancelada: { variante: 'secondary', etiqueta: 'Cancelada' },
     creada: { variante: 'secondary', etiqueta: 'Creada' },
     cerrada: { variante: 'secondary', etiqueta: 'Cerrada' },

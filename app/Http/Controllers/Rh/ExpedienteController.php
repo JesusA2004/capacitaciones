@@ -34,6 +34,7 @@ use App\Services\Bajas\BajaService;
 use App\Services\Certificados\CertificacionFormatoService;
 use App\Services\Colaboradores\AltaImssService;
 use App\Services\Colaboradores\DomicilioService;
+use App\Services\Colaboradores\EstatusLaboralService;
 use App\Services\Colaboradores\FiltroColaboradoresService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
@@ -128,8 +129,9 @@ class ExpedienteController extends Controller
         $columnasRequeridas = array_keys($this->documentoProceso->columnasColaboradorRequeridasGlobal());
 
         $contratosPendientes = app(ContratosPendientesExpedienteService::class);
+        $estatusLaboral = app(EstatusLaboralService::class);
 
-        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes, $columnasRequeridas, $contratosPendientes) {
+        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes, $columnasRequeridas, $contratosPendientes, $estatusLaboral) {
             $resumen = $resumenes[$colaborador->id];
             $documentosPendientes = $resumen['pendientes'] + $resumen['rechazados'];
             // Columnas con cast a enum (estado civil, género) no se pueden
@@ -148,6 +150,7 @@ class ExpedienteController extends Controller
                 'numero_empleado' => $colaborador->numero_empleado,
                 'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
+                'estado_laboral' => $estatusLaboral->estado($colaborador),
                 'deleted_at' => $colaborador->deleted_at?->toISOString(),
                 'empresa' => $colaborador->sucursalPrincipal?->empresa,
                 'sucursal' => $colaborador->sucursalPrincipal,
@@ -434,6 +437,10 @@ class ExpedienteController extends Controller
                 'estatus' => $colaborador->estatus->value,
                 'deleted_at' => $colaborador->deleted_at?->toISOString(),
                 'acceso_bloqueado_en' => $cuenta?->acceso_bloqueado_en?->toISOString(),
+                // Una sola regla para chip, banner «Dado de baja el …» e
+                // indicador de acceso (cuenta, bloqueo, estatus y sesiones).
+                'estado_laboral' => app(EstatusLaboralService::class)->estado($colaborador),
+                'acceso' => app(EstatusLaboralService::class)->acceso($colaborador),
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
                 'imss_alta' => $esPropio ? null : $this->altaImss->indicador($colaborador),
@@ -605,7 +612,7 @@ class ExpedienteController extends Controller
      */
     private function puedeDarDeBaja(User $usuario, Colaborador $colaborador): bool
     {
-        return ! $colaborador->trashed()
+        return ! app(EstatusLaboralService::class)->estaDadoDeBaja($colaborador)
             && $usuario->can('create', Baja::class)
             && $this->bajas->puedeSolicitarPara($usuario, $colaborador)
             && $this->alcance->puedeVerExpediente($usuario, $colaborador);

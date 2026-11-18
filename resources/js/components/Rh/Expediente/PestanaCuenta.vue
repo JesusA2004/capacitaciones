@@ -10,7 +10,7 @@ import {
     UserCog,
     UserPlus,
 } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
 import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
@@ -46,6 +46,23 @@ const emit = defineEmits<{
 const { mostrarExito, mostrarError } = useAlertas();
 
 const dialogoPasswordAbierto = ref(false);
+
+/**
+ * Misma regla que el encabezado (EstatusLaboralService::acceso): bloqueado
+ * o dado de baja nunca se muestra como «Activo».
+ */
+const puedeEntrar = computed(
+    () =>
+        props.colaborador.acceso?.puede_entrar ??
+        (!props.colaborador.acceso_bloqueado_en &&
+            props.colaborador.estatus !== 'inactivo'),
+);
+
+const etiquetaAcceso = computed(
+    () =>
+        props.colaborador.acceso?.etiqueta ??
+        (puedeEntrar.value ? 'Con acceso' : 'Bloqueado'),
+);
 
 function alternarRol(lista: string[], rol: string, marcado: boolean): string[] {
     return marcado
@@ -230,21 +247,27 @@ function guardarCuenta() {
                         <p
                             class="flex items-center gap-1.5 font-medium"
                             :class="
-                                colaborador.acceso_bloqueado_en
-                                    ? 'text-destructive'
-                                    : 'text-[var(--success)]'
+                                puedeEntrar
+                                    ? 'text-[var(--success)]'
+                                    : 'text-destructive'
                             "
                         >
-                            <Lock
-                                v-if="colaborador.acceso_bloqueado_en"
-                                class="size-3.5"
-                            />
-                            <ShieldCheck v-else class="size-3.5" />
-                            {{
-                                colaborador.acceso_bloqueado_en
-                                    ? 'Bloqueado'
-                                    : 'Activo'
-                            }}
+                            <ShieldCheck v-if="puedeEntrar" class="size-3.5" />
+                            <Lock v-else class="size-3.5" />
+                            {{ etiquetaAcceso }}
+                        </p>
+                        <p
+                            v-if="colaborador.acceso?.motivo && !puedeEntrar"
+                            class="mt-0.5 text-xs text-muted-foreground"
+                        >
+                            {{ colaborador.acceso.motivo }}
+                        </p>
+                        <p
+                            v-if="colaborador.acceso?.sesiones_app"
+                            class="mt-0.5 text-xs text-muted-foreground"
+                        >
+                            {{ colaborador.acceso.sesiones_app }} sesión(es)
+                            abierta(s) en la app.
                         </p>
                     </div>
 

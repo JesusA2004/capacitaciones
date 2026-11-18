@@ -1,5 +1,34 @@
 import type { PlanContratos } from './contratos';
 
+/** Estado laboral para mostrar (EstatusLaboralService::estado): una sola regla en todo el portal. */
+export type EstadoLaboral = {
+    clave:
+        | 'activo'
+        | 'en_incorporacion'
+        | 'suspendido'
+        | 'inactivo'
+        | 'baja'
+        | 'baja_programada'
+        | string;
+    etiqueta: string;
+    fecha_baja: string | null;
+    /** «Dado de baja el 05/10/2026 (Renuncia voluntaria).» — null si sigue laborando. */
+    mensaje: string | null;
+    folio: string | null;
+};
+
+/** Indicador «Acceso al sistema» (EstatusLaboralService::acceso). */
+export type AccesoSistema = {
+    clave: 'sin_cuenta' | 'bloqueado' | 'sin_acceso_baja' | 'con_acceso';
+    etiqueta: string;
+    puede_entrar: boolean;
+    tiene_cuenta: boolean;
+    motivo: string | null;
+    bloqueado_en: string | null;
+    /** Sesiones abiertas de la app móvil (tokens). */
+    sesiones_app: number;
+};
+
 export type ColaboradorExpedienteItem = {
     id: number;
     name: string;
@@ -9,6 +38,7 @@ export type ColaboradorExpedienteItem = {
     numero_empleado: string | null;
     foto_url: string | null;
     estatus: string;
+    estado_laboral?: EstadoLaboral;
     deleted_at: string | null;
     empresa: { id: number; nombre: string } | null;
     sucursal: { id: number; nombre: string; empresa_id: number | null } | null;
@@ -56,6 +86,8 @@ export type ExpedienteColaborador = {
     estatus: string;
     deleted_at: string | null;
     acceso_bloqueado_en: string | null;
+    estado_laboral?: EstadoLaboral;
+    acceso?: AccesoSistema;
     estatus_imss: string;
     fecha_alta_imss: string | null;
     /** Acuse de alta IMSS subido por RH (verde) o faltante (naranja). */

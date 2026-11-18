@@ -84,9 +84,15 @@ defineProps<{
                     </div>
                 </div>
 
+                <!-- Estado laboral único (EstatusLaboralService): «Baja»,
+                     «Baja el dd/mm/aaaa» (programada), Activo… -->
                 <EstadoBadge
-                    :estado="colaborador.estatus"
-                    :etiqueta="colaborador.deleted_at ? 'Baja' : undefined"
+                    :estado="
+                        colaborador.estado_laboral?.clave ??
+                        (colaborador.deleted_at ? 'baja' : colaborador.estatus)
+                    "
+                    :etiqueta="colaborador.estado_laboral?.etiqueta"
+                    :title="colaborador.estado_laboral?.mensaje ?? undefined"
                     class="w-fit"
                 />
 

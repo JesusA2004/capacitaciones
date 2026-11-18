@@ -3,7 +3,9 @@
 namespace App\Services\Solicitudes;
 
 use App\Enums\EstadoAltaColaborador;
+use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoUsuario;
+use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\Administracion\AccesoCuentaService;
@@ -13,6 +15,7 @@ use App\Services\Notificaciones\AvisoBajaSistemasService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use App\Support\FechaMexico;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Ejecuta la baja REAL de un colaborador cuando una solicitud interna de
@@ -106,6 +109,18 @@ class BajaColaboradorService
      */
     public function reactivar(Colaborador $colaborador): void
     {
+        // Con la baja todavía en trámite (cierre abierto), «reactivar» dejaría
+        // el cierre, la baja y el acceso desalineados: se revierte con
+        // «No procede», que regresa estatus, procesos y acceso juntos.
+        $cierreAbierto = CierreLaboral::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->whereIn('estado', array_map(fn (EstadoCierreLaboral $e) => $e->value, EstadoCierreLaboral::abiertos()))
+            ->exists();
+
+        if ($cierreAbierto) {
+            throw ValidationException::withMessages(['colaborador' => 'Tiene una baja en trámite: si no procede, márcala «No procede» en Bajas y todo regresa (estatus, procesos y acceso).']);
+        }
+
         DB::transaction(function () use ($colaborador): void {
             $colaborador->restore();
             $colaborador->update([
