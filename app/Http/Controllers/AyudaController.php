@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Ayuda\MaterialAyudaService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -70,6 +72,41 @@ class AyudaController extends Controller
     public function preguntas(): Response
     {
         return Inertia::render('Ayuda/Preguntas');
+    }
+
+    /**
+     * Material de apoyo (videos e infografías oficiales). Solo lo publicado
+     * con `php artisan ayuda:publicar-material`.
+     */
+    public function material(MaterialAyudaService $material): Response
+    {
+        return Inertia::render('Ayuda/Material', [
+            'materiales' => $material->publicados(),
+            'temas' => config('ayuda_material.temas', []),
+        ]);
+    }
+
+    /**
+     * Archivo de un material por slug: el video atiende peticiones por rango
+     * (adelantar/atrasar) y el PDF se abre en línea; `?descargar=1` lo baja.
+     */
+    public function archivoMaterial(Request $request, MaterialAyudaService $servicio, string $material): BinaryFileResponse
+    {
+        $encontrado = $servicio->buscar($material);
+
+        abort_if($encontrado === null || ! $servicio->estaPublicado($encontrado), 404);
+
+        $ruta = $servicio->rutaPublicada($encontrado);
+        $cabeceras = ['Content-Type' => $servicio->mime($encontrado)];
+
+        $respuesta = $request->boolean('descargar')
+            ? response()->download($ruta, $servicio->nombreDescarga($encontrado), $cabeceras)
+            : response()->file($ruta, $cabeceras + ['Content-Disposition' => sprintf('inline; filename="%s"', $servicio->nombreDescarga($encontrado))]);
+        // Solo con sesión: nunca en cachés compartidas.
+        $respuesta->setPrivate();
+        $respuesta->setMaxAge(86400);
+
+        return $respuesta;
     }
 
     /**

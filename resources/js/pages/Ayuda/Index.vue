@@ -5,6 +5,7 @@ import {
     BookOpen,
     CheckCircle2,
     CirclePlay,
+    Clapperboard,
     Clock,
     Compass,
     GraduationCap,
@@ -41,6 +42,7 @@ import {
     tourCompleto,
     tourDeModulo,
 } from '@/lib/tours/registro';
+import { material } from '@/routes/ayuda';
 
 defineOptions({
     layout: {
@@ -162,6 +164,16 @@ function buscar(): void {
                     </Button>
                     <Button
                         size="lg"
+                        variant="secondary"
+                        class="gap-2"
+                        as-child
+                    >
+                        <Link :href="material.url()">
+                            <Clapperboard class="size-4" /> Material de apoyo
+                        </Link>
+                    </Button>
+                    <Button
+                        size="lg"
                         variant="outline"
                         class="gap-2 bg-[var(--mrl-superficie)]"
                         @click="buscar"
@@ -189,6 +201,30 @@ function buscar(): void {
                 </p>
             </div>
         </section>
+
+        <!-- Material de apoyo (videos e infografías oficiales) -->
+        <Link
+            :href="material.url()"
+            class="flex tarjeta-interactiva flex-wrap items-center gap-4 rounded-3xl border border-[var(--mrl-borde)] bg-gradient-to-br from-[var(--mrl-petroleo)] to-esmeralda p-5 text-white sm:p-6"
+        >
+            <span
+                class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/15"
+            >
+                <Clapperboard class="size-6" />
+            </span>
+            <span class="min-w-0 flex-1">
+                <span class="block text-lg font-semibold">
+                    Material de apoyo
+                </span>
+                <span class="block text-sm text-white/85">
+                    Manual de operaciones, videos, flujograma de despliegue,
+                    infografía de gerentes e infografía de gestor.
+                </span>
+            </span>
+            <span class="flex items-center gap-1 text-sm font-semibold">
+                Ver material <ArrowRight class="size-4" />
+            </span>
+        </Link>
 
         <!-- Flujo general: solo RH (y la ayuda global de super_admin) -->
         <section

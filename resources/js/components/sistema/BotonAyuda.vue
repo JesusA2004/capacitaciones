@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, CircleHelp, Compass, Route } from '@lucide/vue';
+import {
+    BookOpen,
+    CircleHelp,
+    Clapperboard,
+    Compass,
+    Route,
+} from '@lucide/vue';
 import { useWindowScroll } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
@@ -18,6 +24,7 @@ import { articuloDePantalla } from '@/lib/guia/contextual';
 import { tourCompleto, toursDisponibles } from '@/lib/tours/registro';
 import type { ContextoGuia, Tour } from '@/lib/tours/tipos';
 import { ayuda } from '@/routes';
+import { material } from '@/routes/ayuda';
 
 /**
  * Botón flotante presente en todas las pantallas autenticadas (montado una
@@ -181,6 +188,23 @@ function lanzar(tour: Tour): void {
                         ¿Cómo funciona esta pantalla?
                         <span class="block text-[11px] text-muted-foreground">
                             {{ articuloPantalla.titulo }}
+                        </span>
+                    </span>
+                </Link>
+            </Button>
+
+            <Button
+                variant="outline"
+                size="sm"
+                class="h-auto w-full justify-start gap-2 py-2 text-left whitespace-normal"
+                as-child
+            >
+                <Link :href="material.url()" @click="abierto = false">
+                    <Clapperboard class="size-3.5 shrink-0" />
+                    <span class="min-w-0 flex-1">
+                        Material de apoyo
+                        <span class="block text-[11px] text-muted-foreground">
+                            Manual, videos, flujograma e infografías
                         </span>
                     </span>
                 </Link>

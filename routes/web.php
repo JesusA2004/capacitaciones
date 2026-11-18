@@ -87,6 +87,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('rol/{rol}', [AyudaController::class, 'rol'])->name('rol')->where('rol', '[a-z_]+');
         Route::get('video', [AyudaController::class, 'video'])->name('video');
         Route::get('video/archivo/{archivo}', [AyudaController::class, 'archivoVideo'])->name('video.archivo')->where('archivo', '[a-z0-9-]+\.(mp4|vtt|png)');
+        // Material de apoyo (videos e infografías de docs/ayuda, publicados con
+        // `php artisan ayuda:publicar-material`) — docs/AYUDA_MATERIAL.md.
+        Route::get('material', [AyudaController::class, 'material'])->name('material');
+        Route::get('material/archivo/{material}', [AyudaController::class, 'archivoMaterial'])->name('material.archivo')->where('material', '[a-z0-9-]+');
         Route::get('glosario', [AyudaController::class, 'glosario'])->name('glosario');
         Route::get('preguntas', [AyudaController::class, 'preguntas'])->name('preguntas');
     });
