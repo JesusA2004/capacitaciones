@@ -2,7 +2,6 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Ban,
-    ChartColumn,
     ChevronDown,
     Copy,
     GitCompareArrows,
@@ -28,7 +27,6 @@ import NuevoRolDialog from '@/components/Administracion/Roles/NuevoRolDialog.vue
 import PendientesPorRol from '@/components/Administracion/Roles/PendientesPorRol.vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
 import ResumenRol from '@/components/Administracion/Roles/ResumenRol.vue';
-import ResumenVisualRol from '@/components/Administracion/Roles/ResumenVisualRol.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -441,8 +439,6 @@ const gruposRoles = computed(() =>
         },
     ].filter((g) => g.roles.length > 0),
 );
-
-const verResumenVisual = ref(true);
 
 // --------------------------------------------------------------- filtros
 const vista = ref<'matriz' | 'resumen' | 'notificaciones' | 'pendientes'>(
@@ -1005,31 +1001,6 @@ const dialogClonar = ref(false);
 
                 <!-- Matriz -->
                 <template v-else>
-                    <section
-                        class="flex flex-col gap-2 rounded-2xl border border-border/60 bg-crema/30 p-3"
-                    >
-                        <button
-                            type="button"
-                            class="flex presionable items-center gap-2 rounded-lg text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                            :aria-expanded="verResumenVisual"
-                            @click="verResumenVisual = !verResumenVisual"
-                        >
-                            <ChartColumn class="size-4 text-primary" />
-                            Resumen visual de «{{ rol.nombre }}»
-                            <span class="font-normal text-muted-foreground"
-                                >· módulos por etapa, acciones y alcance</span
-                            >
-                            <ChevronDown
-                                class="ml-auto size-4 text-muted-foreground transition-transform"
-                                :class="verResumenVisual ? '' : '-rotate-90'"
-                            />
-                        </button>
-                        <ResumenVisualRol
-                            v-if="verResumenVisual"
-                            :catalogo="catalogo"
-                            :permisos="borrador"
-                        />
-                    </section>
                     <EmptyState
                         v-if="sinResultados"
                         :icono="Search"
