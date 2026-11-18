@@ -10,7 +10,6 @@ use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Models\SolicitudInterna;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
-use App\Support\CatalogoPermisosAppMovil;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -48,7 +47,7 @@ class SolicitudController extends Controller
 
     public function store(StoreSolicitudAutoservicioRequest $request): JsonResponse
     {
-        $this->exigirPermisoApp(CatalogoPermisosAppMovil::permisoParaCrear(TipoSolicitudInterna::from((string) $request->validated('tipo'))));
+        $this->exigirPermisoCrearSolicitud(TipoSolicitudInterna::from((string) $request->validated('tipo')));
 
         $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
 
@@ -123,7 +122,7 @@ class SolicitudController extends Controller
         $tipos = array_map(function (array $tipo): array {
             $enum = TipoSolicitudInterna::tryFrom((string) $tipo['clave']);
 
-            return [...$tipo, 'permitido_app' => $enum === null || $this->puedePermisoApp(CatalogoPermisosAppMovil::permisoParaCrear($enum))];
+            return [...$tipo, 'permitido_app' => $enum === null || $this->puedeCrearSolicitudApp($enum)];
         }, $tipos);
 
         return response()->json(['tipos' => $tipos, 'elegibilidad_prestamo' => $elegibilidad]);

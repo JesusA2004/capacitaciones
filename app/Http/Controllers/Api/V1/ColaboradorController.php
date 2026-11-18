@@ -14,7 +14,6 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Notificaciones\NotificationFeedService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
-use App\Support\CatalogoPermisosAppMovil;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -158,7 +157,7 @@ class ColaboradorController extends Controller
 
     public function storeSolicitud(StoreSolicitudAutoservicioRequest $request): JsonResponse
     {
-        $this->exigirPermisoApp(CatalogoPermisosAppMovil::permisoParaCrear(TipoSolicitudInterna::from((string) $request->validated('tipo'))));
+        $this->exigirPermisoCrearSolicitud(TipoSolicitudInterna::from((string) $request->validated('tipo')));
 
         $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
 

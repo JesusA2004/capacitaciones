@@ -39,7 +39,7 @@ final class CatalogoPermisosAppMovil
                 'app.solicitudes.crear_permiso' => 'Pedir permisos (con o sin goce, por horas, llegada tarde, salida temprano y especiales)',
                 'app.solicitudes.crear_incapacidad' => 'Reportar una incapacidad',
                 'app.solicitudes.crear_constancia' => 'Pedir constancia laboral',
-                'app.solicitudes.crear_actualizacion' => 'Pedir actualización de datos, datos bancarios, domicilio o reposición de documentos',
+                'app.solicitudes.crear_actualizacion' => 'Pedir actualización de datos, datos bancarios, domicilio o reposición de documentos (con el expediente bloqueado por datos faltantes la actualización de datos siempre se permite)',
                 'app.solicitudes.crear_prestamo' => 'Pedir un préstamo',
                 'app.solicitudes.crear_baja' => 'Solicitar su baja (renuncia)',
                 'app.solicitudes.crear_general' => 'Hacer una solicitud general',
@@ -51,7 +51,7 @@ final class CatalogoPermisosAppMovil
         ],
         'app_movil_vacaciones' => [
             'etiqueta' => 'App móvil: mis vacaciones',
-            'descripcion' => 'Pestaña «Vacaciones» de la app.',
+            'descripcion' => 'Pestaña «Vacaciones» de la app. Su historial sale de la lista de solicitudes: requiere también «Ver sus solicitudes».',
             'acciones' => [
                 'app.vacaciones.ver' => 'Ver su saldo y calendario de vacaciones',
                 'app.vacaciones.solicitar' => 'Solicitar vacaciones',

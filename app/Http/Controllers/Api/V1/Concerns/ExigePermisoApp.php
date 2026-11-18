@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Concerns;
 
+use App\Enums\TipoSolicitudInterna;
 use App\Models\User;
 use App\Services\Permisos\PermisosAppMovilService;
 
@@ -35,6 +36,22 @@ trait ExigePermisoApp
         }
 
         $this->exigirPermisoApp($permisos[0]);
+    }
+
+    protected function exigirPermisoCrearSolicitud(TipoSolicitudInterna $tipo): void
+    {
+        $usuario = request()->user();
+
+        abort_unless($usuario instanceof User, 401);
+
+        app(PermisosAppMovilService::class)->autorizarCrearSolicitud($usuario, $tipo);
+    }
+
+    protected function puedeCrearSolicitudApp(TipoSolicitudInterna $tipo): bool
+    {
+        $usuario = request()->user();
+
+        return $usuario instanceof User && app(PermisosAppMovilService::class)->puedeCrearSolicitud($usuario, $tipo);
     }
 
     protected function puedePermisoApp(string $permiso): bool
