@@ -21,12 +21,14 @@ import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import InputError from '@/components/InputError.vue';
+import DialogoCambioSucursal from '@/components/puestos/DialogoCambioSucursal.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatearFechaDoble, formatearFechaLarga } from '@/lib/fechas';
 import { store as subirAltaImss } from '@/routes/rh/expedientes/alta-imss';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
@@ -50,6 +52,18 @@ const props = defineProps<{
         empresa_id: number | null;
     }[];
 }>();
+
+// «Cambio de sucursal» (mismo puesto): plaza libre en destino, jefe del
+// organigrama y movimiento laboral (CambioSucursalService). Nadie se cambia
+// a sí mismo; el backend revalida permiso y alcance.
+const { tienePermiso } = usePermisos();
+const puedeCambiarSucursal = computed(
+    () =>
+        !props.esPropio &&
+        tienePermiso('expedientes.cambiar_sucursal') &&
+        props.colaborador.puesto !== null,
+);
+const cambioSucursalAbierto = ref(false);
 
 const subiendoImss = ref(false);
 
@@ -207,27 +221,49 @@ function sueldoFormateado(valor: string | null): string {
                 Datos laborales
             </CardTitle>
             <div
-                v-if="puedeEditarLaborales && !editandoLaborales"
+                v-if="
+                    (puedeEditarLaborales || puedeCambiarSucursal) &&
+                    !editandoLaborales
+                "
                 class="flex flex-wrap items-center gap-2"
             >
-                <BotonCorregir
-                    v-if="puedeVerSueldo"
-                    dominio="salario"
-                    :sujeto-id="colaborador.id"
-                    etiqueta="Corregir sueldo"
-                    :abrir-al-inicio="corregirSueldoAlInicio"
-                    permiso="salarios.editar"
-                />
-                <BotonCorregir dominio="laboral" :sujeto-id="colaborador.id" />
                 <Button
+                    v-if="puedeCambiarSucursal"
                     size="sm"
-                    variant="ghost"
-                    @click="iniciarEdicionLaborales"
+                    variant="outline"
+                    @click="cambioSucursalAbierto = true"
                 >
-                    <Pencil class="size-3.5" />
-                    Editar
+                    <MapPinned class="size-3.5" />
+                    Cambio de sucursal
                 </Button>
+                <template v-if="puedeEditarLaborales">
+                    <BotonCorregir
+                        v-if="puedeVerSueldo"
+                        dominio="salario"
+                        :sujeto-id="colaborador.id"
+                        etiqueta="Corregir sueldo"
+                        :abrir-al-inicio="corregirSueldoAlInicio"
+                        permiso="salarios.editar"
+                    />
+                    <BotonCorregir
+                        dominio="laboral"
+                        :sujeto-id="colaborador.id"
+                    />
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        @click="iniciarEdicionLaborales"
+                    >
+                        <Pencil class="size-3.5" />
+                        Editar
+                    </Button>
+                </template>
             </div>
+            <DialogoCambioSucursal
+                v-if="puedeCambiarSucursal"
+                v-model:open="cambioSucursalAbierto"
+                :colaborador-ids="[colaborador.id]"
+            />
         </CardHeader>
         <CardContent class="flex flex-col gap-6">
             <form

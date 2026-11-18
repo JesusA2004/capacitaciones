@@ -149,6 +149,7 @@ require __DIR__.'/reportes.php';
 require __DIR__.'/seguimiento.php';
 require __DIR__.'/evaluaciones-tecnicas.php';
 require __DIR__.'/fechas-laborales.php';
+require __DIR__.'/cambio-sucursal.php';
 require __DIR__.'/salarios.php';
 require __DIR__.'/correcciones.php';
 require __DIR__.'/agenda.php';

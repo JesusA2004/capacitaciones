@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\DB;
 */
 
 test('resolver la plaza de muchos puestos no consulta por puesto', function () {
-    $sucursal = Sucursal::factory()->create();
+    // Plaza en el Corporativo: solo hacia ahí se reubica a quien está
+    // registrado en una sucursal sin plaza (nunca a otra sucursal).
+    $sucursal = Sucursal::factory()->create(['es_corporativo' => true]);
     $puestos = Puesto::factory()->count(8)->create();
     $puestos->each(fn (Puesto $p) => HeadcountTarget::factory()->create([
         'puesto_id' => $p->id, 'sucursal_id' => $sucursal->id, 'plantilla_autorizada' => 1,

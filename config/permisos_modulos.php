@@ -439,6 +439,9 @@ return [
                 // Fechas laborales (ingreso, capacitación inicial, inducción,
                 // alta IMSS y periodo de prueba específico; docs/FECHAS_LABORALES.md).
                 'expedientes.editar_fechas' => 'Editar fechas laborales y periodo de prueba',
+                // Cambio de sucursal (mismo puesto) con plaza libre en destino
+                // (CambioSucursalService); hereda de expedientes.editar.
+                'expedientes.cambiar_sucursal' => 'Cambiar de sucursal (mismo puesto)',
                 // Documentos del expediente: ver el estado ≠ abrir/descargar el
                 // archivo (el gerente consulta datos generales, no descarga).
                 'documentos.ver' => 'Ver documentos del expediente (estado)',
@@ -945,6 +948,8 @@ return [
         // Organización y Configuración.
         'organigrama.coberturas' => 'organigrama.editar',
         'organigrama.mover_personas' => 'organigrama.editar',
+        // Cambio de sucursal: quien hoy edita expedientes (y por eso traslada).
+        'expedientes.cambiar_sucursal' => 'expedientes.editar',
         'organigrama.matriz_comercial' => 'organigrama.editar',
         'responsables_aprobacion.ver' => 'organigrama.ver',
         'responsables_aprobacion.administrar' => 'organigrama.editar',
@@ -1144,6 +1149,7 @@ return [
         'usuarios.reactivar' => 'Reactiva a un colaborador dado de baja desde su expediente.',
         'expedientes.migrar' => 'Migración y carga inicial de colaboradores y expedientes históricos.',
         'expedientes.editar_fechas' => 'Edita las fechas laborales (ingreso, capacitación inicial, inducción, alta IMSS) y el periodo de prueba específico de una persona, con motivo e historial; incluye la captura masiva.',
+        'expedientes.cambiar_sucursal' => 'Cambia a una persona de sucursal sin cambiar su puesto: valida plaza libre en destino, registra el movimiento laboral y recalcula su jefe directo.',
         'headcount.importar' => 'Importa la plantilla autorizada (headcount) desde Excel.',
         'colaboradores.importar_salarios_vacaciones' => 'Importa salarios y vacaciones históricas desde Excel.',
         'contactos_emergencia.importar' => 'Importa los contactos de emergencia desde el Excel de Google Forms.',

@@ -36,6 +36,9 @@ class PuestosPlantillaService
     /** @var array<int, Collection<int, int>>|null */
     private ?array $plazasPorPuesto = null;
 
+    /** @var array<int, Collection<int, int>>|null */
+    private ?array $plazasCorporativasPorPuesto = null;
+
     private int|false|null $corporativoId = null;
 
     public function canonico(int $puestoId): int
@@ -162,8 +165,17 @@ class PuestosPlantillaService
 
     /**
      * Sucursal donde cuenta una persona de este puesto: la suya o, si es de
-     * empresa y su plaza vive en otra (registrada en una sucursal, plaza en Corporativo),
-     * la de la plaza. Así un titular registrado fuera no deja una vacante falsa.
+     * empresa, está registrada en una sucursal sin plaza de su puesto y su
+     * plaza vive en el Corporativo, la del Corporativo. Así un titular
+     * registrado fuera no deja una vacante falsa.
+     *
+     * Nunca se adivina una SUCURSAL: antes, sin plaza en la suya, contaba en
+     * la primera plaza que hubiera (caso real: Gerente de Auditoría
+     * registrado en Corporativo, sin plaza ahí, contaba en la plaza de
+     * Atlixco: «Atlixco 1/1 ocupadas» con su ficha diciendo Corporativo).
+     * Ahora cuenta donde está registrado (fuera de plantilla) y la plaza de
+     * la sucursal queda vacante hasta el «Cambio de sucursal»
+     * (CambioSucursalService) o hasta que RH ajuste las plazas.
      */
     public function sucursalDePlaza(int $puestoId, int $sucursalId): int
     {
@@ -173,7 +185,11 @@ class PuestosPlantillaService
 
         $plazas = $this->plazasDe($puestoId);
 
-        return $plazas->isEmpty() || $plazas->contains($sucursalId) ? $sucursalId : (int) $plazas->first();
+        if ($plazas->isEmpty() || $plazas->contains($sucursalId)) {
+            return $sucursalId;
+        }
+
+        return $this->plazasCorporativasDe($puestoId)->first() ?? $sucursalId;
     }
 
     /**
@@ -194,7 +210,7 @@ class PuestosPlantillaService
         $plazas = $this->plazasDe($puestoId);
 
         if ($plazas->isNotEmpty()) {
-            return (int) $plazas->first();
+            return $this->plazasCorporativasDe($puestoId)->first() ?? (int) $plazas->first();
         }
 
         if ($this->corporativoId === null) {
@@ -210,12 +226,47 @@ class PuestosPlantillaService
      */
     private function plazasDe(int $puestoId): Collection
     {
-        $this->plazasPorPuesto ??= HeadcountTarget::query()->where('plantilla_autorizada', '>', 0)->orderBy('id')->get(['puesto_id', 'sucursal_id'])
-            ->groupBy('puesto_id')
-            ->map(fn (Collection $filas) => $filas->map(fn (HeadcountTarget $fila): int => (int) $fila->sucursal_id)->values())
-            ->all();
+        $this->cargarPlazas();
 
         return $this->plazasPorPuesto[$puestoId] ?? collect();
+    }
+
+    /**
+     * Ubicaciones corporativas (es_corporativo) donde el puesto tiene plaza.
+     *
+     * @return Collection<int, int>
+     */
+    private function plazasCorporativasDe(int $puestoId): Collection
+    {
+        $this->cargarPlazas();
+
+        return $this->plazasCorporativasPorPuesto[$puestoId] ?? collect();
+    }
+
+    /**
+     * Una sola consulta para todas las plazas (y si su ubicación es el
+     * Corporativo): resolver cientos de puestos no consulta por puesto.
+     */
+    private function cargarPlazas(): void
+    {
+        if ($this->plazasPorPuesto !== null && $this->plazasCorporativasPorPuesto !== null) {
+            return;
+        }
+
+        $filas = HeadcountTarget::query()
+            ->leftJoin('sucursales', 'sucursales.id', '=', 'headcount_targets.sucursal_id')
+            ->where('headcount_targets.plantilla_autorizada', '>', 0)
+            ->orderBy('headcount_targets.id')
+            ->get(['headcount_targets.puesto_id', 'headcount_targets.sucursal_id', 'sucursales.es_corporativo']);
+
+        $porPuesto = fn (Collection $grupo): Collection => $grupo->map(fn (HeadcountTarget $fila): int => (int) $fila->sucursal_id)->values();
+
+        $this->plazasPorPuesto = $filas->groupBy('puesto_id')->map($porPuesto)->all();
+        $this->plazasCorporativasPorPuesto = $filas
+            ->filter(fn (HeadcountTarget $fila): bool => (bool) $fila->getAttribute('es_corporativo'))
+            ->groupBy('puesto_id')
+            ->map($porPuesto)
+            ->all();
     }
 
     /**
@@ -303,6 +354,7 @@ class PuestosPlantillaService
         $this->deEmpresa = [];
         $this->catalogoPuestos = null;
         $this->plazasPorPuesto = null;
+        $this->plazasCorporativasPorPuesto = null;
         $this->corporativoId = null;
     }
 }

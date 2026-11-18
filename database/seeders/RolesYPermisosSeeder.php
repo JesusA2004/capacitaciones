@@ -101,6 +101,8 @@ class RolesYPermisosSeeder extends Seeder
         'expedientes.editar',
         // Fechas laborales y periodo de prueba específico (migración 2026_11_18_100100).
         'expedientes.editar_fechas',
+        // Cambio de sucursal (mismo puesto); hereda de expedientes.editar.
+        'expedientes.cambiar_sucursal',
         'expedientes.revisar',
         'expedientes.eliminar',
         // Migración inicial de colaboradores/expedientes históricos y datos médicos (sensibles).

@@ -311,7 +311,7 @@ class TraspasoPuestoService
      * @param  Destino  $destino
      * @return list<string>
      */
-    private function rutasQueDeja(Colaborador $colaborador, array $destino): array
+    public function rutasQueDeja(Colaborador $colaborador, array $destino): array
     {
         $mismaPlaza = $colaborador->puesto_id === $destino['puesto_id']
             && $colaborador->sucursal_principal_id === $destino['sucursal_id'];

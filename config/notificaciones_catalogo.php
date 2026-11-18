@@ -725,6 +725,19 @@ return [
             'audiencia' => 'operativa',
             'defecto' => ['rh_admin'],
         ],
+        // Cambio de sucursal (CambioSucursalService): a la persona y a su nuevo jefe.
+        'cambio_sucursal' => [
+            'etiqueta' => 'Cambiaste de sucursal',
+            'push_titulo' => 'Cambio de sucursal',
+            'modulo' => 'organizacion',
+            'audiencia' => 'personal',
+        ],
+        'cambio_sucursal_equipo' => [
+            'etiqueta' => 'Alguien se integra a tu equipo por cambio de sucursal',
+            'push_titulo' => 'Se integra a tu equipo',
+            'modulo' => 'organizacion',
+            'audiencia' => 'asignada',
+        ],
 
         // ─────────────── Capacitación (detrás del feature flag) ───────────────
         'capacitacion_asignacion' => [

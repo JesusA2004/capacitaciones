@@ -284,6 +284,20 @@ class MovimientoLaboralService
             ->update(['observaciones' => $observaciones]);
     }
 
+    /**
+     * Fecha efectiva de los movimientos que una acción acaba de registrar
+     * (registrarCambioPuesto() siempre los fecha hoy): p. ej. un «Cambio de
+     * sucursal» que RH captura hoy pero que ocurrió el lunes. Mismo criterio
+     * de marca de agua que anotarObservaciones(): nunca toca anteriores.
+     */
+    public function fecharDesde(Colaborador $colaborador, int $desdeId, string $fecha): int
+    {
+        return MovimientoLaboral::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('id', '>', $desdeId)
+            ->update(['fecha_movimiento' => $fecha]);
+    }
+
     public function registrarCoberturaTemporal(
         Colaborador $colaborador,
         Puesto $puesto,

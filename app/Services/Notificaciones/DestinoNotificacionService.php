@@ -94,6 +94,9 @@ class DestinoNotificacionService
                 $tipo === 'expediente_incompleto' => $this->expedienteDePersona($colaboradorId, $usuario, 'documentos'),
                 $tipo === 'rh_cumpleanos' => self::destino(route('rh.cumpleanos.index', [], false)),
                 $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
+                // Cambio de sucursal: la persona, a sus datos laborales; su
+                // nuevo jefe, a los de ESA persona (si la puede ver).
+                $tipo === 'movimiento_laboral' => $this->expedienteDePersona($colaboradorId, $usuario, 'laborales'),
                 // Evaluación técnica («Seguimiento N»): a contestarla si le
                 // toca a quien abre el aviso; si no, a su resultado.
                 $relacionado === 'EvaluacionTecnica' && $id !== null => $this->evaluacionTecnica($id, $usuario),

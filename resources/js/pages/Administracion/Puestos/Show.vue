@@ -35,6 +35,7 @@ import EmptyState from '@/components/Common/EmptyState.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import DialogoUbicarPuesto from '@/components/Organigrama/DialogoUbicarPuesto.vue';
 import BarraTabulador from '@/components/puestos/BarraTabulador.vue';
+import DialogoCambioSucursal from '@/components/puestos/DialogoCambioSucursal.vue';
 import PlantillaAutorizadaPuesto from '@/components/puestos/PlantillaAutorizadaPuesto.vue';
 import PuestoDatosFormulario from '@/components/puestos/PuestoDatosFormulario.vue';
 import TabuladorEditor from '@/components/puestos/TabuladorEditor.vue';
@@ -43,6 +44,7 @@ import ListaAnimada from '@/components/ui/ListaAnimada.vue';
 import SelectorVista from '@/components/ui/SelectorVista.vue';
 import { useAlertas } from '@/composables/useAlertas';
 import { getInitials } from '@/composables/useInitials';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
@@ -61,6 +63,7 @@ import type {
     PuestoSinUbicar,
     RangoTabulador,
     RangoTabuladorVigente,
+    ResultadoCambioSucursal,
     ResultadoMovimientoPuesto,
     VersionTabulador,
 } from '@/types';
@@ -172,6 +175,41 @@ const opcionesSeccion = computed(() => {
     return lista;
 });
 
+// --- ¿Qué cambia? Puesto / Sucursal / Ambos ---------------------------------
+// «Sucursal» (mismo puesto) y «Ambos» van por el diálogo de Cambio de
+// sucursal (CambioSucursalService: plaza libre en destino, jefe del
+// organigrama, movimiento laboral). El backend revalida los permisos.
+
+const { tienePermiso } = usePermisos();
+const puedeCambiarSucursal = computed(() =>
+    tienePermiso('expedientes.cambiar_sucursal'),
+);
+const puedeTrasladar = computed(
+    () => props.puede.mover || puedeCambiarSucursal.value,
+);
+
+type QueCambia = 'puesto' | 'sucursal' | 'ambos';
+const queCambia = ref<QueCambia>(props.puede.mover ? 'puesto' : 'sucursal');
+const opcionesQueCambia = computed(() => {
+    const lista: { valor: QueCambia; etiqueta: string }[] = [];
+
+    if (props.puede.mover) {
+        lista.push({ valor: 'puesto', etiqueta: 'Puesto' });
+    }
+
+    if (puedeCambiarSucursal.value) {
+        lista.push({ valor: 'sucursal', etiqueta: 'Sucursal' });
+    }
+
+    if (props.puede.mover && puedeCambiarSucursal.value) {
+        lista.push({ valor: 'ambos', etiqueta: 'Ambos' });
+    }
+
+    return lista;
+});
+const dialogoSucursal = ref(false);
+const resultadoSucursal = ref<ResultadoCambioSucursal | null>(null);
+
 // --- Personas: búsqueda y selección -----------------------------------------
 
 const busqueda = ref('');
@@ -208,7 +246,7 @@ const estadoTodos = computed<'ninguno' | 'parcial' | 'todos'>(() => {
 });
 
 function alternar(persona: PersonaPuesto): void {
-    if (!props.puede.mover || !persona.movible) {
+    if (!puedeTrasladar.value || !persona.movible) {
         return;
     }
 
@@ -270,7 +308,9 @@ const destinosFiltrados = computed(() => {
 
 const motivo = ref('');
 const listo = computed(
-    () => totalSeleccionadas.value > 0 && destino.value !== null,
+    () =>
+        totalSeleccionadas.value > 0 &&
+        (queCambia.value === 'sucursal' || destino.value !== null),
 );
 
 /** Cómo queda el sueldo de cada quien frente al tabulador del destino. */
@@ -375,8 +415,22 @@ function continuar(): void {
     }
 
     errores.value = {};
+
+    if (queCambia.value !== 'puesto') {
+        dialogoSucursal.value = true;
+
+        return;
+    }
+
     confirmando.value = true;
     nextTick(() => botonConfirmar.value?.focus());
+}
+
+function alAplicarSucursal(dato: ResultadoCambioSucursal | null): void {
+    resultadoSucursal.value = dato;
+    resultado.value = null;
+    limpiarSeleccion();
+    destinoId.value = null;
 }
 
 function cerrarConfirmacion(): void {
@@ -491,7 +545,7 @@ async function eliminar(): Promise<void> {
 
     <div
         class="pagina-ancha flex flex-col gap-5"
-        :class="puede.mover && totalSeleccionadas > 0 && 'pb-28 lg:pb-24'"
+        :class="puedeTrasladar && totalSeleccionadas > 0 && 'pb-28 lg:pb-24'"
     >
         <!-- Encabezado -->
         <header
@@ -659,6 +713,61 @@ async function eliminar(): Promise<void> {
 
         <!-- ════════════ Personas y traslados ════════════ -->
         <template v-if="seccion === 'personas'">
+            <!-- Resultado del último cambio de sucursal -->
+            <section
+                v-if="resultadoSucursal"
+                class="rounded-2xl border bg-card p-4 sm:p-5"
+                aria-live="polite"
+            >
+                <div class="flex items-start gap-3">
+                    <span
+                        class="grid size-9 shrink-0 place-items-center rounded-full bg-success-soft text-success"
+                    >
+                        <CheckCheck class="size-4.5" />
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium">
+                            {{
+                                personasTexto(resultadoSucursal.movidos.length)
+                            }}
+                            {{
+                                resultadoSucursal.movidos.length === 1
+                                    ? 'cambió'
+                                    : 'cambiaron'
+                            }}
+                            a {{ resultadoSucursal.sucursal }}
+                        </p>
+                        <ul class="mt-1 text-sm text-muted-foreground">
+                            <li
+                                v-for="m in resultadoSucursal.movidos"
+                                :key="m.id"
+                            >
+                                {{ m.nombre }}: {{ m.de }} → {{ m.a }}
+                                <template v-if="m.jefe_nuevo">
+                                    · jefe directo {{ m.jefe_nuevo }}</template
+                                >
+                            </li>
+                        </ul>
+                        <p
+                            v-if="resultadoSucursal.plazas_autorizadas > 0"
+                            class="mt-1 text-xs text-muted-foreground"
+                        >
+                            Se autorizaron
+                            {{ resultadoSucursal.plazas_autorizadas }} plaza(s)
+                            en destino (quedó en el histórico de plantilla).
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-crema/60"
+                        aria-label="Cerrar resultado"
+                        @click="resultadoSucursal = null"
+                    >
+                        <X class="size-4" />
+                    </button>
+                </div>
+            </section>
+
             <!-- Resultado del último traslado -->
             <Transition name="aparecer">
                 <section
@@ -751,7 +860,7 @@ async function eliminar(): Promise<void> {
             <div
                 class="grid items-start gap-5"
                 :class="
-                    puede.mover &&
+                    puedeTrasladar &&
                     'lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]'
                 "
             >
@@ -765,20 +874,20 @@ async function eliminar(): Promise<void> {
                     >
                         <div class="flex items-center gap-2">
                             <span
-                                v-if="puede.mover"
+                                v-if="puedeTrasladar"
                                 class="grid size-6 place-items-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground"
                                 >1</span
                             >
                             <h2 id="titulo-origen" class="font-semibold">
                                 {{
-                                    puede.mover
+                                    puedeTrasladar
                                         ? '¿A quiénes vas a trasladar?'
                                         : `Quiénes son ${puesto.nombre}`
                                 }}
                             </h2>
                         </div>
                         <p
-                            v-if="puede.mover"
+                            v-if="puedeTrasladar"
                             class="text-xs text-muted-foreground tabular-nums"
                         >
                             {{ totalSeleccionadas }} de
@@ -814,7 +923,7 @@ async function eliminar(): Promise<void> {
                         </label>
 
                         <button
-                            v-if="puede.mover && movibles.length > 0"
+                            v-if="puedeTrasladar && movibles.length > 0"
                             type="button"
                             role="checkbox"
                             :aria-checked="
@@ -888,18 +997,18 @@ async function eliminar(): Promise<void> {
                             }"
                         >
                             <component
-                                :is="puede.mover ? 'button' : 'div'"
-                                :type="puede.mover ? 'button' : undefined"
-                                :role="puede.mover ? 'checkbox' : undefined"
+                                :is="puedeTrasladar ? 'button' : 'div'"
+                                :type="puedeTrasladar ? 'button' : undefined"
+                                :role="puedeTrasladar ? 'checkbox' : undefined"
                                 :aria-checked="
-                                    puede.mover
+                                    puedeTrasladar
                                         ? seleccion.has(p.id)
                                             ? 'true'
                                             : 'false'
                                         : undefined
                                 "
                                 :aria-disabled="
-                                    puede.mover && !p.movible
+                                    puedeTrasladar && !p.movible
                                         ? 'true'
                                         : undefined
                                 "
@@ -909,15 +1018,15 @@ async function eliminar(): Promise<void> {
                                     seleccion.has(p.id)
                                         ? 'seleccionada border-primary/50 bg-menta'
                                         : 'bg-background/40',
-                                    puede.mover && p.movible
+                                    puedeTrasladar && p.movible
                                         ? 'cursor-pointer'
                                         : '',
-                                    puede.mover &&
+                                    puedeTrasladar &&
                                     p.movible &&
                                     !seleccion.has(p.id)
                                         ? 'hover:border-oro/60 hover:bg-crema/30'
                                         : '',
-                                    puede.mover && !p.movible
+                                    puedeTrasladar && !p.movible
                                         ? 'cursor-not-allowed opacity-60'
                                         : '',
                                 ]"
@@ -937,7 +1046,7 @@ async function eliminar(): Promise<void> {
                                         >{{ getInitials(p.nombre) }}</span
                                     >
                                     <span
-                                        v-if="puede.mover && p.movible"
+                                        v-if="puedeTrasladar && p.movible"
                                         class="marca absolute -right-1 -bottom-1 grid size-5 place-items-center rounded-full border-2 border-card"
                                         :class="
                                             seleccion.has(p.id)
@@ -983,7 +1092,7 @@ async function eliminar(): Promise<void> {
                                             >{{ p.banda_etiqueta }}</span
                                         >
                                         <span
-                                            v-if="puede.mover && !p.movible"
+                                            v-if="puedeTrasladar && !p.movible"
                                             class="rounded-md bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium"
                                             >Eres tú</span
                                         >
@@ -1016,7 +1125,7 @@ async function eliminar(): Promise<void> {
                     </ListaAnimada>
 
                     <p
-                        v-if="!puede.mover && personas.length > 0"
+                        v-if="!puedeTrasladar && personas.length > 0"
                         class="text-xs text-muted-foreground"
                     >
                         Para trasladar personas a otro puesto se necesita editar
@@ -1026,7 +1135,7 @@ async function eliminar(): Promise<void> {
 
                 <!-- Destino y resumen -->
                 <aside
-                    v-if="puede.mover"
+                    v-if="puedeTrasladar"
                     ref="panelDestino"
                     class="flex scroll-mt-4 flex-col gap-4 lg:sticky lg:top-4"
                     aria-labelledby="titulo-destino"
@@ -1043,12 +1152,42 @@ async function eliminar(): Promise<void> {
                                 >2</span
                             >
                             <h2 id="titulo-destino" class="font-semibold">
-                                ¿A qué puesto?
+                                {{
+                                    queCambia === 'sucursal'
+                                        ? '¿Qué cambia?'
+                                        : '¿A qué puesto?'
+                                }}
                             </h2>
                         </div>
 
+                        <div
+                            v-if="opcionesQueCambia.length > 1"
+                            class="mt-3 flex flex-col gap-1.5"
+                        >
+                            <span
+                                class="text-xs font-medium text-muted-foreground"
+                                >¿Qué cambia?</span
+                            >
+                            <SelectorVista
+                                v-model="queCambia"
+                                etiqueta="¿Qué cambia?"
+                                :opciones="opcionesQueCambia"
+                            />
+                        </div>
+
                         <p
-                            v-if="destinos.length === 0"
+                            v-if="queCambia === 'sucursal'"
+                            class="mt-3 rounded-2xl bg-crema/30 px-4 py-5 text-sm text-muted-foreground"
+                        >
+                            Cambian de sucursal sin cambiar de puesto. En el
+                            siguiente paso eliges la sucursal (con sus plazas
+                            libres de {{ puesto.nombre }}), la fecha efectiva y
+                            ves el resumen: plaza que ocupan, plaza que se
+                            libera y su nuevo jefe directo.
+                        </p>
+
+                        <p
+                            v-else-if="destinos.length === 0"
                             class="mt-3 rounded-2xl bg-crema/30 px-4 py-6 text-center text-sm text-muted-foreground"
                         >
                             No hay otro puesto activo. Crea uno en Puestos y
@@ -1211,7 +1350,13 @@ async function eliminar(): Promise<void> {
                                     a
                                     <strong
                                         class="font-semibold text-primary"
-                                        >{{ destino?.nombre }}</strong
+                                        >{{
+                                            queCambia === 'sucursal'
+                                                ? 'otra sucursal'
+                                                : destino?.nombre
+                                        }}</strong
+                                    ><template v-if="queCambia === 'ambos'">
+                                        y de sucursal</template
                                     >
                                 </p>
 
@@ -1260,7 +1405,10 @@ async function eliminar(): Promise<void> {
                                     se puede comparar el sueldo.
                                 </p>
 
-                                <label class="mt-3 block">
+                                <label
+                                    v-if="queCambia === 'puesto'"
+                                    class="mt-3 block"
+                                >
                                     <span
                                         class="text-xs font-medium text-muted-foreground"
                                         >Motivo (opcional)</span
@@ -1303,19 +1451,24 @@ async function eliminar(): Promise<void> {
                         >
                             <Shuffle class="size-4" />
                             {{
-                                listo
-                                    ? `Trasladar ${personasTexto(totalSeleccionadas)}`
-                                    : 'Trasladar personas'
+                                !listo
+                                    ? 'Trasladar personas'
+                                    : queCambia === 'puesto'
+                                      ? `Trasladar ${personasTexto(totalSeleccionadas)}`
+                                      : 'Elegir sucursal y revisar'
                             }}
                         </button>
                         <p
                             class="mt-2 text-[11px] leading-snug text-muted-foreground"
                         >
-                            Cada persona queda con su movimiento laboral
-                            («Cambio de puesto» o «Promoción») y su jefe se
-                            recalcula del organigrama. El sueldo no cambia:
-                            ajústalo desde su expediente si corresponde.
-                            Plantilla y vacantes se actualizan solas.
+                            Cada persona queda con su movimiento laboral ({{
+                                queCambia === 'puesto'
+                                    ? '«Cambio de puesto» o «Promoción»'
+                                    : '«Cambio de sucursal», con plaza libre en destino'
+                            }}) y su jefe se recalcula del organigrama. El
+                            sueldo no cambia: ajústalo desde su expediente si
+                            corresponde. Plantilla y vacantes se actualizan
+                            solas.
                         </p>
                     </section>
                 </aside>
@@ -1707,7 +1860,7 @@ async function eliminar(): Promise<void> {
             <div
                 v-if="
                     seccion === 'personas' &&
-                    puede.mover &&
+                    puedeTrasladar &&
                     totalSeleccionadas > 0 &&
                     !confirmando
                 "
@@ -1730,9 +1883,11 @@ async function eliminar(): Promise<void> {
                         <span
                             class="block truncate text-xs text-muted-foreground"
                             >{{
-                                destino
-                                    ? `→ ${destino.nombre}`
-                                    : 'Falta el puesto destino'
+                                queCambia === 'sucursal'
+                                    ? '→ cambio de sucursal'
+                                    : destino
+                                      ? `→ ${destino.nombre}`
+                                      : 'Falta el puesto destino'
                             }}</span
                         >
                     </span>
@@ -1749,7 +1904,10 @@ async function eliminar(): Promise<void> {
                         class="boton-principal inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold sm:px-4 lg:rounded-full"
                         @click="continuar"
                     >
-                        <template v-if="destino">Trasladar</template>
+                        <template v-if="queCambia === 'sucursal'"
+                            >Elegir sucursal</template
+                        >
+                        <template v-else-if="destino">Trasladar</template>
                         <template v-else>
                             <span class="sm:hidden">Destino</span>
                             <span class="hidden sm:inline">Elegir puesto</span>
@@ -1759,6 +1917,16 @@ async function eliminar(): Promise<void> {
                 </div>
             </div>
         </Transition>
+
+        <!-- Cambio de sucursal (Sucursal / Ambos) -->
+        <DialogoCambioSucursal
+            v-model:open="dialogoSucursal"
+            :colaborador-ids="[...seleccion]"
+            :puesto-destino-id="
+                queCambia === 'ambos' ? (destino?.id ?? null) : null
+            "
+            @aplicado="alAplicarSucursal"
+        />
 
         <!-- Confirmación -->
         <Teleport to="body">
