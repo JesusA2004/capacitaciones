@@ -37,7 +37,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAlertas } from '@/composables/useAlertas';
-import { etiquetaModulo, etiquetaPermiso } from '@/lib/permisos';
+import {
+    etiquetaModulo,
+    etiquetaPermiso,
+    registrarEtiquetas,
+} from '@/lib/permisos';
 import { iconoEtapa } from '@/lib/rolesIconos';
 import {
     accionesVisibles,
@@ -78,6 +82,9 @@ const props = defineProps<{
     /** Acceso a «Permisos especiales» por persona. */
     puedePermisosEspeciales?: boolean;
 }>();
+
+// Nombres en español de los permisos sin módulo (nunca el código).
+registrarEtiquetas(props.catalogo.etiquetas);
 
 defineOptions({
     layout: {
@@ -711,7 +718,10 @@ const dialogClonar = ref(false);
                                             class="text-[11px] text-muted-foreground"
                                             >{{ coberturaDe(r) }} de
                                             {{ totalModulos }} módulos ·
-                                            {{ r.permisos.length }} permisos</span
+                                            {{
+                                                r.permisos.length
+                                            }}
+                                            permisos</span
                                         >
                                     </template>
                                 </button>
@@ -823,8 +833,10 @@ const dialogClonar = ref(false);
                     >
                         <Ban class="mt-0.5 size-4 shrink-0 text-destructive" />
                         <span
-                            >Rol desactivado: sus permisos se conservan pero
-                            no cuentan para nadie ({{ rol.usuarios_count }}
+                            >Rol desactivado: sus permisos se conservan pero no
+                            cuentan para nadie ({{
+                                rol.usuarios_count
+                            }}
                             persona(s) lo tienen) y no se ofrece al asignar
                             roles. «Reactivar» lo devuelve tal cual.</span
                         >
@@ -846,8 +858,8 @@ const dialogClonar = ref(false);
                     >
                         Los roles del sistema no se renombran, no se desactivan
                         ni se eliminan (el código los usa por su nombre); sus
-                        permisos sí se ajustan. Un deploy nunca vuelve a dar
-                        un permiso que aquí se quitó.
+                        permisos sí se ajustan. Un deploy nunca vuelve a dar un
+                        permiso que aquí se quitó.
                     </p>
 
                     <!-- Comparar / copiar -->
@@ -1164,11 +1176,10 @@ const dialogClonar = ref(false);
                                         />
                                         <span
                                             class="min-w-0 flex-1 text-sm leading-tight"
-                                            >{{ etiquetaPermiso(permiso) }}
-                                            <span
-                                                class="block truncate font-mono text-[10px] text-muted-foreground"
-                                                >{{ permiso }}</span
-                                            ></span
+                                            :title="permiso"
+                                            >{{
+                                                etiquetaPermiso(permiso)
+                                            }}</span
                                         >
                                     </li>
                                 </ul>

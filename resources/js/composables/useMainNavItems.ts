@@ -59,6 +59,7 @@ import {
     BadgeDollarSign,
     FolderTree,
     KeyRound,
+    UserCog,
 } from '@lucide/vue';
 import type { LucideIcon } from '@lucide/vue';
 import { computed } from 'vue';
@@ -73,6 +74,7 @@ import { index as indexEmpresas } from '@/routes/administracion/empresas';
 import { index as indexImportarDatos } from '@/routes/administracion/importar-datos';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
 import { index as indexNotificacionesSistema } from '@/routes/administracion/notificaciones-sistema';
+import { index as indexEspeciales } from '@/routes/administracion/permisos-especiales';
 import { index as indexPuestos } from '@/routes/administracion/puestos';
 import { index as indexResponsablesAprobacion } from '@/routes/administracion/responsables-aprobacion';
 import { index as indexRoles } from '@/routes/administracion/roles';
@@ -114,7 +116,10 @@ import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexActivosResponsivas } from '@/routes/rh/activos-responsivas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexAvisos } from '@/routes/rh/avisos';
-import { causales as causalesBajas, index as indexBajas } from '@/routes/rh/bajas';
+import {
+    causales as causalesBajas,
+    index as indexBajas,
+} from '@/routes/rh/bajas';
 import { index as indexFiniquitosBaja } from '@/routes/rh/bajas/finiquitos';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
@@ -504,31 +509,31 @@ export function useMainNavItems() {
                     // permiso general + la acción (Roles y permisos).
                     tienePermiso('onboarding.gestionar') &&
                         tienePermiso('onboarding.presentar_induccion') && {
-                        title: 'Inducción institucional',
-                        href: presentacionInduccion(),
-                        icon: GraduationCap,
-                    },
+                            title: 'Inducción institucional',
+                            href: presentacionInduccion(),
+                            icon: GraduationCap,
+                        },
                     tienePermiso('onboarding.gestionar') &&
                         tienePermiso('onboarding.induccion_puesto') && {
-                        title: 'Inducción al puesto',
-                        href: indexInduccionPuesto(),
-                        icon: Compass,
-                    },
+                            title: 'Inducción al puesto',
+                            href: indexInduccionPuesto(),
+                            icon: Compass,
+                        },
                     tienePermiso('onboarding.gestionar') &&
                         tienePermiso('onboarding.configurar') && {
-                        title: 'Configuración de onboarding',
-                        href: configuracionOnboarding(),
-                        icon: Sparkles,
-                    },
+                            title: 'Configuración de onboarding',
+                            href: configuracionOnboarding(),
+                            icon: Sparkles,
+                        },
                     // Calificaciones de la INDUCCIÓN (FO-RH-EI + lecciones),
                     // retroalimentación y reevaluación. Las evaluaciones de
                     // PERIODO DE PRUEBA viven en el grupo «4».
                     tienePermiso('onboarding.gestionar') &&
                         tienePermiso('onboarding.calificar') && {
-                        title: 'Calificaciones y refuerzo',
-                        href: calificacionesInduccion(),
-                        icon: ClipboardCheck,
-                    },
+                            title: 'Calificaciones y refuerzo',
+                            href: calificacionesInduccion(),
+                            icon: ClipboardCheck,
+                        },
                     tienePermiso('responsivas.ver') && {
                         title: 'Activos y responsivas',
                         href: indexActivosResponsivas(),
@@ -789,10 +794,10 @@ export function useMainNavItems() {
                             'responsables_aprobacion.ver',
                             'responsables_aprobacion.administrar',
                         ) && {
-                        title: 'Responsables de aprobación',
-                        href: indexResponsablesAprobacion(),
-                        icon: UserCheck,
-                    },
+                            title: 'Responsables de aprobación',
+                            href: indexResponsablesAprobacion(),
+                            icon: UserCheck,
+                        },
                     // Un solo módulo: catálogo de puestos (puestos.*) y su
                     // tabulador de sueldos (salarios.*, importes solo con permiso).
                     (tienePermiso('puestos.administrar') ||
@@ -939,6 +944,12 @@ export function useMainNavItems() {
                         title: 'Roles y permisos',
                         href: indexRoles(),
                         icon: KeyRound,
+                    },
+                    // Ajustes por persona (conceder/quitar sin tocar su rol).
+                    tienePermiso('usuarios.permisos_especiales') && {
+                        title: 'Permisos especiales',
+                        href: indexEspeciales(),
+                        icon: UserCog,
                     },
                     // Importaciones/cargas masivas: solo super_admin
                     // (2026-10-20); mismos permisos que exige

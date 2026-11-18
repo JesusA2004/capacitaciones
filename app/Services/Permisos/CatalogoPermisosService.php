@@ -3,6 +3,8 @@
 namespace App\Services\Permisos;
 
 use App\Enums\AlcanceDatos;
+use App\Support\CatalogoPermisosAppMovil;
+use App\Support\CatalogoPermisosPendientes;
 use Database\Seeders\RolesYPermisosSeeder;
 use Spatie\Permission\Models\Permission;
 
@@ -35,12 +37,71 @@ class CatalogoPermisosService
         'portal.notificaciones.ver' => 'Ver mis notificaciones',
     ];
 
+    /**
+     * Permisos anteriores al catálogo por módulos (API de la app de RH,
+     * alta digital, solicitudes): siguen vigentes y se muestran en «Otros
+     * permisos» con un texto legible.
+     */
+    private const ETIQUETAS_LEGADO = [
+        'candidatos.eliminar' => 'Eliminar candidatos',
+        'ciclo.preautorizar' => 'Preautorizar bajas de su equipo',
+        'colaborador.incorporacion.ver' => 'Ver su propio proceso de alta (app)',
+        'colaborador.incorporacion.documentos.subir' => 'Subir los documentos de su alta (app)',
+        'colaborador.incorporacion.documentos.solicitar-cambio' => 'Pedir cambio de un documento de su alta (app)',
+        'colaboradores.activar' => 'Activar colaboradores',
+        'colaboradores.alta' => 'Dar de alta colaboradores',
+        'documentos_laborales.revisar_firmado' => 'Revisar documentos laborales firmados',
+        'excepciones.autorizar' => 'Autorizar excepciones del periodo de prueba',
+        'expedientes.datos_medicos.ver' => 'Ver los datos médicos del expediente',
+        'rh.mobile.dashboard.ver' => 'App de RH: ver el tablero',
+        'rh.pendientes.ver' => 'App de RH: ver los pendientes',
+        'rh.colaboradores.ver' => 'App de RH: ver colaboradores',
+        'rh.colaboradores.detalle' => 'App de RH: ver el detalle de un colaborador',
+        'rh.documentos.ver' => 'App de RH: ver documentos por revisar',
+        'rh.documentos.detalle' => 'App de RH: ver el detalle de un documento',
+        'rh.documentos.ver_archivo' => 'App de RH: abrir el archivo de un documento',
+        'rh.documentos.aprobar' => 'App de RH: aprobar documentos',
+        'rh.documentos.rechazar' => 'App de RH: rechazar documentos',
+        'rh.documentos.extraccion.ver' => 'App de RH: ver los datos leídos de un documento',
+        'rh.documentos.extraccion.aplicar' => 'App de RH: aplicar los datos leídos de un documento',
+        'rh.documentos.extraccion.ignorar' => 'App de RH: ignorar los datos leídos de un documento',
+        'rh.documentos.extraccion.reprocesar' => 'App de RH: volver a leer un documento',
+        'rh.expedientes.ver' => 'App de RH: ver expedientes',
+        'rh.expedientes.detalle' => 'App de RH: ver el detalle de un expediente',
+        'rh.expedientes.documentos.ver' => 'App de RH: ver los documentos del expediente',
+        'rh.expedientes.documentos.aprobar' => 'App de RH: aprobar documentos del expediente',
+        'rh.expedientes.documentos.rechazar' => 'App de RH: rechazar documentos del expediente',
+        'rh.expedientes.documentos.autorizar-cambio' => 'App de RH: autorizar el cambio de un documento',
+        'rh.expedientes.incorporacion.aprobar' => 'App de RH: aprobar el alta de un expediente',
+        'rh.expedientes.incorporacion.rechazar' => 'App de RH: rechazar el alta de un expediente',
+        'rh.incorporaciones.ver' => 'App de RH: ver altas en proceso',
+        'rh.incorporaciones.detalle' => 'App de RH: ver el detalle de un alta',
+        'rh.incorporaciones.aprobar' => 'App de RH: aprobar altas',
+        'rh.incorporaciones.rechazar' => 'App de RH: rechazar altas',
+        'rh.solicitudes.ver' => 'App de RH: ver solicitudes',
+        'rh.solicitudes.detalle' => 'App de RH: ver el detalle de una solicitud',
+        'rh.solicitudes.aprobar' => 'App de RH: aprobar solicitudes',
+        'rh.solicitudes.rechazar' => 'App de RH: rechazar solicitudes',
+        'rh.solicitudes.correccion' => 'App de RH: pedir corrección de una solicitud',
+        'rh.vacaciones.ver' => 'App de RH: ver vacaciones',
+        'rh.vacaciones.detalle' => 'App de RH: ver el detalle de unas vacaciones',
+        'rh.vacaciones.aprobar' => 'App de RH: aprobar vacaciones',
+        'rh.vacaciones.rechazar' => 'App de RH: rechazar vacaciones',
+        'solicitudes.adjuntos.subir' => 'Subir adjuntos a las solicitudes',
+        'solicitudes.bajas.crear' => 'Crear solicitudes de baja',
+        'solicitudes.bajas.aprobar' => 'Aprobar solicitudes de baja',
+        'solicitudes.bajas.omitir_finiquito' => 'Cerrar una baja sin finiquito',
+        'solicitudes.configuracion.ver' => 'Ver la configuración de solicitudes',
+        'vacaciones.reportes' => 'Ver reportes de vacaciones',
+    ];
+
     public function __construct(private readonly AlcanceModuloService $alcanceModulo) {}
 
     /**
      * @return array{
      *     etapas: list<array{clave: string, etiqueta: string, numero: int|null, modulos: list<array<string, mixed>>}>,
      *     otros: array<string, list<string>>,
+     *     etiquetas: array<string, string>,
      *     niveles: list<array{valor: string, etiqueta: string, descripcion: string}>
      * }
      */
@@ -118,9 +179,12 @@ class CatalogoPermisosService
             }
         }
 
+        $otros = $this->otrosPermisos();
+
         return [
             'etapas' => array_values(array_filter($etapas, fn (array $etapa): bool => $etapa['modulos'] !== [])),
-            'otros' => $this->otrosPermisos(),
+            'otros' => $otros,
+            'etiquetas' => $this->etiquetasDe(array_merge(...array_values($otros))),
             'niveles' => array_map(fn (AlcanceDatos $nivel): array => [
                 'valor' => $nivel->value,
                 'etiqueta' => $nivel->etiqueta(),
@@ -170,6 +234,33 @@ class CatalogoPermisosService
         ksort($grupos);
 
         return $grupos;
+    }
+
+    /**
+     * Texto en español de los permisos que se listan fuera de un módulo
+     * («Otros permisos»): nunca se muestra el código técnico. Las etiquetas
+     * de la app y de pendientes salen de su catálogo en código, así se leen
+     * bien aunque la configuración del servidor esté desactualizada.
+     *
+     * @param  list<string>  $permisos
+     * @return array<string, string>
+     */
+    private function etiquetasDe(array $permisos): array
+    {
+        $conocidas = [
+            ...self::ETIQUETAS_LEGADO,
+            ...CatalogoPermisosPendientes::acciones(),
+            ...CatalogoPermisosAppMovil::acciones(),
+        ];
+        $etiquetas = [];
+
+        foreach ($permisos as $permiso) {
+            if (isset($conocidas[$permiso])) {
+                $etiquetas[$permiso] = $conocidas[$permiso];
+            }
+        }
+
+        return $etiquetas;
     }
 
     /**

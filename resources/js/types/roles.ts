@@ -49,6 +49,8 @@ export type CatalogoPermisos = {
     etapas: EtapaCatalogo[];
     /** Permisos sin módulo, por prefijo: nada queda oculto. */
     otros: Record<string, string[]>;
+    /** Texto en español de los permisos de «Otros» (nunca el código). */
+    etiquetas?: Record<string, string>;
     niveles: {
         valor: NivelAlcance | 'propios';
         etiqueta: string;

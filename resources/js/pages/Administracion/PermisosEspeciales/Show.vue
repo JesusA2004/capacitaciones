@@ -28,7 +28,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
-import { etiquetaModulo, etiquetaPermiso } from '@/lib/permisos';
+import {
+    etiquetaModulo,
+    etiquetaPermiso,
+    registrarEtiquetas,
+} from '@/lib/permisos';
 import {
     accionesVisibles,
     coincide,
@@ -68,6 +72,9 @@ const props = defineProps<{
     motivoNoGestionable: string | null;
     catalogo: CatalogoPermisos;
 }>();
+
+// Nombres en español de los permisos sin módulo (nunca el código).
+registrarEtiquetas(props.catalogo.etiquetas);
 
 defineOptions({
     layout: {
@@ -114,7 +121,10 @@ const efectivos = computed(() => {
 
 const iniciales = computed(() => ajustesIniciales());
 const cambios = computed(() => {
-    const todos = new Set([...iniciales.value.keys(), ...borrador.value.keys()]);
+    const todos = new Set([
+        ...iniciales.value.keys(),
+        ...borrador.value.keys(),
+    ]);
 
     return [...todos].filter(
         (p) => iniciales.value.get(p) !== borrador.value.get(p),
@@ -166,9 +176,7 @@ function poner(permiso: string, valor: boolean) {
 function cambiarNivel(modulo: ModuloCatalogo, valor: NivelAlcance | 'propios') {
     const destino = valor === 'propios' ? undefined : modulo.alcances[valor];
 
-    Object.values(modulo.alcances).forEach(
-        (p) => p && poner(p, p === destino),
-    );
+    Object.values(modulo.alcances).forEach((p) => p && poner(p, p === destino));
 }
 
 function cambiarAcceso(modulo: ModuloCatalogo, valor: boolean) {
@@ -184,7 +192,11 @@ function cambiarAcceso(modulo: ModuloCatalogo, valor: boolean) {
     }
 }
 
-function cambiarAccion(modulo: ModuloCatalogo, permiso: string, valor: boolean) {
+function cambiarAccion(
+    modulo: ModuloCatalogo,
+    permiso: string,
+    valor: boolean,
+) {
     poner(permiso, valor);
 
     if (valor && modulo.acceso) {
@@ -397,7 +409,11 @@ const hoy = new Date().toISOString().slice(0, 10);
                     v-if="usuario.puesto || usuario.sucursal"
                     class="text-sm text-muted-foreground"
                 >
-                    {{ [usuario.puesto, usuario.sucursal].filter(Boolean).join(' · ') }}
+                    {{
+                        [usuario.puesto, usuario.sucursal]
+                            .filter(Boolean)
+                            .join(' · ')
+                    }}
                 </p>
                 <div class="flex flex-wrap items-center gap-1.5 text-sm">
                     <span class="text-muted-foreground">Su rol:</span>
@@ -480,7 +496,10 @@ const hoy = new Date().toISOString().slice(0, 10);
                         <button
                             v-for="opcion in [
                                 { valor: 'matriz', etiqueta: 'Permisos' },
-                                { valor: 'resumen', etiqueta: 'Qué puede hacer' },
+                                {
+                                    valor: 'resumen',
+                                    etiqueta: 'Qué puede hacer',
+                                },
                                 { valor: 'bitacora', etiqueta: 'Bitácora' },
                             ] as const"
                             :key="opcion.valor"
@@ -570,10 +589,13 @@ const hoy = new Date().toISOString().slice(0, 10);
                             </span>
                             <span class="text-xs text-muted-foreground">
                                 {{ fecha(b.fecha) }}
-                                <template v-if="b.actor"> · {{ b.actor }}</template>
+                                <template v-if="b.actor">
+                                    · {{ b.actor }}</template
+                                >
                                 <template v-else> · Sistema</template>
                                 <template v-if="b.vigente_hasta">
-                                    · hasta {{ fecha(b.vigente_hasta) }}</template
+                                    · hasta
+                                    {{ fecha(b.vigente_hasta) }}</template
                                 >
                             </span>
                             <span v-if="b.motivo" class="text-xs"
@@ -641,7 +663,9 @@ const hoy = new Date().toISOString().slice(0, 10);
                             <ChevronDown
                                 class="size-4 text-muted-foreground transition-transform"
                                 :class="
-                                    plegadas.has(etapa.clave) ? '-rotate-90' : ''
+                                    plegadas.has(etapa.clave)
+                                        ? '-rotate-90'
+                                        : ''
                                 "
                             />
                         </button>
@@ -655,9 +679,10 @@ const hoy = new Date().toISOString().slice(0, 10);
                                 :modulo="{
                                     ...modulo,
                                     acciones: soloEspeciales
-                                        ? accionesVisibles(modulo, filtro).filter(
-                                              (a) => esEspecial(a.permiso),
-                                          )
+                                        ? accionesVisibles(
+                                              modulo,
+                                              filtro,
+                                          ).filter((a) => esEspecial(a.permiso))
                                         : modulo.acciones,
                                 }"
                                 :permisos="efectivos"
@@ -703,7 +728,9 @@ const hoy = new Date().toISOString().slice(0, 10);
                                     >
                                         <PermisoSwitch
                                             tamano="sm"
-                                            :model-value="efectivos.has(permiso)"
+                                            :model-value="
+                                                efectivos.has(permiso)
+                                            "
                                             :disabled="soloLectura"
                                             :etiqueta="etiquetaPermiso(permiso)"
                                             @update:model-value="
@@ -718,7 +745,9 @@ const hoy = new Date().toISOString().slice(0, 10);
                                                 class="block text-[11px] text-warning"
                                                 >Su rol:
                                                 {{
-                                                    base.has(permiso) ? 'sí' : 'no'
+                                                    base.has(permiso)
+                                                        ? 'sí'
+                                                        : 'no'
                                                 }}</span
                                             ></span
                                         >
@@ -773,7 +802,8 @@ const hoy = new Date().toISOString().slice(0, 10);
                                 <span
                                     v-if="e.ajuste?.vigente_hasta"
                                     class="block text-[11px] text-muted-foreground"
-                                    >Hasta {{ fecha(e.ajuste.vigente_hasta) }}</span
+                                    >Hasta
+                                    {{ fecha(e.ajuste.vigente_hasta) }}</span
                                 >
                                 <span
                                     v-else-if="!e.ajuste"

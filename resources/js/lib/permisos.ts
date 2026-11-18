@@ -10,7 +10,7 @@
 const ETIQUETAS_MODULO: Record<string, string> = {
     actividades: 'Actividades',
     altas: 'Altas de personal',
-    app: 'Aplicación móvil',
+    app: 'App móvil del colaborador',
     app_releases: 'Versiones de la app',
     asignaciones: 'Asignaciones',
     asistencias: 'Asistencias',
@@ -37,7 +37,7 @@ const ETIQUETAS_MODULO: Record<string, string> = {
     reportes_rh: 'Reportes de RH',
     respuestas: 'Respuestas de cuestionarios',
     responsivas: 'Responsivas de equipo',
-    rh: 'Recursos Humanos',
+    rh: 'App de RH (revisión desde el celular)',
     roles: 'Roles y permisos',
     rotacion: 'Rotación de personal',
     sesiones: 'Sesiones de capacitación',
@@ -393,15 +393,37 @@ export function etiquetaModulo(modulo: string): string {
  * uno agregado después sin actualizar este archivo) genera un texto
  * razonable en vez de mostrar el slug técnico crudo.
  */
+/**
+ * Etiquetas que manda el servidor con el catálogo (`catalogo.etiquetas`):
+ * tienen prioridad sobre el diccionario local para que ningún permiso se
+ * muestre con su código técnico.
+ */
+const ETIQUETAS_SERVIDOR: Record<string, string> = {};
+
+export function registrarEtiquetas(
+    etiquetas: Record<string, string> | null | undefined,
+): void {
+    Object.assign(ETIQUETAS_SERVIDOR, etiquetas ?? {});
+}
+
 export function etiquetaPermiso(name: string): string {
+    if (ETIQUETAS_SERVIDOR[name]) {
+        return ETIQUETAS_SERVIDOR[name];
+    }
+
     if (ETIQUETAS_PERMISO[name]) {
         return ETIQUETAS_PERMISO[name];
     }
 
+    // Sin etiqueta conocida: acción + módulo («Ver · avisos»), nunca una
+    // sola palabra suelta.
     const partes = name.split('.');
-    const accion = partes.at(-1) ?? name;
+    const accion = humanizar(partes.at(-1) ?? name);
+    const contexto = partes.slice(0, -1).filter((p) => p !== 'app');
 
-    return humanizar(accion);
+    return contexto.length > 0
+        ? `${accion} · ${contexto.map((p) => p.replace(/[_-]+/g, ' ')).join(' · ')}`
+        : accion;
 }
 
 function humanizar(texto: string): string {
