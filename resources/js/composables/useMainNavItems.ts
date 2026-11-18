@@ -166,10 +166,10 @@ export type NavGroup = {
     titulo: string;
     icono?: LucideIcon;
     /**
-     * Grupo siempre desplegado (sin plegado): sus accesos nunca quedan
-     * escondidos detrás de un encabezado cerrado. Hoy solo «Inicio».
+     * Grupo que arranca desplegado mientras la persona no lo haya plegado
+     * a mano (su preferencia se recuerda). Hoy solo «Inicio».
      */
-    fijo?: boolean;
+    abiertoPorDefecto?: boolean;
     items: NavItem[];
 };
 
@@ -324,14 +324,14 @@ export function useMainNavItems() {
         });
 
         const grupos: NavGroup[] = [
-            // «Inicio» va SIEMPRE desplegado (fijo): lo de todos los días
-            // —tablero, pendientes y solicitudes— se ve sin abrir ningún grupo.
+            // «Inicio» arranca desplegado (lo de todos los días: tablero,
+            // pendientes y solicitudes) pero se puede plegar como los demás.
             grupo(
                 {
                     id: 'inicio',
                     titulo: 'Inicio',
                     icono: LayoutGrid,
-                    fijo: true,
+                    abiertoPorDefecto: true,
                 },
                 [
                     // Sin tablero (Jurídico, Contraloría) el inicio es su bandeja de bajas.

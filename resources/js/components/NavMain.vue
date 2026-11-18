@@ -36,6 +36,8 @@ const props = withDefaults(
          * y sin plegado — si se plegara, el sidebar quedaría vacío.
          */
         fijo?: boolean;
+        /** Arranca desplegado si la persona aún no eligió (p. ej. «Inicio»). */
+        abiertoPorDefecto?: boolean;
     }>(),
     {
         titulo: 'Navegación',
@@ -43,6 +45,7 @@ const props = withDefaults(
         numero: undefined,
         icono: undefined,
         fijo: false,
+        abiertoPorDefecto: false,
     },
 );
 
@@ -134,9 +137,11 @@ function guardarPreferencia(abierto: boolean): void {
     }
 }
 
-// Estado persistido del grupo. Por defecto cerrado; el grupo de la ruta
-// activa arranca abierto aunque no haya preferencia guardada.
-const abiertoGuardado = ref<boolean>(leerPreferencia() ?? grupoActivo.value);
+// Estado persistido del grupo. Por defecto cerrado (salvo `abiertoPorDefecto`);
+// el grupo de la ruta activa arranca abierto aunque no haya preferencia.
+const abiertoGuardado = ref<boolean>(
+    leerPreferencia() ?? (props.abiertoPorDefecto || grupoActivo.value),
+);
 
 // Al navegar hacia un acceso de este grupo, se abre automáticamente (sin
 // perder la posibilidad de cerrarlo manualmente después).

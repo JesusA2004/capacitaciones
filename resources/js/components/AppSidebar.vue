@@ -212,8 +212,8 @@ onBeforeUnmount(() => {
                  (useMainNavItems): Inicio · 1 Reclutamiento · 2 Contratación ·
                  3 Onboarding · 4 Cierre del periodo de prueba · 5 Permanencia ·
                  6 Desarrollo · 7 Cierres laborales · Organización · Reportes ·
-                 Configuración. «Inicio» (tablero, pendientes y Solicitudes) va
-                 siempre desplegado: `grupo.fijo`. -->
+                 Configuración. «Inicio» (tablero, pendientes y Solicitudes) arranca
+                 desplegado (`grupo.abiertoPorDefecto`) y se pliega como los demás. -->
             <div ref="zonaMenu" class="relative flex flex-col gap-2">
                 <span
                     aria-hidden="true"
@@ -235,7 +235,8 @@ onBeforeUnmount(() => {
                     :titulo="grupo.titulo"
                     :numero="grupo.numero"
                     :icono="grupo.icono"
-                    :fijo="grupo.fijo || navGroups.length === 1"
+                    :fijo="navGroups.length === 1"
+                    :abierto-por-defecto="grupo.abiertoPorDefecto"
                 />
             </div>
         </SidebarContent>
