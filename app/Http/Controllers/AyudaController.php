@@ -78,10 +78,11 @@ class AyudaController extends Controller
      * Material de apoyo (videos e infografías oficiales). Solo lo publicado
      * con `php artisan ayuda:publicar-material`.
      */
-    public function material(MaterialAyudaService $material): Response
+    public function material(Request $request, MaterialAyudaService $material): Response
     {
         return Inertia::render('Ayuda/Material', [
-            'materiales' => $material->publicados(),
+            // Solo lo que su rol puede ver (Roles y permisos → Material de apoyo).
+            'materiales' => $material->publicados($request->user()),
             'temas' => config('ayuda_material.temas', []),
         ]);
     }
@@ -95,6 +96,9 @@ class AyudaController extends Controller
         $encontrado = $servicio->buscar($material);
 
         abort_if($encontrado === null || ! $servicio->estaPublicado($encontrado), 404);
+
+        $usuario = $request->user();
+        abort_unless($usuario !== null && $servicio->puedeVer($usuario, $encontrado), 403);
 
         $ruta = $servicio->rutaPublicada($encontrado);
         $cabeceras = ['Content-Type' => $servicio->mime($encontrado)];

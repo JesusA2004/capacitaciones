@@ -3,6 +3,7 @@
 namespace App\Services\Ayuda;
 
 use App\Enums\EstadoPublicacionMaterialAyuda;
+use App\Models\User;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +19,21 @@ use Illuminate\Support\Facades\Storage;
  */
 class MaterialAyudaService
 {
+    /**
+     * Permiso que deja ver un material (`ayuda.material.{slug}`), editable
+     * por rol en «Roles y permisos» (config/permisos_modulos.php →
+     * material_ayuda).
+     */
+    public function permiso(MaterialAyuda $material): string
+    {
+        return sprintf('ayuda.material.%s', $material->slug);
+    }
+
+    public function puedeVer(User $usuario, MaterialAyuda $material): bool
+    {
+        return $usuario->can($this->permiso($material));
+    }
+
     /**
      * Catálogo completo, en orden.
      *
@@ -120,13 +136,13 @@ class MaterialAyudaService
      *
      * @return list<array{slug: string, titulo: string, descripcion: string, tipo: string, tipoEtiqueta: string, tema: string, temaEtiqueta: string, audiencia: string, bytes: int, url: string, descargar: string}>
      */
-    public function publicados(): array
+    public function publicados(?User $usuario = null): array
     {
         $temas = config('ayuda_material.temas', []);
         $publicados = [];
 
         foreach ($this->materiales() as $material) {
-            if (! $this->estaPublicado($material)) {
+            if (! $this->estaPublicado($material) || ($usuario !== null && ! $this->puedeVer($usuario, $material))) {
                 continue;
             }
 

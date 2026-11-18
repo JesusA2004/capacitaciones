@@ -4,6 +4,8 @@ use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /*
  * Material de apoyo del centro de Ayuda: `ayuda:publicar-material` copia
@@ -82,4 +84,23 @@ test('sin publicar la pantalla queda vacía y el material exige sesión', functi
         ->get('/ayuda/material')
         ->assertInertia(fn ($page) => $page->has('materiales', 0));
     $this->actingAs($usuario)->get('/ayuda/material/archivo/manual-operacion')->assertNotFound();
+});
+
+test('roles y permisos decide qué material ve cada rol', function () {
+    crearOrigenAyuda($this->origen);
+    $this->artisan('ayuda:publicar-material')->assertSuccessful();
+
+    $this->seed(RolesYPermisosSeeder::class);
+    $rol = Role::findByName('colaborador', 'web');
+    $rol->revokePermissionTo('ayuda.material.infografia-gerentes');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    $usuario = User::factory()->create();
+    $usuario->assignRole('colaborador');
+
+    $this->actingAs($usuario)
+        ->get('/ayuda/material')
+        ->assertInertia(fn ($page) => $page->has('materiales', 8));
+    $this->actingAs($usuario)->get('/ayuda/material/archivo/infografia-gerentes')->assertForbidden();
+    $this->actingAs($usuario)->get('/ayuda/material/archivo/infografia-gestor')->assertOk();
 });

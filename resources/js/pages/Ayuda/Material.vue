@@ -250,10 +250,12 @@ const accesos = computed(() => {
                 <Clapperboard class="size-7" />
             </span>
             <p class="text-lg font-semibold">
-                El material de apoyo aún no está publicado en este servidor
+                No hay material de apoyo disponible para ti
             </p>
             <p class="max-w-lg text-sm text-[var(--mrl-texto-suave)]">
-                Pídele al super administrador que lo publique con
+                Puede que tu rol no tenga asignado ningún video o infografía
+                (Roles y permisos → Material de apoyo) o que aún no se haya
+                publicado con
                 <code
                     class="rounded bg-crema px-1.5 py-0.5 text-xs font-semibold"
                     >php artisan ayuda:publicar-material</code

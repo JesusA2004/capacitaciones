@@ -1298,6 +1298,12 @@ class RolesYPermisosSeeder extends Seeder
                 $permisos[] = 'directorio.ver';
             }
 
+            // Material de apoyo de Ayuda: de inicio todo rol ve todos los
+            // videos e infografías; «Roles y permisos» quita los que no.
+            foreach (array_keys((array) config('permisos_modulos.modulos.material_ayuda.acciones', [])) as $permisoMaterial) {
+                $permisos[] = (string) $permisoMaterial;
+            }
+
             if (in_array($rol, self::ROLES_VEN_TODAS_LAS_NOTIFICACIONES, true)) {
                 $permisos[] = 'notificaciones.ver_propias';
                 $permisos[] = 'notificaciones.ver_todas';

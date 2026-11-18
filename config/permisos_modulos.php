@@ -47,6 +47,27 @@ return [
             'alcances' => [],
             'acciones' => [],
         ],
+        // Ayuda → Material de apoyo (config/ayuda_material.php): un permiso
+        // por video/infografía para decidir qué ve cada rol. La clave es
+        // `ayuda.material.{slug}`; un material nuevo agrega aquí su línea.
+        'material_ayuda' => [
+            'etiqueta' => 'Ayuda: material de apoyo (videos e infografías)',
+            'grupo' => 'Ayuda',
+            'etapa' => 'mi_espacio',
+            'acceso' => null,
+            'alcances' => [],
+            'acciones' => [
+                'ayuda.material.video-general' => 'Video: Mr. Lana People en general',
+                'ayuda.material.video-infografia-gestor' => 'Video: Infografía de gestor',
+                'ayuda.material.video-infografia-gerentes' => 'Video: Infografía de gerentes (antes y ahora)',
+                'ayuda.material.video-manual-operacion' => 'Video: Manual de operaciones',
+                'ayuda.material.video-flujograma-despliegue' => 'Video: Flujograma de despliegue',
+                'ayuda.material.manual-operacion' => 'PDF: Manual de operaciones',
+                'ayuda.material.flujograma-despliegue' => 'PDF: Flujograma de despliegue',
+                'ayuda.material.infografia-gerentes' => 'PDF: Infografía de gerentes',
+                'ayuda.material.infografia-gestor' => 'PDF: Infografía de gestor',
+            ],
+        ],
         // Fase 2 «Seguimiento» (docs/SEGUIMIENTO.md): datos duros de Reportes
         // por sucursal y por gestor. El alcance acota las SUCURSALES de PEOPLE
         // que ve cada quien (AlcanceSeguimientoService).
