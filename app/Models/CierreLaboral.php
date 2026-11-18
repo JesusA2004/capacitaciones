@@ -69,6 +69,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property Carbon|null $baja_imss_en
  * @property Carbon|null $baja_asistencia_en
  * @property Carbon|null $accesos_cancelados_en
+ * @property array<string, mixed>|null $reversion_baja
+ * @property Carbon|null $estatus_laboral_aplicado_en
  * @property Carbon|null $aviso_interno_en
  * @property Carbon|null $consignacion_preventiva_en
  * @property string|null $consignacion_observaciones
@@ -125,6 +127,9 @@ class CierreLaboral extends Model
             'baja_imss_en' => 'datetime',
             'baja_asistencia_en' => 'datetime',
             'accesos_cancelados_en' => 'datetime',
+            // Qué había antes de aplicar la baja (EstatusLaboralService), para «No procede».
+            'reversion_baja' => 'array',
+            'estatus_laboral_aplicado_en' => 'datetime',
             'aviso_interno_en' => 'datetime',
             'consignacion_preventiva_en' => 'datetime',
         ];

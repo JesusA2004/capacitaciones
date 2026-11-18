@@ -2,6 +2,7 @@
 
 namespace App\Services\Reclutamiento;
 
+use App\Enums\EstadoCandidato;
 use App\Enums\FuenteCandidato;
 use App\Enums\TipoEvidenciaCandidato;
 use App\Models\Candidato;
@@ -17,6 +18,7 @@ use App\Models\IntervencionCandidato;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Autenticacion\CredencialesService;
+use App\Services\Colaboradores\EstatusLaboralService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -155,6 +157,12 @@ class CandidatoPresenter
             // omisión se ve junto con los procesos de reclutamiento.
             ->when($texto('historicos') === 'ocultar', fn ($query) => $query->where('historico', false))
             ->when($texto('historicos') === 'solo', fn ($query) => $query->where('historico', true))
+            // Contratado / en contratación cuyo colaborador ya se dio de baja:
+            // no se queda en Inducción ni Contratación (bajas=mostrar lo trae).
+            ->when($texto('bajas') !== 'mostrar', fn ($query) => $query->where(fn ($sub) => $sub
+                ->whereNull('colaborador_id')
+                ->orWhereNotIn('estado', [EstadoCandidato::Contratado->value, EstadoCandidato::EnContratacion->value])
+                ->orWhereHas('colaborador', fn ($c) => EstatusLaboralService::limitarVigentes($c))))
             ->when($texto('busqueda'), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda): void {
                     $sub->where('nombre', 'like', "%{$busqueda}%")

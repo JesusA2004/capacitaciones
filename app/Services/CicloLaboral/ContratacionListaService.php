@@ -12,6 +12,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\EstatusLaboralService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\ExpedienteService;
@@ -113,6 +114,9 @@ class ContratacionListaService
     {
         $query = EmployeeDocument::query()
             ->whereIn('status', EstadoDocumento::porRevisarValues())
+            // Quien ya se dio de baja no tiene nada que validar (su
+            // expediente se conserva tal cual).
+            ->whereHas('colaborador', fn (Builder $c) => EstatusLaboralService::limitarVigentes($c))
             ->with([
                 'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id,foto_path,jefe_id,gerente_id',
                 'colaborador.sucursalPrincipal:id,nombre',

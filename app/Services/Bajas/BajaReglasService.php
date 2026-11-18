@@ -107,7 +107,10 @@ class BajaReglasService
             return 'Indica el último día laborado.';
         }
 
-        if ($baja->fecha_ingreso !== null && $baja->fecha_baja->lt($baja->fecha_ingreso)) {
+        // Quien aún no empieza a laborar (en contratación con ingreso
+        // programado: renunció antes o el mismo primer día) también puede
+        // darse de baja: la regla solo aplica si su ingreso ya ocurrió.
+        if ($baja->fecha_ingreso !== null && ! $baja->fecha_ingreso->isAfter(FechaMexico::inicioDeHoy()) && $baja->fecha_baja->lt($baja->fecha_ingreso)) {
             return sprintf('El último día laborado no puede ser anterior a la fecha de ingreso (%s).', $baja->fecha_ingreso->format('d/m/Y'));
         }
 

@@ -82,7 +82,8 @@ class BajaRegistroService
     public function recalcularAntiguedad(Baja $baja): void
     {
         $baja->antiguedad_dias = $baja->fecha_ingreso !== null && $baja->fecha_baja !== null
-            ? (int) $baja->fecha_ingreso->diffInDays($baja->fecha_baja, false)
+            // Nunca negativa: baja antes del ingreso programado = 0 días.
+            ? max(0, (int) $baja->fecha_ingreso->diffInDays($baja->fecha_baja, false))
             : null;
     }
 

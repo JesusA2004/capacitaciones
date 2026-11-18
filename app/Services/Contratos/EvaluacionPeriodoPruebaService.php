@@ -15,6 +15,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\EstatusLaboralService;
 use App\Services\Evaluaciones\FormularioEvaluacionService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
@@ -600,6 +601,10 @@ class EvaluacionPeriodoPruebaService
         $sucursalId = isset($filtros['sucursal_id']) ? (int) $filtros['sucursal_id'] : 0;
 
         return $query
+            // Una evaluación abierta de quien ya se dio de baja no es
+            // pendiente de nadie; las autorizadas se conservan como historia.
+            ->where(fn (Builder $q) => $q->where('estado', EstadoEvaluacionPrueba::Autorizada->value)
+                ->orWhereHas('colaborador', fn (Builder $c) => EstatusLaboralService::limitarVigentes($c)))
             ->when($busqueda !== '', fn (Builder $q) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($q, $busqueda))
             ->when($sucursalId > 0, fn (Builder $q) => $q->whereHas('colaborador', fn (Builder $c) => $c->where('sucursal_principal_id', $sucursalId)));
     }

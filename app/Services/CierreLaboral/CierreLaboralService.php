@@ -32,6 +32,7 @@ use App\Services\Bajas\BajaAlertasService;
 use App\Services\Bajas\BajaRegistroService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Colaboradores\EstatusLaboralService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Documentos\Versiones\Fuentes\FuentePlantillaMotor;
 use App\Services\Documentos\Versiones\VersionadoDocumentoService;
@@ -112,6 +113,7 @@ class CierreLaboralService
         private readonly BajaAlertasService $alertasBaja,
         private readonly FotoColaboradorService $fotos,
         private readonly AvisoBajaSistemasService $avisoBajaSistemas,
+        private readonly EstatusLaboralService $estatusLaboral,
     ) {}
 
     /**
@@ -246,6 +248,11 @@ class CierreLaboralService
             // a su cierre; el atajo crea la suya ya «En revisión RH».
             $this->bajas->ligarCierre($cierre, $actor, $baja, $datos, $aplicadaPor);
 
+            // Baja inmediata también en lo LABORAL (misma transacción):
+            // inactivo, «Baja», fecha, procesos de origen cerrados y plaza
+            // liberada. Con último día futuro queda programada (comando diario).
+            $this->estatusLaboral->aplicar($colaborador, $actor, $fechaEfectiva, $cierre, $motivo);
+
             return $cierre;
         });
 
@@ -363,6 +370,10 @@ class CierreLaboralService
 
             // Expediente de la baja (NR-02 por defecto), ya «En revisión RH».
             $this->bajas->ligarCierre($cierre, $actor, null, [], 'Recursos Humanos (no renovación del periodo de prueba)');
+
+            // Estatus laboral: de inmediato si el último día ya llegó; si no,
+            // programado (cierres:revisar-fechas, diario).
+            $this->estatusLaboral->aplicar($colaborador, $actor, $fechaEfectiva, $cierre, $motivo);
 
             return $cierre;
         });
@@ -920,9 +931,19 @@ class CierreLaboralService
             'fecha_efectiva' => $baja->fecha_baja?->toDateString() ?? $cierre->fecha_efectiva->toDateString(),
         ], fn (mixed $v): bool => $v !== null);
 
-        DB::transaction(function () use ($cierre, $cambios): void {
+        DB::transaction(function () use ($cierre, $cambios, $actor): void {
             $cierre->update($cambios);
             $cierre->solicitud?->update(array_intersect_key($cambios, array_flip(['tipo_baja', 'causal_rotacion_id', 'fecha_efectiva'])));
+
+            // La fecha corregida manda también en el estatus laboral: si ya
+            // llegó se aplica; si ya estaba aplicada, se corrige la fecha.
+            $cierre->refresh();
+
+            if ($cierre->estatus_laboral_aplicado_en === null) {
+                $this->estatusLaboral->aplicar($cierre->colaborador, $actor, $cierre->fecha_efectiva, $cierre, (string) $cierre->motivo);
+            } elseif ($cierre->colaborador->fecha_baja?->toDateString() !== $cierre->fecha_efectiva->toDateString()) {
+                $cierre->colaborador->forceFill(['fecha_baja' => $cierre->fecha_efectiva->toDateString()])->save();
+            }
         });
 
         try {
@@ -969,6 +990,8 @@ class CierreLaboralService
         });
 
         $this->auditoria->registrar('cierre_laboral_cancelado', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'motivo' => $motivo]);
+        // «No procede»: estatus, alta y procesos cerrados por la baja regresan.
+        $this->estatusLaboral->revertir($cierre->refresh(), $actor);
         $this->devolverAcceso($cierre, $actor, 'Baja cancelada');
         // Lo que aún no salía a Sistemas ya no sale; si ya lo recibió, se le
         // avisa que reactive (nunca lanza).
@@ -985,6 +1008,22 @@ class CierreLaboralService
     public function revisarFechasEfectivas(): int
     {
         $abiertos = 0;
+
+        // Bajas con último día futuro (programadas): ese día la persona queda
+        // inactiva, con sus procesos de origen cerrados (EstatusLaboralService).
+        // Solo cierres abiertos que aún no aplicaron su estatus laboral.
+        CierreLaboral::query()
+            ->whereIn('estado', array_map(fn (EstadoCierreLaboral $e) => $e->value, array_filter(EstadoCierreLaboral::abiertos(), fn (EstadoCierreLaboral $e): bool => $e->autorizadoPorRh())))
+            ->whereNull('estatus_laboral_aplicado_en')
+            ->whereDate('fecha_efectiva', '<=', FechaMexico::hoy())
+            ->with(['colaborador', 'iniciadoPor'])
+            ->each(function (CierreLaboral $cierre): void {
+                try {
+                    $this->estatusLaboral->aplicar($cierre->colaborador, $cierre->iniciadoPor, $cierre->fecha_efectiva, $cierre, (string) $cierre->motivo);
+                } catch (Throwable $e) {
+                    Log::warning('CierreLaboralService: no se pudo aplicar el estatus de una baja programada.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
+                }
+            });
 
         CierreLaboral::query()
             ->where('estado', EstadoCierreLaboral::Pagado->value)
