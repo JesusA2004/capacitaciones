@@ -386,6 +386,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/', [TareaController::class, 'index'])->name('index');
             Route::post('{tarea}/leer', [TareaController::class, 'leer'])->name('leer');
             Route::post('{tarea}/resolver', [TareaController::class, 'resolver'])->name('resolver');
+            // Aditivos (docs/PENDIENTES.md): quitar de mi lista / restaurar.
+            Route::post('{tarea}/descartar', [TareaController::class, 'descartar'])->name('descartar')->middleware('throttle:120,1');
+            Route::post('{tarea}/restaurar', [TareaController::class, 'restaurar'])->name('restaurar')->middleware('throttle:120,1');
         });
 
         Route::prefix('notificaciones')->name('notificaciones.')->group(function () {

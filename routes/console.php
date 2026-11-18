@@ -120,6 +120,13 @@ Schedule::command('notificaciones:reconciliar')
     ->withoutOverlapping(10)
     ->onOneServer();
 
+// Mis pendientes (docs/PENDIENTES.md): cierra los pendientes que ya se
+// cumplieron o cuyo sujeto ya no aplica (borrado, baja, solicitud
+// cancelada, documento en otro paso…). Idempotente; solo cierra.
+Schedule::command('pendientes:reconciliar')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10)
+    ->onOneServer();
 // Limpia tokens de Sanctum ya vencidos (config/sanctum.php: expiration ya
 // no es null). Comando propio del paquete, solo borra filas cuyo
 // expires_at ya pasó — nunca toca un token todavía vigente.

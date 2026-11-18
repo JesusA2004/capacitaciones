@@ -20,6 +20,7 @@ import ClonarRolDialog from '@/components/Administracion/ClonarRolDialog.vue';
 import ChecklistNotificacionesRol from '@/components/Administracion/Roles/ChecklistNotificacionesRol.vue';
 import ModuloPermisosCard from '@/components/Administracion/Roles/ModuloPermisosCard.vue';
 import NuevoRolDialog from '@/components/Administracion/Roles/NuevoRolDialog.vue';
+import PendientesPorRol from '@/components/Administracion/Roles/PendientesPorRol.vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
 import ResumenRol from '@/components/Administracion/Roles/ResumenRol.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
@@ -365,7 +366,7 @@ async function eliminar(objetivo: RolItem) {
 }
 
 // --------------------------------------------------------------- filtros
-const vista = ref<'matriz' | 'resumen' | 'notificaciones'>(
+const vista = ref<'matriz' | 'resumen' | 'notificaciones' | 'pendientes'>(
     props.puedeAdministrarRoles ? 'matriz' : 'notificaciones',
 );
 const pestanas = computed(() => [
@@ -373,6 +374,8 @@ const pestanas = computed(() => [
         ? ([
               { valor: 'matriz', etiqueta: 'Permisos' },
               { valor: 'resumen', etiqueta: 'Qué puede hacer' },
+              // Qué pendientes le llegan (docs/PENDIENTES.md).
+              { valor: 'pendientes', etiqueta: 'Pendientes' },
           ] as const)
         : []),
     ...(props.checklistNotificaciones !== null
@@ -806,6 +809,15 @@ const dialogClonar = ref(false);
                     :checklist="checklistNotificaciones"
                     :historial="historialNotificaciones[rol.id] ?? []"
                     @cambios="cambiosAvisos = $event"
+                />
+
+                <PendientesPorRol
+                    v-else-if="vista === 'pendientes'"
+                    :key="`pendientes-${rol.id}`"
+                    :nombre-rol="rol.nombre"
+                    :permisos="borrador"
+                    :solo-lectura="soloLectura"
+                    @poner="poner"
                 />
 
                 <!-- Resumen en español llano -->

@@ -81,6 +81,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::prefix('rh')->name('rh.')->group(function () {
         Route::get('pendientes', [PendienteController::class, 'index'])->name('pendientes.index');
+        // Acciones sobre la propia lista (docs/PENDIENTES.md): quitar de mi
+        // lista (con motivo), restaurar y marcar como hecho (informativos).
+        Route::post('pendientes/{tarea}/descartar', [PendienteController::class, 'descartar'])->name('pendientes.descartar')->whereNumber('tarea')->middleware('throttle:120,1');
+        Route::post('pendientes/{tarea}/restaurar', [PendienteController::class, 'restaurar'])->name('pendientes.restaurar')->whereNumber('tarea')->middleware('throttle:120,1');
+        // Roles y permisos → Pendientes: catálogo de tipos (roles.administrar).
+        Route::get('pendientes/catalogo-roles', [PendienteController::class, 'catalogoRoles'])->name('pendientes.catalogo-roles');
+        Route::post('pendientes/{tarea}/hecho', [PendienteController::class, 'marcarHecho'])->name('pendientes.hecho')->whereNumber('tarea')->middleware('throttle:120,1');
 
         // Índices agregados del ciclo:
         //  · «3 · Onboarding» → Inducción al puesto (estado del acuse del

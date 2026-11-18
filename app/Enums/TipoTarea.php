@@ -186,6 +186,39 @@ enum TipoTarea: string
     }
 
     /**
+     * Permiso «Recibir este pendiente» (módulo Pendientes de Roles y
+     * permisos, docs/PENDIENTES.md): decide si a un rol le llegan los
+     * pendientes de este tipo que se asignan POR PERMISO. Los asignados a
+     * una cuenta por nombre (su firma, su evaluación, su entrevista) siempre
+     * llegan.
+     */
+    public function permisoRecibir(): string
+    {
+        return sprintf('pendientes.recibir_%s', $this->value);
+    }
+
+    /**
+     * Tipos que se pueden encender/apagar por rol: todos menos los LEGACY
+     * (nada los crea ya).
+     *
+     * @return list<self>
+     */
+    public static function configurables(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $t): bool => ! $t->esLegacy()));
+    }
+
+    /**
+     * Pendientes solo informativos (avisos de algo que pasó o por pasar, sin
+     * un registro que cambie de estado al atenderlo): quien lo recibe puede
+     * «Marcar como hecho». Los demás se cierran solos al hacer la acción.
+     */
+    public function esInformativo(): bool
+    {
+        return in_array($this, [self::ContratoPorVencer, self::PlantillaFaltante, self::OnboardingRefuerzo, self::OrganigramaSinJefe], true);
+    }
+
+    /**
      * Tipos que pertenecen al ciclo laboral de este cierre (excluye Etapa 5).
      *
      * @return list<self>

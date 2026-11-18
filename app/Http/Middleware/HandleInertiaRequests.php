@@ -7,7 +7,8 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Directorio\DirectorioColaboradoresService;
 use App\Services\Navigation\NavigationService;
 use App\Services\Sistemas\PendientesAltaSistemasService;
-use App\Services\Solicitudes\AprobacionOrganizacionalService;
+use App\Services\Tareas\DescarteTareasService;
+use App\Services\Tareas\TareaService;
 use App\Services\WebPush\ClavesVapidService;
 use App\Services\WebPush\WebPushNotifier;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -114,10 +115,11 @@ class HandleInertiaRequests extends Middleware
                     : null,
             ],
             'environment' => app()->environment(),
-            // Badge del acceso «Pendientes»: el MISMO conteo único que la app
-            // (AprobacionOrganizacionalService::conteoPendientes) — solo lo
-            // que esta cuenta puede aprobar AHORA. Perezoso (las recargas
-            // parciales que no lo piden no lo calculan) y en caché breve.
+            // Badge del acceso «Pendientes»: el MISMO número que la lista de
+            // «Mis pendientes» (TareaService::totalAbiertas: abiertos que le
+            // llegan, sin los que quitó de su lista) — docs/PENDIENTES.md.
+            // Antes contaba aprobaciones de solicitudes y no cuadraba con la
+            // lista. Perezoso y en caché breve (se olvida al descartar/hacer).
             'aprobacionesPendientes' => fn (): int => $user === null ? 0 : $this->aprobacionesPendientes($user),
             // Badge de «Pendientes de alta en sistemas»: solo para quien las
             // atiende (sistemas.altas.atender). Perezoso; nunca tumba la página.
@@ -129,9 +131,9 @@ class HandleInertiaRequests extends Middleware
     {
         try {
             return (int) Cache::remember(
-                sprintf('aprobaciones_pendientes:%d', $user->id),
+                DescarteTareasService::claveConteo($user),
                 now()->addSeconds(30),
-                fn (): int => app(AprobacionOrganizacionalService::class)->conteoPendientes($user)['total'],
+                fn (): int => app(TareaService::class)->totalAbiertas($user),
             );
         } catch (Throwable $e) {
             // Un badge nunca tumba la página.

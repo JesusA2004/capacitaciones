@@ -1308,6 +1308,12 @@ class RolesYPermisosSeeder extends Seeder
                 $permisos[] = (string) $permisoMaterial;
             }
 
+            // Pendientes por rol: de inicio a todo rol le llegan todos los
+            // pendientes que su permiso de acción le asigna; «Roles y
+            // permisos → Pendientes» apaga los que no (docs/PENDIENTES.md).
+            foreach (array_keys((array) config('permisos_modulos.modulos.pendientes.acciones', [])) as $permisoPendiente) {
+                $permisos[] = (string) $permisoPendiente;
+            }
             if (in_array($rol, self::ROLES_VEN_TODAS_LAS_NOTIFICACIONES, true)) {
                 $permisos[] = 'notificaciones.ver_propias';
                 $permisos[] = 'notificaciones.ver_todas';

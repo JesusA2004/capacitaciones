@@ -453,6 +453,10 @@ export type TareaBandeja = {
     resolved_at: string | null;
     creada_en: string | null;
     datos: Record<string, unknown> | null;
+    /** Solo informativo: se puede «Marcar como hecho» (docs/PENDIENTES.md). */
+    informativo?: boolean;
+    /** Semáforo por antigüedad/vencimiento; null si ya se resolvió. */
+    semaforo?: 'verde' | 'ambar' | 'rojo' | null;
 };
 
 /** Inicio operativo: qué necesita atención + 4 cifras para decidir. */

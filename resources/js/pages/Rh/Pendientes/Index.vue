@@ -4,20 +4,41 @@ import {
     AlarmClock,
     ArrowRight,
     CalendarClock,
+    Check,
     CheckCircle2,
     Eye,
+    EyeOff,
     Flame,
     Inbox,
+    Layers,
+    RotateCcw,
+    Sparkles,
+    X,
 } from '@lucide/vue';
-import { computed, reactive, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import { Input } from '@/components/ui/input';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
-import { index } from '@/routes/rh/pendientes';
+import { descartar, hecho, index, restaurar } from '@/routes/rh/pendientes';
 import type { TareaBandeja } from '@/types';
+
+type FilaPendiente = TareaBandeja & {
+    url: string | null;
+    foto_url?: string | null;
+    descartada: boolean;
+    motivo_descarte: string | null;
+    puede_marcar_hecho: boolean;
+};
+type GrupoTipo = {
+    clave: string;
+    etiqueta: string;
+    total: number;
+    informativo: boolean;
+};
 
 type Paginado<T> = {
     data: T[];
@@ -67,20 +88,26 @@ const PRIORIDAD_ATAJO: Record<
 
 const props = defineProps<{
     atajos: Atajo[];
-    tareas: Paginado<
-        TareaBandeja & { url: string | null; foto_url?: string | null }
-    >;
-    conteos: { abiertas: number; no_leidas: number; vencidas: number };
+    tareas: Paginado<FilaPendiente>;
+    conteos: {
+        abiertas: number;
+        no_leidas: number;
+        vencidas: number;
+        descartadas: number;
+    };
     distribucion: { por_etapa: Serie[]; por_prioridad: Serie[] };
+    por_tipo: GrupoTipo[];
     filtros: {
         etapa?: string | null;
         sucursal_id?: string | number | null;
         urgencia?: string | null;
         tipo?: string | null;
+        estado?: 'abiertas' | 'descartadas' | 'resueltas' | null;
     };
     opciones: {
         etapas: { value: string; etiqueta: string }[];
         sucursales: { id: number; nombre: string }[];
+        motivo_max: number;
     };
 }>();
 
@@ -99,6 +126,8 @@ const filtros = reactive({
         ? String(props.filtros.sucursal_id)
         : '',
     urgencia: props.filtros.urgencia ?? '',
+    tipo: props.filtros.tipo ?? '',
+    estado: props.filtros.estado ?? 'abiertas',
 });
 
 watch(filtros, () => {
@@ -161,6 +190,125 @@ function venceEn(tarea: TareaBandeja): { texto: string; clase: string } | null {
 
 const segmento = (activo: boolean) =>
     `rounded-lg px-3 py-1.5 text-sm font-medium transicion-ui ${activo ? 'bg-[var(--mrl-primary)] text-white shadow-sm' : 'text-[var(--mrl-texto-suave)] hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)]'}`;
+
+// ---------------------------------------------- semáforo (antigüedad)
+const SEMAFORO: Record<
+    'verde' | 'ambar' | 'rojo',
+    { etiqueta: string; clase: string; punto: string }
+> = {
+    verde: {
+        etiqueta: 'Al día',
+        clase: 'bg-success-soft text-success',
+        punto: 'bg-[var(--mrl-success)]',
+    },
+    ambar: {
+        etiqueta: 'Atiéndelo pronto',
+        clase: 'bg-warning-soft text-warning',
+        punto: 'bg-[var(--mrl-gold)]',
+    },
+    rojo: {
+        etiqueta: 'Atrasado',
+        clase: 'bg-danger-soft text-destructive',
+        punto: 'bg-[var(--mrl-danger)]',
+    },
+};
+
+function antiguedad(tarea: TareaBandeja): string {
+    return tarea.antiguedad_dias === 0
+        ? 'hoy'
+        : `hace ${tarea.antiguedad_dias} día${tarea.antiguedad_dias === 1 ? '' : 's'}`;
+}
+
+// ------------------------------------------- agrupar por tipo (página)
+const agrupar = ref(false);
+const grupos = computed(() => {
+    const mapa = new Map<
+        string,
+        { etiqueta: string; filas: FilaPendiente[] }
+    >();
+
+    for (const fila of props.tareas.data) {
+        const grupo = mapa.get(fila.tipo) ?? {
+            etiqueta: fila.tipo_etiqueta,
+            filas: [],
+        };
+        grupo.filas.push(fila);
+        mapa.set(fila.tipo, grupo);
+    }
+
+    return [...mapa.entries()].map(([clave, g]) => ({ clave, ...g }));
+});
+const secciones = computed(() =>
+    agrupar.value
+        ? grupos.value
+        : [{ clave: 'todas', etiqueta: '', filas: props.tareas.data }],
+);
+
+function alternarTipo(clave: string) {
+    filtros.tipo = filtros.tipo === clave ? '' : clave;
+}
+
+// ------------------------------------------------- acciones por fila
+const quitando = ref<number | null>(null);
+const motivo = ref('');
+const procesando = ref<number | null>(null);
+
+function abrirQuitar(id: number) {
+    quitando.value = quitando.value === id ? null : id;
+    motivo.value = '';
+}
+
+function enviar(url: string, id: number, datos: Record<string, string> = {}) {
+    procesando.value = id;
+    router.post(url, datos, {
+        preserveScroll: true,
+        onFinish: () => {
+            procesando.value = null;
+            quitando.value = null;
+        },
+    });
+}
+
+function confirmarQuitar(tarea: FilaPendiente) {
+    enviar(descartar.url(tarea.id), tarea.id, {
+        motivo: motivo.value.trim(),
+    });
+}
+
+function cierreAutomatico(tarea: TareaBandeja): string | null {
+    const motivoCierre = tarea.datos?.cierre_automatico;
+
+    return typeof motivoCierre === 'string' ? motivoCierre : null;
+}
+
+const vacio = computed(() => {
+    if (filtros.estado === 'descartadas') {
+        return {
+            titulo: 'No has quitado nada de tu lista',
+            texto: 'Lo que quites con «Quitar de mi lista» aparece aquí para que puedas restaurarlo.',
+        };
+    }
+
+    if (filtros.estado === 'resueltas') {
+        return {
+            titulo: 'Aún no hay pendientes resueltos',
+            texto: 'Cuando atiendas un pendiente (o se cierre solo porque ya se cumplió) lo verás aquí.',
+        };
+    }
+
+    return filtros.tipo ||
+        filtros.etapa ||
+        filtros.urgencia ||
+        filtros.sucursal_id
+        ? {
+              titulo: 'Nada con estos filtros',
+              texto: 'Quita algún filtro para ver el resto de tus pendientes.',
+          }
+        : {
+              titulo: '¡Todo al día!',
+              texto: 'No tienes pendientes abiertos. Los nuevos aparecerán aquí y se quitan solos cuando se cumplen.',
+          };
+});
 </script>
 
 <template>
@@ -288,6 +436,83 @@ const segmento = (activo: boolean) =>
         >
             <!-- Lista -->
             <div class="flex min-w-0 flex-col gap-4">
+                <!-- Abiertos / Quitados de mi lista / Resueltos -->
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div
+                        class="flex rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-1"
+                        role="group"
+                        aria-label="Estado"
+                    >
+                        <button
+                            type="button"
+                            :class="segmento(filtros.estado === 'abiertas')"
+                            @click="filtros.estado = 'abiertas'"
+                        >
+                            Abiertos
+                            <span class="ml-1 tabular-nums opacity-80">{{
+                                conteos.abiertas
+                            }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            :class="segmento(filtros.estado === 'descartadas')"
+                            @click="filtros.estado = 'descartadas'"
+                        >
+                            <EyeOff class="mr-1 inline size-3.5" />Quitados
+                            <span class="ml-1 tabular-nums opacity-80">{{
+                                conteos.descartadas
+                            }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            :class="segmento(filtros.estado === 'resueltas')"
+                            @click="filtros.estado = 'resueltas'"
+                        >
+                            <Check class="mr-1 inline size-3.5" />Resueltos
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transicion-ui"
+                        :class="
+                            agrupar
+                                ? 'border-[var(--mrl-primary)] bg-salvia text-primary'
+                                : 'border-[var(--mrl-borde)] bg-[var(--mrl-surface)] text-[var(--mrl-texto-suave)] hover:text-[var(--mrl-texto)]'
+                        "
+                        :aria-pressed="agrupar"
+                        @click="agrupar = !agrupar"
+                    >
+                        <Layers class="size-4" /> Agrupar por tipo
+                    </button>
+                </div>
+
+                <!-- Chips por tipo de pendiente (abiertos) -->
+                <div
+                    v-if="por_tipo.length > 1"
+                    class="flex flex-wrap gap-2"
+                    aria-label="Filtrar por tipo de pendiente"
+                >
+                    <button
+                        v-for="g in por_tipo"
+                        :key="g.clave"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transicion-ui"
+                        :class="
+                            filtros.tipo === g.clave
+                                ? 'border-[var(--mrl-primary)] bg-salvia text-primary'
+                                : 'border-[var(--mrl-borde)] bg-crema/40 text-[var(--mrl-texto)] hover:bg-crema'
+                        "
+                        :aria-pressed="filtros.tipo === g.clave"
+                        @click="alternarTipo(g.clave)"
+                    >
+                        {{ g.etiqueta }}
+                        <span
+                            class="rounded-full bg-white/70 px-1.5 tabular-nums"
+                            >{{ g.total }}</span
+                        >
+                    </button>
+                </div>
+
                 <div
                     data-tour="pendientes-filtros"
                     class="flex flex-wrap items-center gap-2"
@@ -348,118 +573,307 @@ const segmento = (activo: boolean) =>
 
                 <div
                     v-if="!tareas.data.length"
-                    class="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-12 text-center"
+                    class="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-[var(--mrl-borde)] bg-crema/30 p-12 text-center"
                 >
-                    <CheckCircle2 class="size-12 text-[var(--mrl-success)]" />
+                    <span
+                        class="flex size-16 items-center justify-center rounded-full bg-success-soft"
+                    >
+                        <Sparkles
+                            v-if="filtros.estado === 'abiertas'"
+                            class="size-8 text-[var(--mrl-success)]"
+                        />
+                        <CheckCircle2
+                            v-else
+                            class="size-8 text-[var(--mrl-success)]"
+                        />
+                    </span>
                     <p class="text-lg font-semibold text-[var(--mrl-texto)]">
-                        ¡Todo al día!
+                        {{ vacio.titulo }}
                     </p>
-                    <p class="text-sm text-[var(--mrl-texto-suave)]">
-                        No tienes pendientes con estos filtros.
+                    <p class="max-w-md text-sm text-[var(--mrl-texto-suave)]">
+                        {{ vacio.texto }}
                     </p>
                 </div>
 
-                <ul
-                    data-tour="pendientes-lista"
-                    class="flex entrada-escalonada flex-col gap-3"
+                <section
+                    v-for="seccion in secciones"
+                    :key="seccion.clave"
+                    class="flex flex-col gap-3"
                 >
-                    <li v-for="tarea in tareas.data" :key="tarea.id">
-                        <component
-                            :is="tarea.url ? Link : 'div'"
-                            :href="tarea.url ?? undefined"
-                            class="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 pl-5 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
+                    <h3
+                        v-if="agrupar"
+                        class="flex items-center gap-2 text-sm font-semibold text-[var(--mrl-texto)]"
+                    >
+                        {{ seccion.etiqueta }}
+                        <span
+                            class="rounded-full bg-crema px-2 py-0.5 text-xs tabular-nums"
+                            >{{ seccion.filas.length }}</span
                         >
-                            <span
-                                class="absolute inset-y-0 left-0 w-1.5"
-                                :style="{
-                                    background:
-                                        COLOR_PRIORIDAD[tarea.prioridad] ??
-                                        COLOR_PRIORIDAD.media,
+                    </h3>
+                    <ul
+                        data-tour="pendientes-lista"
+                        class="flex entrada-escalonada flex-col gap-3"
+                    >
+                        <li v-for="tarea in seccion.filas" :key="tarea.id">
+                            <article
+                                class="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 pl-5 shadow-sm transicion-ui hover:border-[var(--mrl-primary)]/40 hover:shadow-md"
+                                :class="{
+                                    'opacity-60': procesando === tarea.id,
                                 }"
-                            />
-                            <!-- Foto oficial de la persona (o iniciales);
-                                 el aro se ilumina al pasar el cursor. -->
-                            <ColaboradorAvatar
-                                :nombre="
-                                    tarea.candidato?.nombre ??
-                                    tarea.colaborador?.nombre ??
-                                    '?'
-                                "
-                                :foto-url="tarea.foto_url"
-                                tamano="lg"
-                                class="ring-[var(--mrl-primary)]/10 transition-[box-shadow,transform] duration-200 group-hover:scale-105 group-hover:ring-[var(--mrl-primary)]/40"
-                            />
-                            <div class="min-w-0 flex-1">
-                                <div
-                                    class="flex flex-wrap items-center gap-1.5"
-                                >
-                                    <span
-                                        v-if="tarea.read_at === null"
-                                        class="size-2 rounded-full bg-[var(--mrl-accent)]"
-                                        title="Sin ver"
-                                    />
-                                    <span
-                                        class="inline-flex items-center gap-1 rounded-full bg-[var(--mrl-fondo)] px-2 py-0.5 text-[11px] font-medium text-[var(--mrl-texto)]"
-                                    >
-                                        <Flame
-                                            v-if="tarea.prioridad === 'urgente'"
-                                            class="size-3 text-[var(--mrl-danger)]"
-                                        />
-                                        {{ tarea.prioridad_etiqueta }}
-                                    </span>
-                                    <span
-                                        v-if="tarea.etapa_etiqueta"
-                                        class="rounded-full bg-[var(--mrl-primary)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--mrl-primary)]"
-                                        >{{ tarea.etapa_etiqueta }}</span
-                                    >
-                                    <span
-                                        v-if="venceEn(tarea)"
-                                        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                                        :class="venceEn(tarea)?.clase"
-                                    >
-                                        <CalendarClock class="size-3" />
-                                        {{ venceEn(tarea)?.texto }}
-                                    </span>
-                                </div>
-                                <p
-                                    class="mt-1 truncate font-semibold text-[var(--mrl-texto)] group-hover:text-[var(--mrl-primary)]"
-                                >
-                                    {{ tarea.titulo }}
-                                </p>
-                                <p
-                                    class="truncate text-xs text-[var(--mrl-texto-suave)]"
-                                >
-                                    {{
-                                        tarea.candidato?.nombre ??
-                                        tarea.colaborador?.nombre ??
-                                        '—'
-                                    }}
-                                    <template v-if="tarea.sucursal">
-                                        · {{ tarea.sucursal }}</template
-                                    >
-                                    ·
-                                    {{
-                                        tarea.antiguedad_dias === 0
-                                            ? 'hoy'
-                                            : `hace ${tarea.antiguedad_dias} día${tarea.antiguedad_dias === 1 ? '' : 's'}`
-                                    }}
-                                </p>
-                                <p
-                                    v-if="tarea.descripcion"
-                                    class="mt-1 line-clamp-1 text-sm text-[var(--mrl-texto-suave)]"
-                                >
-                                    {{ tarea.descripcion }}
-                                </p>
-                            </div>
-                            <span
-                                v-if="tarea.url"
-                                class="hidden shrink-0 items-center gap-1 rounded-xl bg-[var(--mrl-primary)] px-3 py-2 text-sm font-medium text-white opacity-0 transicion-ui group-hover:opacity-100 sm:inline-flex"
                             >
-                                Atender <ArrowRight class="size-4" />
-                            </span>
-                        </component>
-                    </li>
-                </ul>
+                                <span
+                                    class="absolute inset-y-0 left-0 w-1.5"
+                                    :style="{
+                                        background:
+                                            COLOR_PRIORIDAD[tarea.prioridad] ??
+                                            COLOR_PRIORIDAD.media,
+                                    }"
+                                />
+                                <div class="flex items-start gap-4">
+                                    <!-- Foto oficial de la persona (o iniciales). -->
+                                    <ColaboradorAvatar
+                                        :nombre="
+                                            tarea.candidato?.nombre ??
+                                            tarea.colaborador?.nombre ??
+                                            '?'
+                                        "
+                                        :foto-url="tarea.foto_url"
+                                        tamano="lg"
+                                        class="ring-[var(--mrl-primary)]/10"
+                                    />
+                                    <div class="min-w-0 flex-1">
+                                        <div
+                                            class="flex flex-wrap items-center gap-1.5"
+                                        >
+                                            <span
+                                                v-if="tarea.read_at === null"
+                                                class="size-2 rounded-full bg-[var(--mrl-accent)]"
+                                                title="Sin ver"
+                                            />
+                                            <span
+                                                v-if="tarea.semaforo"
+                                                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                                :class="
+                                                    SEMAFORO[tarea.semaforo]
+                                                        .clase
+                                                "
+                                                :title="`Abierto ${antiguedad(tarea)}`"
+                                            >
+                                                <span
+                                                    class="size-1.5 rounded-full"
+                                                    :class="
+                                                        SEMAFORO[tarea.semaforo]
+                                                            .punto
+                                                    "
+                                                />
+                                                {{
+                                                    SEMAFORO[tarea.semaforo]
+                                                        .etiqueta
+                                                }}
+                                            </span>
+                                            <span
+                                                class="inline-flex items-center gap-1 rounded-full bg-[var(--mrl-fondo)] px-2 py-0.5 text-[11px] font-medium text-[var(--mrl-texto)]"
+                                            >
+                                                <Flame
+                                                    v-if="
+                                                        tarea.prioridad ===
+                                                        'urgente'
+                                                    "
+                                                    class="size-3 text-[var(--mrl-danger)]"
+                                                />
+                                                {{ tarea.prioridad_etiqueta }}
+                                            </span>
+                                            <span
+                                                class="rounded-full bg-[var(--mrl-primary)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--mrl-primary)]"
+                                                >{{
+                                                    tarea.etapa_etiqueta ??
+                                                    tarea.tipo_etiqueta
+                                                }}</span
+                                            >
+                                            <span
+                                                v-if="tarea.informativo"
+                                                class="rounded-full bg-crema px-2 py-0.5 text-[11px] font-medium text-[var(--mrl-texto)]"
+                                                >Informativo</span
+                                            >
+                                            <span
+                                                v-if="
+                                                    !tarea.resolved_at &&
+                                                    venceEn(tarea)
+                                                "
+                                                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                                :class="venceEn(tarea)?.clase"
+                                            >
+                                                <CalendarClock class="size-3" />
+                                                {{ venceEn(tarea)?.texto }}
+                                            </span>
+                                        </div>
+                                        <p
+                                            class="mt-1 font-semibold break-words text-[var(--mrl-texto)]"
+                                        >
+                                            {{ tarea.titulo }}
+                                        </p>
+                                        <p
+                                            class="truncate text-xs text-[var(--mrl-texto-suave)]"
+                                        >
+                                            {{
+                                                tarea.candidato?.nombre ??
+                                                tarea.colaborador?.nombre ??
+                                                '—'
+                                            }}
+                                            <template v-if="tarea.sucursal">
+                                                · {{ tarea.sucursal }}</template
+                                            >
+                                            · {{ antiguedad(tarea) }}
+                                        </p>
+                                        <p
+                                            v-if="tarea.descripcion"
+                                            class="mt-1 line-clamp-2 text-sm text-[var(--mrl-texto-suave)]"
+                                        >
+                                            {{ tarea.descripcion }}
+                                        </p>
+                                        <p
+                                            v-if="tarea.descartada"
+                                            class="mt-2 rounded-lg bg-crema/60 px-2 py-1 text-xs text-[var(--mrl-texto)]"
+                                        >
+                                            Lo quitaste de tu lista{{
+                                                tarea.motivo_descarte
+                                                    ? `: «${tarea.motivo_descarte}»`
+                                                    : '.'
+                                            }}
+                                        </p>
+                                        <p
+                                            v-if="
+                                                tarea.resolved_at &&
+                                                cierreAutomatico(tarea)
+                                            "
+                                            class="mt-2 rounded-lg bg-success-soft px-2 py-1 text-xs text-[var(--mrl-texto)]"
+                                        >
+                                            Se cerró solo:
+                                            {{ cierreAutomatico(tarea) }}
+                                        </p>
+                                        <p
+                                            v-else-if="tarea.resolved_at"
+                                            class="mt-2 text-xs text-[var(--mrl-texto-suave)]"
+                                        >
+                                            Resuelto el
+                                            {{
+                                                formatearFecha(
+                                                    tarea.resolved_at.slice(
+                                                        0,
+                                                        10,
+                                                    ),
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Acciones: Resolver/Ir, Quitar de mi lista, Marcar como hecho, Restaurar -->
+                                <div
+                                    class="flex flex-wrap items-center justify-end gap-2"
+                                >
+                                    <template v-if="!tarea.resolved_at">
+                                        <button
+                                            v-if="tarea.descartada"
+                                            type="button"
+                                            class="inline-flex items-center gap-1 rounded-xl border border-[var(--mrl-borde)] px-3 py-1.5 text-sm font-medium text-[var(--mrl-texto)] transicion-ui hover:bg-crema"
+                                            :disabled="procesando === tarea.id"
+                                            @click="
+                                                enviar(
+                                                    restaurar.url(tarea.id),
+                                                    tarea.id,
+                                                )
+                                            "
+                                        >
+                                            <RotateCcw class="size-4" />
+                                            Restaurar a mi lista
+                                        </button>
+                                        <template v-else>
+                                            <button
+                                                type="button"
+                                                class="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm font-medium text-[var(--mrl-texto-suave)] transicion-ui hover:bg-crema hover:text-[var(--mrl-texto)]"
+                                                :aria-expanded="
+                                                    quitando === tarea.id
+                                                "
+                                                @click="abrirQuitar(tarea.id)"
+                                            >
+                                                <EyeOff class="size-4" />
+                                                Quitar de mi lista
+                                            </button>
+                                            <button
+                                                v-if="tarea.puede_marcar_hecho"
+                                                type="button"
+                                                class="inline-flex items-center gap-1 rounded-xl border border-[var(--mrl-borde)] px-3 py-1.5 text-sm font-medium text-[var(--mrl-texto)] transicion-ui hover:bg-success-soft"
+                                                :disabled="
+                                                    procesando === tarea.id
+                                                "
+                                                @click="
+                                                    enviar(
+                                                        hecho.url(tarea.id),
+                                                        tarea.id,
+                                                    )
+                                                "
+                                            >
+                                                <Check class="size-4" />
+                                                Marcar como hecho
+                                            </button>
+                                        </template>
+                                    </template>
+                                    <Link
+                                        v-if="tarea.url"
+                                        :href="tarea.url"
+                                        class="inline-flex items-center gap-1 rounded-xl bg-[var(--mrl-primary)] px-3 py-1.5 text-sm font-medium text-white shadow-sm transicion-ui hover:opacity-90"
+                                    >
+                                        {{
+                                            tarea.resolved_at
+                                                ? 'Ir'
+                                                : 'Resolver'
+                                        }}
+                                        <ArrowRight class="size-4" />
+                                    </Link>
+                                </div>
+
+                                <!-- Quitar de mi lista: motivo opcional -->
+                                <form
+                                    v-if="quitando === tarea.id"
+                                    class="flex flex-col gap-2 rounded-xl bg-crema/50 p-3 sm:flex-row sm:flex-wrap sm:items-center"
+                                    @submit.prevent="confirmarQuitar(tarea)"
+                                >
+                                    <Input
+                                        v-model="motivo"
+                                        :maxlength="opciones.motivo_max"
+                                        placeholder="Motivo (opcional): «ya lo atendí por teléfono», «no me corresponde»…"
+                                        aria-label="Motivo para quitarlo de tu lista"
+                                        class="flex-1 bg-white"
+                                    />
+                                    <div class="flex gap-2">
+                                        <button
+                                            type="submit"
+                                            class="inline-flex items-center gap-1 rounded-xl bg-[var(--mrl-primary)] px-3 py-1.5 text-sm font-medium text-white"
+                                            :disabled="procesando === tarea.id"
+                                        >
+                                            <EyeOff class="size-4" /> Quitar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm font-medium text-[var(--mrl-texto-suave)] hover:bg-white"
+                                            @click="quitando = null"
+                                        >
+                                            <X class="size-4" /> Cancelar
+                                        </button>
+                                    </div>
+                                    <p
+                                        class="text-xs text-[var(--mrl-texto-suave)] sm:basis-full"
+                                    >
+                                        Solo sale de TU lista; a los demás les
+                                        sigue llegando. Si vuelve a generarse
+                                        por algo nuevo, reaparece.
+                                    </p>
+                                </form>
+                            </article>
+                        </li>
+                    </ul>
+                </section>
 
                 <PaginacionTabla :datos="tareas" />
             </div>

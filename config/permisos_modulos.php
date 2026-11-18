@@ -29,6 +29,17 @@
 return [
 
     'modulos' => [
+        // Pendientes por rol (docs/PENDIENTES.md): qué tipos de pendiente le
+        // llegan a cada rol (`pendientes.recibir_<tipo>`, uno por TipoTarea).
+        // Se editan en la pestaña «Pendientes» de Roles y permisos.
+        'pendientes' => [
+            'etiqueta' => 'Pendientes que recibe',
+            'grupo' => 'Inicio',
+            'etapa' => 'inicio',
+            'acceso' => null,
+            'alcances' => [],
+            'acciones' => \App\Support\CatalogoPermisosPendientes::acciones(),
+        ],
         // Tarjetas de la pantalla «Roles y permisos» para permisos que ya
         // existían sin módulo (solo agrupan; sin alcances, no cambian nada).
         'headcount' => [

@@ -16,6 +16,7 @@ use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -43,6 +44,7 @@ class TareaService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AlcanceModuloService $alcanceModulo,
+        private readonly RecepcionPendientesService $recepcion,
     ) {}
 
     /**
@@ -204,6 +206,11 @@ class TareaService
             return false;
         }
 
+        // Roles y permisos → Pendientes: el rol puede no recibir este tipo.
+        if (! $this->recepcion->recibe($usuario, $tarea)) {
+            return false;
+        }
+
         // Nadie resuelve un pendiente sobre sí mismo (p. ej. autorizar sus
         // propias vacaciones): a quien lo originó le llega la confirmación,
         // no una tarea que no puede atender.
@@ -300,14 +307,23 @@ class TareaService
                 'candidato.colaborador:id,foto_path,sucursal_principal_id,jefe_id,gerente_id',
                 'sucursal:id,nombre',
             ])
-            ->orderByRaw("case prioridad when 'urgente' then 4 when 'alta' then 3 when 'media' then 2 else 1 end desc")
-            ->orderBy('vence_en')
-            ->orderByDesc('id')
+            ->when(
+                ($filtros['estado'] ?? 'abiertas') === 'resueltas',
+                fn (Builder $q) => $q->orderByDesc('resuelta_en')->orderByDesc('id'),
+                // Orden por urgencia: prioridad, luego lo vencido o por vencer
+                // (sin fecha al final) y, a igualdad, lo más antiguo primero.
+                fn (Builder $q) => $q
+                    ->orderByRaw("case prioridad when 'urgente' then 4 when 'alta' then 3 when 'media' then 2 else 1 end desc")
+                    ->orderByRaw('case when vence_en is null then 1 else 0 end')
+                    ->orderBy('vence_en')
+                    ->orderBy('created_at')
+                    ->orderBy('id'),
+            )
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
     }
 
     /**
-     * @return array{abiertas: int, no_leidas: int, vencidas: int}
+     * @return array{abiertas: int, no_leidas: int, vencidas: int, descartadas: int}
      */
     public function conteos(User $usuario): array
     {
@@ -317,7 +333,54 @@ class TareaService
             'abiertas' => (clone $base)->count(),
             'no_leidas' => (clone $base)->whereNull('read_at')->count(),
             'vencidas' => (clone $base)->whereNotNull('vence_en')->whereDate('vence_en', '<', FechaMexico::hoy())->count(),
+            'descartadas' => $this->queryBandeja($usuario, ['estado' => 'descartadas'])->count(),
         ];
+    }
+
+    /**
+     * Total del acceso «Pendientes» del sidebar: exactamente el número de
+     * pendientes abiertos de la lista (sin los que la persona quitó de su
+     * lista). Nunca tumba la página.
+     */
+    public function totalAbiertas(User $usuario): int
+    {
+        try {
+            return $this->queryBandeja($usuario, ['estado' => 'abiertas'])->count();
+        } catch (Throwable $e) {
+            Log::warning('TareaService: no se pudo contar los pendientes abiertos.', ['user_id' => $usuario->id, 'error' => $e->getMessage()]);
+
+            return 0;
+        }
+    }
+
+    /**
+     * Pendientes abiertos agrupados por tipo (para «Agrupar por tipo» y los
+     * chips de filtro de Mis pendientes).
+     *
+     * @return list<array{clave: string, etiqueta: string, total: int, informativo: bool}>
+     */
+    public function porTipo(User $usuario): array
+    {
+        $grupos = $this->queryBandeja($usuario, ['estado' => 'abiertas'])
+            ->toBase()
+            ->select('tipo')
+            ->selectRaw('count(*) as total')
+            ->groupBy('tipo')
+            ->get();
+
+        $resultado = [];
+
+        foreach ($grupos as $fila) {
+            $tipo = TipoTarea::tryFrom((string) ($fila->tipo ?? ''));
+
+            if ($tipo !== null) {
+                $resultado[] = ['clave' => $tipo->value, 'etiqueta' => $tipo->etiqueta(), 'total' => (int) ($fila->total ?? 0), 'informativo' => $tipo->esInformativo()];
+            }
+        }
+
+        usort($resultado, fn (array $a, array $b): int => $b['total'] <=> $a['total']);
+
+        return $resultado;
     }
 
     /**
@@ -360,8 +423,9 @@ class TareaService
             ? null
             : $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->select('id');
         $sucursalesVisibles = $global ? [] : $this->alcance->sucursalesVisiblesIds($usuario)->all();
+        $excluidos = $this->recepcion->tiposExcluidos($usuario);
 
-        $query = TareaRh::query()->where(function (Builder $q) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles): void {
+        $query = TareaRh::query()->where(function (Builder $q) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles, $excluidos): void {
             $q->where(function (Builder $propia) use ($usuario, $colaboradoresVisibles, $sucursalesVisibles): void {
                 $propia->where('asignado_user_id', $usuario->id);
 
@@ -378,8 +442,13 @@ class TareaService
             });
 
             if ($permisos !== []) {
-                $q->orWhere(function (Builder $sub) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles): void {
+                $q->orWhere(function (Builder $sub) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles, $excluidos): void {
                     $sub->whereNull('asignado_user_id')->whereIn('asignado_permiso', $permisos);
+
+                    // Roles y permisos → Pendientes: tipos que su rol no recibe.
+                    if ($excluidos !== []) {
+                        $sub->whereNotIn('tipo', $excluidos);
+                    }
 
                     // Un pendiente sobre uno mismo no es tarea propia (ver esDestinatario()).
                     if ($usuario->colaborador_id !== null) {
@@ -406,8 +475,16 @@ class TareaService
         );
         $urgencia = $filtros['urgencia'] ?? null;
 
+        // «Quitar de mi lista»: lo descartado por esta persona sale de
+        // «abiertas» y vive en «descartadas» hasta que lo restaure.
+        $descartadaPorMi = fn (QueryBuilder $d) => $d->selectRaw('1')
+            ->from('tarea_rh_descartes')
+            ->whereColumn('tarea_rh_descartes.tarea_rh_id', 'tareas_rh.id')
+            ->where('tarea_rh_descartes.user_id', $usuario->id);
+
         return $query
-            ->when($estado === 'abiertas', fn (Builder $q) => $q->whereNull('resuelta_en'))
+            ->when($estado === 'abiertas', fn (Builder $q) => $q->whereNull('resuelta_en')->whereNotExists($descartadaPorMi))
+            ->when($estado === 'descartadas', fn (Builder $q) => $q->whereNull('resuelta_en')->whereExists($descartadaPorMi))
             ->when($estado === 'resueltas', fn (Builder $q) => $q->whereNotNull('resuelta_en'))
             ->when($filtros['tipo'] ?? null, fn (Builder $q, string $tipo) => $q->where('tipo', $tipo))
             ->when($tiposEtapa !== null, fn (Builder $q) => $q->whereIn('tipo', $tiposEtapa ?? []))
@@ -417,6 +494,31 @@ class TareaService
             ->when($urgencia === 'urgentes', fn (Builder $q) => $q->where(fn (Builder $u) => $u
                 ->whereIn('prioridad', [PrioridadTarea::Alta->value, PrioridadTarea::Urgente->value])
                 ->orWhere(fn (Builder $v) => $v->whereNotNull('vence_en')->whereDate('vence_en', '<=', FechaMexico::inicioDeHoy()->addDays(3)->toDateString()))));
+    }
+
+    /**
+     * Semáforo del pendiente abierto: rojo si ya venció o lleva más de los
+     * días de config('pendientes.semaforo.rojo'); ámbar si vence en 3 días o
+     * lleva más de los de 'ambar'; verde lo demás. Resuelto = null.
+     */
+    public function semaforo(TareaRh $tarea): ?string
+    {
+        if ($tarea->resuelta_en !== null) {
+            return null;
+        }
+
+        $dias = $tarea->created_at !== null ? (int) $tarea->created_at->diffInDays(now()) : 0;
+        $hoy = FechaMexico::inicioDeHoy();
+
+        if (($tarea->vence_en !== null && $tarea->vence_en->lt($hoy)) || $dias >= (int) config('pendientes.semaforo.rojo', 7)) {
+            return 'rojo';
+        }
+
+        if (($tarea->vence_en !== null && $tarea->vence_en->lte($hoy->copy()->addDays(3))) || $dias >= (int) config('pendientes.semaforo.ambar', 3)) {
+            return 'ambar';
+        }
+
+        return 'verde';
     }
 
     private function clave(TipoTarea $tipo, ?Model $relacionado, ?User $usuario, ?string $permiso): string
@@ -470,6 +572,10 @@ class TareaService
             'sucursal' => $tarea->sucursal?->nombre,
             'antiguedad_dias' => $tarea->created_at !== null ? (int) $tarea->created_at->diffInDays(now()) : 0,
             'vencida' => $tarea->vence_en !== null && $tarea->vence_en->lt(FechaMexico::inicioDeHoy()),
+            // Aditivos (2026-11-18, docs/PENDIENTES.md): solo informativo =
+            // se puede «Marcar como hecho»; semáforo por antigüedad/vencimiento.
+            'informativo' => $tarea->tipo->esInformativo(),
+            'semaforo' => $this->semaforo($tarea),
             'colaborador' => $tarea->colaborador !== null ? [
                 'id' => $tarea->colaborador->id,
                 'nombre' => $tarea->colaborador->nombreCompleto(),
