@@ -1,23 +1,34 @@
 import {
     Activity,
     Award,
+    BarChart3,
     Briefcase,
     Building2,
     Cake,
-    Contact,
+    CalendarClock,
+    ClipboardCheck,
     ClipboardList,
+    Contact,
     FilePen,
     FilePenLine,
     FileStack,
     FolderKanban,
     GitBranch,
     GraduationCap,
+    Grid3x3,
     Inbox,
     Landmark,
     LayoutGrid,
+    Link2,
+    ListChecks,
     Megaphone,
+    MonitorCheck,
+    MonitorX,
+    PackageCheck,
+    Presentation,
     QrCode,
     RotateCcw,
+    Send,
     Settings2,
     ShieldCheck,
     Smartphone,
@@ -1173,6 +1184,610 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         ],
     },
 
+    // ─────────────── Contratación: bandejas de Sistemas ───────────────
+    {
+        id: 'sistemas-altas',
+        nombre: 'Pendientes de alta en sistemas',
+        ruta: '/sistemas/pendientes-alta',
+        patron: /^\/sistemas\/pendientes-alta(\/\d+)?$/,
+        modo: 'operativo',
+        permisos: ['sistemas.altas.ver'],
+        grupo: 'Contratación',
+        icono: MonitorCheck,
+        descripcion:
+            'Quién entró y necesita usuario en las demás plataformas: datos para copiar, correo a Sistemas y «Marcar como dado de alta».',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Cada persona que entra a contratación aparece aquí. El correo a Sistemas sale una sola vez, cuando ya capturó sus datos personales (antes verás «En espera de sus datos»).',
+            },
+            {
+                selector: sel('sistemas-altas-indicadores'),
+                titulo: 'Indicadores clicables',
+                texto: '«Por dar de alta», «Con 3 días o más» y «Ya dados de alta»: clic para filtrar.',
+            },
+            {
+                selector: sel('sistemas-altas-filtros'),
+                titulo: 'Qué mostrar',
+                texto: 'Pendientes, Atendidos o Todos.',
+            },
+            {
+                selector: sel('sistemas-altas-buscar'),
+                titulo: 'Busca',
+                texto: 'Por nombre o número de empleado.',
+            },
+            {
+                selector: sel('sistemas-altas-lista'),
+                titulo: 'Atiende cada alta',
+                texto: '«Copiar datos» o «Copiar dato por dato», crea sus cuentas y pulsa «Marcar como dado de alta» con tus notas. «Reenviar correo» y «Deshacer» por si hace falta.',
+                opcional: true,
+            },
+        ],
+    },
+    {
+        id: 'sistemas-bajas',
+        nombre: 'Pendientes de baja en sistemas',
+        ruta: '/sistemas/pendientes-baja',
+        patron: /^\/sistemas\/pendientes-baja(\/\d+)?$/,
+        modo: 'operativo',
+        permisos: ['sistemas.altas.ver'],
+        grupo: 'Contratación',
+        icono: MonitorX,
+        descripcion:
+            'Quién salió y necesita que le retiren sus usuarios en las demás plataformas (y reactivarlos si la baja se cancela).',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Al aplicarse una baja PEOPLE ya bloqueó su app y portal; aquí Sistemas retira lo demás. Llega por correo: «dar de baja accesos», «baja concluida» al entregar el finiquito o «baja cancelada: reactivar accesos».',
+            },
+            {
+                selector: sel('sistemas-bajas-indicadores'),
+                titulo: 'Indicadores',
+                texto: '«Por dar de baja» y «Ya atendidos»: clic para filtrar.',
+            },
+            {
+                selector: sel('sistemas-bajas-filtros'),
+                titulo: 'Qué mostrar',
+                texto: 'Pendientes, Atendidos o Todos.',
+            },
+            {
+                selector: sel('sistemas-bajas-buscar'),
+                titulo: 'Busca',
+                texto: 'Por nombre o número de empleado.',
+            },
+            {
+                selector: sel('sistemas-bajas-lista'),
+                titulo: 'Atiende cada baja',
+                texto: 'Abre a la persona, desactiva sus usuarios y pulsa «Marcar como dado de baja» (o «Marcar como reactivado») con tus notas.',
+                opcional: true,
+            },
+        ],
+    },
+
+    // ─────────────── Permanencia: fechas laborales ───────────────
+    {
+        id: 'fechas-laborales',
+        nombre: 'Fechas laborales',
+        ruta: '/rh/fechas-laborales',
+        patron: /^\/rh\/fechas-laborales$/,
+        modo: 'operativo',
+        permisos: ['expedientes.editar_fechas'],
+        grupo: 'Personal',
+        icono: CalendarClock,
+        descripcion:
+            'Captura en lote de ingreso, inicio de capacitación inicial, inducción, alta IMSS y periodo de prueba específico.',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Una sola fuente para el periodo de prueba, su evaluación y los Seguimientos técnicos. Aquí capturas muchas personas a la vez (sobre todo la plantilla importada por Excel); una sola persona se corrige en su expediente, pestaña «Fechas laborales».',
+            },
+            {
+                selector: sel('fechas-laborales-filtros'),
+                titulo: '1. Filtra',
+                texto: 'Por sucursal y por puesto; cada puesto dice su periodo de prueba.',
+            },
+            {
+                selector: sel('fechas-laborales-buscar'),
+                titulo: 'Busca',
+                texto: 'Por nombre o número de empleado.',
+            },
+            {
+                selector: sel('fechas-laborales-mostrar'),
+                titulo: 'Qué mostrar',
+                texto: '«Con fechas faltantes» (por defecto) o «Todos».',
+            },
+            {
+                selector: sel('fechas-laborales-tabla'),
+                titulo: '2. Captura en la tabla',
+                texto: 'Edita ingreso, inicio de capacitación, inducción, alta IMSS y el periodo de prueba (vacío = hereda del puesto). «Fin del periodo» se recalcula solo.',
+                opcional: true,
+            },
+            {
+                selector: sel('fechas-laborales-guardar'),
+                titulo: '3. Guarda con motivo',
+                texto: 'Escribe el motivo (queda en el historial de cada persona) y pulsa «Guardar». Las filas con error quedan marcadas con su mensaje.',
+                opcional: true,
+            },
+        ],
+    },
+
+    // ─────────────── Etapa 6 · Capacitación ───────────────
+    {
+        id: 'capacitacion',
+        nombre: 'Portada de capacitación',
+        ruta: '/capacitacion',
+        patron: /^\/capacitacion$/,
+        modo: 'operativo',
+        permisos: [
+            'cursos.ver',
+            'asignaciones.ver',
+            'respuestas.ver',
+            'reportes.globales',
+            'reportes.sucursal',
+        ],
+        features: ['capacitacion'],
+        grupo: 'Capacitación',
+        icono: GraduationCap,
+        descripcion:
+            'Aulas, trabajo asignado, calificaciones y la Certificación Mr. Lana en un solo lugar.',
+        pasos: [
+            {
+                selector: sel('capacitacion-encabezado'),
+                titulo: 'Capacitación (etapa 6)',
+                texto: 'Cursos en aulas tipo Classroom: se crean, se asignan, la gente los toma en «Mi capacitación» y se califican.',
+            },
+            {
+                selector: sel('capacitacion-accesos'),
+                titulo: 'Accesos rápidos',
+                texto: '«Crear o editar cursos», «Asignar curso» y «Certificación», según tus permisos.',
+            },
+            {
+                selector: sel('capacitacion-indicadores'),
+                titulo: 'Indicadores',
+                texto: 'Cursos publicados, participantes, tasa de finalización, por calificar y constancias emitidas.',
+                opcional: true,
+            },
+            {
+                selector: sel('capacitacion-aulas'),
+                titulo: 'Aulas',
+                texto: 'Cada tarjeta abre el aula del curso con su avance.',
+                opcional: true,
+            },
+        ],
+    },
+    {
+        id: 'cursos',
+        nombre: 'Cursos y aulas',
+        ruta: '/cursos',
+        patron: /^\/cursos(\/\d+(\/aula)?)?$/,
+        modo: 'operativo',
+        permisos: ['cursos.ver'],
+        features: ['capacitacion'],
+        grupo: 'Capacitación',
+        icono: Presentation,
+        descripcion:
+            'Crea el contenido de cada curso y abre su aula para ver avance, trabajo y calificaciones.',
+        pasos: [
+            {
+                selector: sel('cursos-nuevo'),
+                titulo: '1. Nuevo curso',
+                texto: 'Título, descripción y objetivo → «Crear curso». Se abre el constructor: «Agregar módulo», «Agregar lección» y «Publicar».',
+                opcional: true,
+                permisos: ['cursos.crear'],
+            },
+            {
+                selector: sel('cursos-filtros'),
+                titulo: 'Busca',
+                texto: 'Por título.',
+            },
+            {
+                selector: sel('cursos-filtro-estado'),
+                titulo: 'Estado',
+                texto: 'Todos, Borrador, Publicado o Archivado.',
+            },
+            {
+                selector: sel('cursos-tabla'),
+                titulo: 'Tus cursos',
+                texto: 'Desde cada renglón: «Abrir aula» (tablón, trabajo asignado, calificaciones, participantes) o «Abrir constructor» (contenido).',
+            },
+            {
+                selector: sel('cursos-asignar'),
+                titulo: 'Asignar',
+                texto: 'Lleva a crear una asignación del curso.',
+                opcional: true,
+                permisos: ['asignaciones.crear'],
+            },
+        ],
+    },
+    {
+        id: 'asignaciones',
+        nombre: 'Asignaciones',
+        ruta: '/asignaciones',
+        patron: /^\/asignaciones(\/nueva)?$/,
+        modo: 'operativo',
+        permisos: ['asignaciones.ver'],
+        features: ['capacitacion'],
+        grupo: 'Capacitación',
+        icono: Send,
+        descripcion:
+            'Asigna cursos a colaboradores, sucursales, departamentos, puestos o roles.',
+        pasos: [
+            {
+                selector: sel('asignaciones-nueva'),
+                titulo: 'Nueva asignación',
+                texto: 'Curso y nombre, plazo opcional, «Asignación obligatoria», destinatarios («Agregar destinatario»), «Ver vista previa» y «Crear asignación».',
+                opcional: true,
+                permisos: ['asignaciones.crear'],
+            },
+            {
+                selector: sel('asignaciones-tabla'),
+                titulo: 'Asignaciones',
+                texto: 'Curso, cuántos colaboradores, fecha límite (o vencida) y estado. Puedes cancelar una asignación activa.',
+            },
+        ],
+    },
+    {
+        id: 'calificar',
+        nombre: 'Calificar cuestionarios',
+        ruta: '/calificaciones/cuestionarios',
+        patron: /^\/calificaciones\/(cuestionarios|actividades)(\/\d+)?$/,
+        modo: 'operativo',
+        permisos: ['respuestas.ver'],
+        features: ['capacitacion'],
+        grupo: 'Capacitación',
+        icono: ClipboardCheck,
+        descripcion:
+            'Respuestas abiertas y entregas de actividades que esperan calificación.',
+        pasos: [
+            {
+                selector: sel('calificar-pestanas'),
+                titulo: 'Cuestionarios y actividades',
+                texto: 'Dos bandejas con su número de pendientes.',
+            },
+            {
+                selector: sel('calificar-tabla'),
+                titulo: 'Califica',
+                texto: '«Calificar» abre el intento: pon puntos o «Correcta» / «Incorrecta» a cada respuesta abierta. En actividades: calificación, retroalimentación y «Aprobar» o «Rechazar».',
+            },
+        ],
+    },
+    {
+        id: 'cumplimiento',
+        nombre: 'Reporte de cumplimiento',
+        ruta: '/reportes/cumplimiento',
+        patron: /^\/reportes\/cumplimiento$/,
+        modo: 'operativo',
+        permisos: ['reportes.globales', 'reportes.sucursal'],
+        features: ['capacitacion'],
+        grupo: 'Capacitación',
+        icono: BarChart3,
+        descripcion: 'Avance de capacitación por colaborador.',
+        pasos: [
+            {
+                selector: sel('cumplimiento-filtros'),
+                titulo: 'Filtros',
+                texto: 'Sucursal, departamento y curso.',
+            },
+            {
+                selector: sel('cumplimiento-grafica'),
+                titulo: 'Distribución',
+                texto: 'Cuántas personas hay en cada rango de cumplimiento.',
+                opcional: true,
+            },
+            {
+                selector: sel('cumplimiento-tabla'),
+                titulo: 'Por colaborador',
+                texto: 'Asignadas, completadas, vencidas y % de cumplimiento. Exporta con «Excel» o «PDF».',
+            },
+        ],
+    },
+    {
+        id: 'certificacion',
+        nombre: 'Certificación Mr. Lana',
+        ruta: '/capacitacion/certificacion',
+        patron: /^\/capacitacion\/certificacion$/,
+        modo: 'operativo',
+        permisos: [
+            'cursos.ver',
+            'asignaciones.ver',
+            'respuestas.ver',
+            'certificacion.gestionar',
+        ],
+        features: ['capacitacion', 'certificacion'],
+        grupo: 'Capacitación',
+        icono: Award,
+        descripcion:
+            'Formato oficial RH-CC-R-001 prellenado, firmado y subido; certificado «Cuentas con tu Certificación Mr. Lana».',
+        pasos: [
+            {
+                titulo: 'Certificación Mr. Lana',
+                texto: 'Aquí ves el avance de tu gente en la Certificación Mr. Lana y la acreditas con el formato oficial RH-CC-R-001.',
+            },
+            {
+                titulo: '1. Descargar formato',
+                texto: 'El PDF oficial sale con nombre, sucursal y fecha de ingreso ya llenos. La persona pasa a «Formato descargado».',
+            },
+            {
+                titulo: '2. Llenar y firmar',
+                texto: 'Se llena y firma a pluma: temas, fechas, evaluación y promedio.',
+            },
+            {
+                titulo: '3. Subir formato firmado',
+                texto: 'Adjunta el escaneo, captura el «Promedio del formato» y confirma las firmas y «Certificado: SÍ». Al guardar queda «Certificado» con folio y se emite el certificado «Cuentas con tu Certificación Mr. Lana»; ambos documentos quedan en su expediente y en su renglón aparecen «Ver certificado» y «Descargar».',
+            },
+        ],
+    },
+
+    // ─────────────── Reportes: recepción documental ───────────────
+    {
+        id: 'recepcion-documental',
+        nombre: 'Recepción documental',
+        ruta: '/rh/recepcion-documental',
+        patron: /^\/rh\/recepcion-documental(\/\d+)?$/,
+        modo: 'operativo',
+        permisos: ['recepcion_documental.ver'],
+        grupo: 'Análisis',
+        icono: PackageCheck,
+        descripcion:
+            'Los originales firmados que RH debe recibir cada mes, calculados solos a partir de eventos reales.',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Cada mes PEOPLE calcula qué originales esperar según lo que pasó (altas, alta IMSS, contratos indeterminados, bajas, vacaciones, préstamos, nómina y listas de asistencia). Tú marcas lo que llegó y cierras el corte.',
+            },
+            {
+                selector: sel('recepcion-indicadores'),
+                titulo: 'El mes en números',
+                texto: 'Esperados, recibidos, pendientes (con incidencia) y cumplimiento del mes.',
+            },
+            {
+                selector: sel('recepcion-calcular'),
+                titulo: 'Calcular otro mes',
+                texto: 'El mes en curso se actualiza solo cada mañana. Para otro mes, elígelo y pulsa «Calcular / actualizar corte»: nunca duplica ni borra lo recibido.',
+                opcional: true,
+            },
+            {
+                selector: sel('recepcion-cortes'),
+                titulo: 'Cortes mensuales',
+                texto: 'Abre un corte para marcar cada original recibido (casilla), con observación, «No recibido» o «No aplica». Al final, «Cerrar corte».',
+            },
+            {
+                selector: sel('recepcion-resumen-catalogo'),
+                titulo: 'Lo que se recibe cada mes',
+                texto: 'Las entradas encendidas del catálogo.',
+            },
+            {
+                selector: sel('recepcion-configurar'),
+                titulo: 'Configurar lo que recibo',
+                texto: 'Ahora te llevo al catálogo.',
+            },
+            {
+                ruta: '/rh/recepcion-documental/catalogo',
+                selector: sel('recepcion-catalogo-entradas'),
+                titulo: 'Entradas del catálogo',
+                texto: 'Enciende o apaga cada entrada, ordénala y en «Configurar» elige los documentos de cada evento, empresas y sucursales. «Guardar y recalcular el mes» actualiza el corte abierto.',
+                consejo:
+                    'Sin el permiso de configurar el catálogo lo verás en solo lectura.',
+            },
+            {
+                selector: sel('recepcion-catalogo-indicadores'),
+                titulo: 'Cuánto se espera',
+                texto: 'Entradas encendidas, originales esperados este mes, eventos detectados y documentos por evento.',
+            },
+        ],
+    },
+
+    // ───────────────────────── Seguimiento (Fase 2) ─────────────────────────
+    {
+        id: 'nine-box',
+        nombre: 'Nine Box',
+        ruta: '/seguimiento/nine-box',
+        patron: /^\/seguimiento(\/nine-box)?$/,
+        modo: 'operativo',
+        permisos: ['nine_box.ver'],
+        features: ['seguimiento', 'nine_box'],
+        grupo: 'Seguimiento',
+        icono: Grid3x3,
+        descripcion:
+            'Desempeño (datos duros de Reportes) × potencial (Seguimientos técnicos + calibración del jefe), por mes o por trimestre.',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'La Nine Box acomoda a cada persona en una matriz de 3 × 3: el desempeño sale de los datos de Reportes (colocación, recuperación y mora de TODAS sus rutas sumadas) y el potencial, del promedio de sus Seguimientos técnicos más la calibración de su jefe. Reportes solo sirve para esto: ubicar a la gente en la matriz.',
+                consejo:
+                    'Si alguien aparece «Sin vincular a PEOPLE», primero hay que vincularlo en «Vínculos con Reportes».',
+            },
+            {
+                selector: sel('ninebox-periodo'),
+                titulo: '1. Elige el periodo',
+                texto: '«Mes de Reportes» o «Trimestre». En un trimestre verás cuántos de sus 3 meses ya tienen datos.',
+                opcional: true,
+            },
+            {
+                selector: sel('ninebox-kpis'),
+                titulo: '2. El resumen',
+                texto: 'Cuántos gestores quedaron en la matriz, cuántos son «Estrellas», cuántos ya están calibrados, cuántos faltan por calibrar y cuántos no están vinculados a PEOPLE.',
+                opcional: true,
+            },
+            {
+                selector: sel('ninebox-herramientas'),
+                titulo: '3. Busca y filtra',
+                texto: 'Busca por gestor, sucursal o ruta; filtra por sucursal y cambia entre la vista «Matriz» y la vista «Tabla».',
+                opcional: true,
+            },
+            {
+                selector: sel('ninebox-matriz'),
+                titulo: '4. La matriz y la calibración',
+                texto: 'Clic en un cuadrante para filtrarlo (Estrella, Alto potencial, Núcleo…, cada uno con su acción sugerida). Clic en una persona para abrir su detalle: desempeño del periodo, tendencia semanal, Seguimientos técnicos e historial de calibraciones.',
+                consejo:
+                    'Para calibrar: en el detalle elige Bajo, Medio o Alto, escribe por qué (mínimo 10 caracteres) y pulsa «Guardar calibración». Nadie calibra su propio potencial y la calibración nunca se borra.',
+                opcional: true,
+            },
+            {
+                selector: sel('ninebox-por-gestor'),
+                titulo: 'Consulta por gestor',
+                texto: '«Por gestor» abre la consulta de Seguimiento por persona. Con permiso también verás «Exportar a Excel» y «Configurar» (metas, pesos y cortes de la matriz, con motivo y versiones).',
+                opcional: true,
+            },
+        ],
+    },
+    {
+        id: 'seguimientos-tecnicos',
+        nombre: 'Seguimientos técnicos',
+        ruta: '/seguimiento/evaluaciones-tecnicas',
+        patron: /^\/seguimiento\/evaluaciones-tecnicas(\/\d+(\/contestar)?|\/colaboradores\/\d+)?$/,
+        modo: 'operativo',
+        permisos: ['evaluaciones_tecnicas.ver'],
+        grupo: 'Seguimiento',
+        icono: ListChecks,
+        descripcion:
+            'Las evaluaciones técnicas por puesto «Seguimiento 15», «Seguimiento 30», «Seguimiento 60»…: se generan solas desde la fecha de ingreso.',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Cada puesto tiene su calendario de evaluaciones técnicas (día 15, 30, 60… desde el ingreso). Cada mañana PEOPLE genera las que ya tocan y avisa a quien la contesta: el colaborador (en Mi espacio) o su jefe directo, que sale del organigrama.',
+            },
+            {
+                selector: sel('seguimientos-por-evaluar'),
+                titulo: 'Te toca evaluar a tu equipo',
+                texto: 'Si eres jefe directo, aquí ves los Seguimientos de tu equipo que debes contestar. Ábrelo, contesta y pulsa «Enviar evaluación»: se califica al instante y ya no se puede cambiar.',
+                opcional: true,
+            },
+            {
+                selector: sel('seguimientos-kpis'),
+                titulo: 'Indicadores',
+                texto: 'Pendientes en plazo, próximas a vencer, vencidas, contestadas en 30 días, porcentaje de aprobación y promedio.',
+                opcional: true,
+            },
+            {
+                selector: sel('seguimientos-vencimientos'),
+                titulo: 'Próximas a vencer y vencidas',
+                texto: 'Lo urgente primero. Una evaluación vencida todavía se puede contestar.',
+                opcional: true,
+            },
+            {
+                selector: sel('seguimientos-filtros'),
+                titulo: 'Filtra la lista',
+                texto: 'Por colaborador, estado, puesto, sucursal y quién la contesta (colaborador o jefe directo).',
+                opcional: true,
+            },
+            {
+                selector: sel('seguimientos-tabla'),
+                titulo: 'Todas las evaluaciones',
+                texto: 'Clic en el renglón para ver el resultado pregunta por pregunta; clic en el nombre para ver la línea de tiempo de esa persona.',
+                opcional: true,
+            },
+            {
+                selector: sel('seguimientos-generar'),
+                titulo: 'Generar las que ya tocan',
+                texto: 'Corre ahora mismo lo que PEOPLE hace solo cada mañana. Si un formulario no tiene versión publicada, te dice cuántas no se generaron.',
+                opcional: true,
+                permisos: ['evaluaciones_tecnicas.configurar'],
+            },
+        ],
+    },
+    {
+        id: 'calendario-seguimientos',
+        nombre: 'Calendario de seguimientos',
+        ruta: '/seguimiento/evaluaciones-tecnicas/configuracion',
+        patron: /^\/seguimiento\/evaluaciones-tecnicas\/(configuracion|formularios\/\d+\/editor)$/,
+        modo: 'operativo',
+        permisos: ['evaluaciones_tecnicas.configurar'],
+        grupo: 'Seguimiento',
+        icono: CalendarClock,
+        descripcion:
+            'Por puesto: qué día desde el ingreso, qué formulario técnico, quién lo contesta y con cuánto aprueba.',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Aquí se arma el calendario de Seguimientos técnicos de cada puesto y los formularios (preguntas) que usa cada uno.',
+            },
+            {
+                selector: sel('calendario-seguimientos-pestanas'),
+                titulo: 'Dos pestañas',
+                texto: '«Calendario por puesto» para los días y reglas; «Formularios técnicos» para las preguntas de cada Seguimiento.',
+            },
+            {
+                selector: sel('calendario-seguimientos-puestos'),
+                titulo: '1. Elige el puesto',
+                texto: 'Busca el puesto; cada uno muestra sus días («15 · 30 · 60 días») o «Sin calendario» y cuántos activos tiene.',
+                opcional: true,
+            },
+            {
+                selector: sel('calendario-seguimientos-calendario'),
+                titulo: '2. Arma sus evaluaciones',
+                texto: '«Usar sugerencia» propone los días según la duración del contrato de capacitación. En cada evaluación eliges el día, el nombre, el formulario técnico, quién la contesta, con cuánto aprueba (0–100) y los días para contestar. Una puede marcarse como «Técnica final».',
+                consejo:
+                    '«Copiar a otros puestos» reemplaza el calendario de los puestos que elijas con este.',
+                opcional: true,
+            },
+            {
+                selector: sel('calendario-seguimientos-guardar'),
+                titulo: '3. Guarda',
+                texto: '«Guardar calendario» se activa al haber cambios. Se generan solas cada mañana al llegar su día (hasta 15 días tarde); quitar una no borra las ya generadas.',
+                opcional: true,
+            },
+            {
+                selector: sel('calendario-seguimientos-nuevo-formulario'),
+                titulo: 'Formularios técnicos',
+                texto: '«Nuevo formulario técnico» crea uno y abre el mismo editor de las evaluaciones de ingreso (Preguntas, Diseño, Vista previa, Versiones). Publícalo para poder usarlo en el calendario.',
+                opcional: true,
+            },
+        ],
+    },
+    {
+        id: 'vinculos-reportes',
+        nombre: 'Vínculos con Reportes',
+        ruta: '/seguimiento/vinculos',
+        patron: /^\/seguimiento\/vinculos$/,
+        modo: 'operativo',
+        permisos: ['seguimiento.vincular'],
+        features: ['seguimiento'],
+        grupo: 'Seguimiento',
+        icono: Link2,
+        descripcion:
+            'Une a cada persona y sucursal de Reportes con su colaborador y su sucursal de PEOPLE (nunca por ruta).',
+        pasos: [
+            {
+                selector: sel('vinculos-explicacion'),
+                titulo: 'Por persona y por sucursal, nunca por ruta',
+                texto: 'Una persona puede tener varias rutas en Reportes: se vincula UNA vez con su colaborador y la Nine Box suma todas sus rutas. Al vincular una sucursal se vinculan todas sus rutas.',
+            },
+            {
+                selector: sel('vinculos-totales'),
+                titulo: 'Cómo vas',
+                texto: 'Personas y sucursales vinculadas, sugerencias por confirmar y la fecha de los datos de Reportes.',
+                opcional: true,
+            },
+            {
+                selector: sel('vinculos-actualizar'),
+                titulo: '1. Actualiza desde Reportes',
+                texto: 'Vuelve a traer el directorio de personas y sucursales de Reportes cuando haya altas nuevas.',
+                opcional: true,
+            },
+            {
+                selector: sel('vinculos-filtros'),
+                titulo: '2. Elige qué vincular',
+                texto: '«Personas» o «Sucursales»; muestra «Sin vincular», «Con sugerencia», «Vinculados» o «Todos», y busca por nombre, clave, sucursal o ruta.',
+                opcional: true,
+            },
+            {
+                selector: sel('vinculos-lista'),
+                titulo: '3. Vincula',
+                texto: 'Si PEOPLE sugiere a alguien («¿Es …?»), pulsa «Confirmar». Si no, elige al colaborador (o la sucursal) en el buscador: se guarda al momento. El ícono de desvincular desactiva el vínculo y conserva el historial.',
+                consejo:
+                    'Con «homónimos: elige a mano» no hay sugerencia automática: revisa sucursal y rutas antes de elegir.',
+                opcional: true,
+            },
+            {
+                selector: sel('vinculos-confirmar-sugerencias'),
+                titulo: 'Confirmar todas las sugerencias',
+                texto: 'Acepta de una vez todas las sugerencias de la pestaña actual.',
+                opcional: true,
+            },
+        ],
+    },
+
     // ───────────────────────── Modo colaborador ─────────────────────────
     {
         id: 'portal',
@@ -1352,6 +1967,73 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 titulo: 'Modo presentación',
                 texto: 'Muestra el PDF oficial de la inducción, el mismo que ve el colaborador. Usa «Presentación» para pantalla completa. No registra avance de nadie ni habilita evaluaciones: el colaborador las presenta desde su cuenta.',
+            },
+        ],
+    },
+    {
+        id: 'mis-seguimientos',
+        nombre: 'Mis seguimientos técnicos',
+        ruta: '/mis-evaluaciones-tecnicas',
+        patron: /^\/mis-evaluaciones-tecnicas$/,
+        modo: 'colaborador',
+        permisos: [],
+        grupo: 'Mi espacio',
+        icono: ListChecks,
+        descripcion:
+            'Tus «Seguimiento 15 / 30 / 60…» por contestar y tus resultados (y los de tu equipo si eres jefe directo).',
+        pasos: [
+            {
+                selector: sel('mis-seguimientos-por-contestar'),
+                titulo: 'Por contestar',
+                texto: 'Cuando llega el día de tu siguiente Seguimiento te avisamos y aparece aquí, con la calificación para aprobar y la fecha límite. Pulsa «Contestar ahora», responde y «Enviar evaluación»: se califica al instante y ya no se puede cambiar.',
+            },
+            {
+                selector: sel('mis-seguimientos-por-evaluar'),
+                titulo: 'Te toca evaluar a tu equipo',
+                texto: 'Si eres jefe directo, aquí están los Seguimientos de tu equipo que contestas tú.',
+                opcional: true,
+            },
+            {
+                selector: sel('mis-seguimientos-resultados'),
+                titulo: 'Mis resultados',
+                texto: 'Lo que ya contestaste, con su calificación y estado. «Ver» abre el detalle.',
+            },
+        ],
+    },
+    {
+        id: 'mi-capacitacion',
+        nombre: 'Mi capacitación',
+        ruta: '/mi-capacitacion',
+        patron: /^\/mi-capacitacion(\/pendientes|\/certificados|\/\d+)?$/,
+        modo: 'colaborador',
+        permisos: [],
+        features: ['capacitacion'],
+        grupo: 'Mi espacio',
+        icono: GraduationCap,
+        descripcion:
+            'Tus aulas, lo que te falta por hacer y tus constancias de la Certificación Mr. Lana.',
+        pasos: [
+            {
+                selector: sel('mi-capacitacion-encabezado'),
+                titulo: 'Tu capacitación',
+                texto: 'Aquí están los cursos que RH te asignó.',
+            },
+            {
+                selector: sel('mi-capacitacion-certificacion'),
+                titulo: 'Tu nivel Mr. Lana',
+                texto: 'Bronce, Plata u Oro según tus constancias, y cuántas te faltan para el siguiente.',
+                opcional: true,
+            },
+            {
+                selector: sel('mi-capacitacion-secciones'),
+                titulo: 'Tres secciones',
+                texto: '«Mis aulas» (tus cursos con avance), «Pendientes» (lo que te falta) y «Mis certificados» (constancias con folio para descargar).',
+            },
+            {
+                selector: sel('mi-capacitacion-resumen'),
+                titulo: 'Tu resumen',
+                texto: 'En curso, terminados, horas de capacitación y constancias.',
+                opcional: true,
             },
         ],
     },

@@ -104,42 +104,42 @@ const SIDEBAR_A_GUIA = [
     'Versiones de app' => ['app-releases'],
     'Descriptivos y perfiles' => ['perfiles-puesto'],
     'Directorio' => ['directorio', 'directorio-operativo'],
+    // Contratación: bandejas de Sistemas.
+    'Pendientes de alta en sistemas' => ['sistemas-altas'],
+    'Pendientes de baja en sistemas' => ['sistemas-bajas'],
+    // Permanencia y Reportes.
+    'Fechas laborales' => ['fechas-laborales'],
+    'Recepción documental' => ['recepcion-documental'],
+    // Etapa 6 · Capacitación (feature `capacitacion`; Certificación además `certificacion`).
+    'Portada de capacitación' => ['capacitacion'],
+    'Cursos y aulas' => ['cursos'],
+    'Asignaciones' => ['asignaciones'],
+    'Calificar cuestionarios' => ['calificar'],
+    'Calificar actividades' => ['calificar'],
+    'Reporte de cumplimiento' => ['cumplimiento'],
+    'Certificación Mr. Lana' => ['certificacion'],
+    // Seguimiento (Fase 2).
+    'Nine Box' => ['nine-box'],
+    'Seguimientos técnicos' => ['seguimientos-tecnicos'],
+    'Calendario de seguimientos' => ['calendario-seguimientos'],
+    'Vínculos con Reportes' => ['vinculos-reportes'],
     // Modo colaborador.
     'Mi inicio' => ['portal'],
     'Mi expediente' => ['mi-expediente'],
     'Mis solicitudes' => ['mis-solicitudes'],
     'Mi inducción' => ['induccion'],
+    'Mi capacitación' => ['mi-capacitacion'],
+    'Mis seguimientos técnicos' => ['mis-seguimientos'],
 ];
 
 const SIDEBAR_SIN_GUIA = [
     // Es la propia página de la guía (buscador + guía escrita + recorridos).
     'Ayuda',
-    // Etapa 6 · Capacitación (Fase 3, tras el feature flag `capacitacion`):
-    // documentada en docs/CAPACITACION.md; aún sin recorrido guiado propio.
-    'Mi capacitación',
-    'Portada de capacitación',
-    'Cursos y aulas',
-    'Asignaciones',
-    'Calificar cuestionarios',
-    'Calificar actividades',
+    // Etapa 6 · Capacitación: catálogos de apoyo del constructor de cursos,
+    // explicados en el artículo «capacitacion-cursos» de la Guía maestra.
     'Banco de preguntas',
     'Biblioteca multimedia',
     'Calendario de sesiones',
-    'Reporte de cumplimiento',
-    // Base mínima tras su feature flag `certificacion` (docs/CAPACITACION.md).
-    'Certificación Mr. Lana',
-    // Seguimiento (Fase 2): documentado en docs/SEGUIMIENTO.md,
-    // docs/NINE_BOX.md y docs/EVALUACIONES_TECNICAS.md; aún sin recorrido
-    // guiado propio.
-    'Por sucursal',
-    'Por gestor',
-    'Nine Box',
-    'Seguimientos técnicos',
-    'Calendario de seguimientos',
-    'Vínculos con Reportes',
-    'Mis seguimientos técnicos',
-    // Captura masiva de fechas laborales: documentada en docs/FECHAS_LABORALES.md.
-    'Fechas laborales',
     // Recibo impreso: el acceso del colaborador solo existe con
     // features.recibos_colaborador (apagado).
     'Mi recibo',
@@ -168,11 +168,6 @@ const SIDEBAR_SIN_GUIA = [
     'Recibos de nómina',
     'Bajas',
     // Pantallas de Etapa 1 que aún no tienen módulo de guía propio.
-    // Recepción documental RH: documentada en docs/RECEPCION_DOCUMENTAL_RH.md.
-    'Recepción documental',
-    // Bandeja de Sistemas: documentada en docs/SISTEMAS_PENDIENTES_ALTA.md.
-    'Pendientes de alta en sistemas',
-    'Pendientes de baja en sistemas',
     'Agenda de entrevistas',
     'Mi agenda',
     'Mi bandeja de bajas',
@@ -301,6 +296,22 @@ const PANTALLAS_GUIA = [
     'rotacion' => ['pages/Reportes/RotacionPersonal.vue'],
     'cartas-compromiso' => ['pages/Rh/CartasCompromiso/Index.vue', 'pages/Rh/CartasCompromiso/Show.vue'],
     'formularios-evaluacion' => ['pages/Rh/FormulariosEvaluacion/Index.vue', 'pages/Rh/FormulariosEvaluacion/Editor.vue'],
+    'sistemas-altas' => ['pages/Sistemas/PendientesAlta.vue'],
+    'sistemas-bajas' => ['pages/Sistemas/PendientesBaja.vue'],
+    'fechas-laborales' => ['pages/Rh/FechasLaborales/Index.vue'],
+    'capacitacion' => ['pages/Capacitacion/Index.vue'],
+    'cursos' => ['pages/Cursos/Index.vue'],
+    'asignaciones' => ['pages/Asignaciones/Index.vue'],
+    'calificar' => ['pages/Cuestionarios/Calificaciones/Index.vue'],
+    'cumplimiento' => ['pages/Reportes/Cumplimiento.vue'],
+    'certificacion' => ['pages/Capacitacion/Certificacion.vue'],
+    'recepcion-documental' => ['pages/Rh/RecepcionDocumental/Index.vue', 'pages/Rh/RecepcionDocumental/Catalogo.vue'],
+    'nine-box' => ['pages/Seguimiento/NineBox.vue'],
+    'seguimientos-tecnicos' => ['pages/Seguimiento/EvaluacionesTecnicas/Index.vue'],
+    'calendario-seguimientos' => ['pages/Seguimiento/EvaluacionesTecnicas/Configuracion.vue'],
+    'vinculos-reportes' => ['pages/Seguimiento/Vinculos.vue'],
+    'mis-seguimientos' => ['pages/Portal/EvaluacionesTecnicas.vue'],
+    'mi-capacitacion' => ['pages/MiCapacitacion/Index.vue'],
 ];
 
 test('cada selector de cada módulo existe en SU pantalla (no solo en alguna)', function () {

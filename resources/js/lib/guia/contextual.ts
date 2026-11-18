@@ -8,6 +8,52 @@
  * antes que los de listado).
  */
 export const AYUDA_POR_PANTALLA: { patron: RegExp; articulo: string }[] = [
+    // Seguimiento (Fase 2): Nine Box, Seguimientos técnicos y vínculos.
+    { patron: /^\/seguimiento(\/nine-box)?$/, articulo: 'nine-box' },
+    { patron: /^\/seguimiento\/vinculos$/, articulo: 'vinculos-reportes' },
+    {
+        patron: /^\/seguimiento\/evaluaciones-tecnicas\/(configuracion|formularios\/\d+\/editor)$/,
+        articulo: 'calendario-seguimientos',
+    },
+    {
+        patron: /^\/seguimiento\/evaluaciones-tecnicas(\/.*)?$/,
+        articulo: 'seguimientos-tecnicos',
+    },
+    {
+        patron: /^\/mis-evaluaciones-tecnicas$/,
+        articulo: 'seguimientos-tecnicos',
+    },
+    // Etapa 6 · Capacitación y Certificación Mr. Lana.
+    {
+        patron: /^\/capacitacion\/certificacion$/,
+        articulo: 'certificacion-mr-lana',
+    },
+    {
+        patron: /^\/(capacitacion|cursos(\/.*)?|multimedia|bancos-preguntas(\/\d+)?)$/,
+        articulo: 'capacitacion-cursos',
+    },
+    { patron: /^\/asignaciones(\/.*)?$/, articulo: 'capacitacion-asignar' },
+    {
+        patron: /^\/(calificaciones\/(cuestionarios|actividades)(\/\d+)?|sesiones\/\d+\/asistencias)$/,
+        articulo: 'capacitacion-calificar',
+    },
+    {
+        patron: /^\/reportes\/cumplimiento$/,
+        articulo: 'capacitacion-cumplimiento',
+    },
+    { patron: /^\/mi-capacitacion(\/.*)?$/, articulo: 'mi-capacitacion' },
+    // Permanencia, Sistemas, Recepción documental y Bajas.
+    { patron: /^\/rh\/fechas-laborales$/, articulo: 'fechas-laborales' },
+    {
+        patron: /^\/rh\/recepcion-documental(\/.*)?$/,
+        articulo: 'recepcion-documental',
+    },
+    {
+        patron: /^\/sistemas\/pendientes-(alta|baja)(\/\d+)?$/,
+        articulo: 'pendientes-sistemas',
+    },
+    { patron: /^\/rh\/bajas\/finiquitos(\/.*)?$/, articulo: 'finiquito' },
+    { patron: /^\/rh\/bajas(\/.*)?$/, articulo: 'baja' },
     { patron: /^\/rh\/vacantes$/, articulo: 'plantilla-y-vacantes' },
     { patron: /^\/rh\/campanas$/, articulo: 'campanas' },
     { patron: /^\/rh\/candidatos\/\d+$/, articulo: 'etapas-del-candidato' },

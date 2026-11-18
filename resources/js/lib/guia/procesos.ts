@@ -1,7 +1,7 @@
 import type { ProcesoGuia } from './tipos';
 
 /**
- * Las 14 tarjetas de «Guía organizada por proceso». El orden es el del
+ * Las 16 tarjetas de «Guía organizada por proceso». El orden es el del
  * ciclo real: de la plaza autorizada a la vida laboral y la salida.
  */
 export const PROCESOS: ProcesoGuia[] = [
@@ -64,7 +64,12 @@ export const PROCESOS: ProcesoGuia[] = [
             'La carpeta digital de cada persona: datos, documentos, contratos, solicitudes, avisos e historial. Muestra qué falta por sección y permite avisarle al colaborador.',
         tiempo: 'Consulta inmediata',
         roles: ['rh', 'gerente', 'colaborador'],
-        articulos: ['expediente', 'completitud-expediente', 'completar-datos'],
+        articulos: [
+            'expediente',
+            'completitud-expediente',
+            'fechas-laborales',
+            'completar-datos',
+        ],
     },
     {
         id: 'contratos',
@@ -155,19 +160,59 @@ export const PROCESOS: ProcesoGuia[] = [
         ],
     },
     {
-        id: 'baja',
+        id: 'capacitacion',
         numero: 12,
+        titulo: 'Capacitación y Certificación',
+        icono: 'GraduationCap',
+        resumen:
+            'Etapa 6 del menú: cursos en aulas tipo Classroom, asignaciones a personas, puestos o sucursales, calificación de cuestionarios y actividades, sesiones en vivo, reporte de cumplimiento y la Certificación Mr. Lana con su formato oficial firmado.',
+        tiempo: 'Según el curso (días a semanas)',
+        roles: ['rh', 'gerente', 'colaborador'],
+        articulos: [
+            'capacitacion-cursos',
+            'capacitacion-asignar',
+            'mi-capacitacion',
+            'capacitacion-calificar',
+            'capacitacion-cumplimiento',
+            'certificacion-mr-lana',
+        ],
+    },
+    {
+        id: 'seguimiento',
+        numero: 13,
+        titulo: 'Seguimiento y Nine Box',
+        icono: 'Activity',
+        resumen:
+            'Seguimientos técnicos por puesto («Seguimiento 15», «Seguimiento 30», «Seguimiento 60»…) programados solos, su calendario, los vínculos con Reportes (por persona y por sucursal) y la Nine Box: desempeño × potencial.',
+        tiempo: 'Continuo (mensual o trimestral)',
+        roles: [
+            'rh',
+            'gerente',
+            'regional',
+            'direccion_comercial',
+            'colaborador',
+        ],
+        articulos: [
+            'seguimientos-tecnicos',
+            'calendario-seguimientos',
+            'vinculos-reportes',
+            'nine-box',
+        ],
+    },
+    {
+        id: 'baja',
+        numero: 14,
         titulo: 'Baja y finiquito',
         icono: 'UserMinus',
         resumen:
             'Cierre laboral: el gerente (o RH) registra la baja en «Bajas», sin solicitud previa, y queda aplicada; se generan sus documentos y el finiquito propuesto; RH ajusta y entrega el finiquito y cierra la baja con los documentos completos.',
         tiempo: '1 a 3 semanas',
         roles: ['gerente', 'regional', 'rh', 'sistemas'],
-        articulos: ['baja', 'finiquito'],
+        articulos: ['baja', 'finiquito', 'rotacion'],
     },
     {
         id: 'reingresos',
-        numero: 13,
+        numero: 15,
         titulo: 'Reingresos',
         icono: 'RotateCcw',
         resumen:
@@ -178,7 +223,7 @@ export const PROCESOS: ProcesoGuia[] = [
     },
     {
         id: 'administracion',
-        numero: 14,
+        numero: 16,
         titulo: 'Administración',
         icono: 'Settings2',
         resumen:
@@ -195,6 +240,8 @@ export const PROCESOS: ProcesoGuia[] = [
             'directorio',
             'importador-salarios',
             'historial-persona',
+            'pendientes-sistemas',
+            'recepcion-documental',
         ],
     },
 ];

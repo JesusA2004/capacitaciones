@@ -115,7 +115,10 @@ const opcionesGrafica = computed(() => {
             />
         </CrudPageHeader>
 
-        <div class="grid items-end gap-3 sm:flex sm:flex-wrap">
+        <div
+            data-tour="cumplimiento-filtros"
+            class="grid items-end gap-3 sm:flex sm:flex-wrap"
+        >
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Sucursal</label>
                 <SelectSimple
@@ -199,6 +202,7 @@ const opcionesGrafica = computed(() => {
 
         <div
             v-if="opcionesGrafica"
+            data-tour="cumplimiento-grafica"
             class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
         >
             <p class="mb-2 text-sm font-semibold">
@@ -212,23 +216,25 @@ const opcionesGrafica = computed(() => {
             />
         </div>
 
-        <DataTable
-            :columnas="columnas"
-            :datos="colaboradores"
-            mensaje-vacio="No hay colaboradores para mostrar con estos filtros."
-        >
-            <template #celda-name="{ fila }">
-                {{ fila.name }} {{ fila.apellidos ?? '' }}
-            </template>
-            <template #celda-sucursal="{ fila }">
-                {{ fila.sucursal_principal?.nombre ?? '—' }}
-            </template>
-            <template #celda-departamento="{ fila }">
-                {{ fila.departamento?.nombre ?? '—' }}
-            </template>
-            <template #celda-cumplimiento="{ fila }">
-                <Badge variant="secondary">{{ porcentaje(fila) }}%</Badge>
-            </template>
-        </DataTable>
+        <div data-tour="cumplimiento-tabla">
+            <DataTable
+                :columnas="columnas"
+                :datos="colaboradores"
+                mensaje-vacio="No hay colaboradores para mostrar con estos filtros."
+            >
+                <template #celda-name="{ fila }">
+                    {{ fila.name }} {{ fila.apellidos ?? '' }}
+                </template>
+                <template #celda-sucursal="{ fila }">
+                    {{ fila.sucursal_principal?.nombre ?? '—' }}
+                </template>
+                <template #celda-departamento="{ fila }">
+                    {{ fila.departamento?.nombre ?? '—' }}
+                </template>
+                <template #celda-cumplimiento="{ fila }">
+                    <Badge variant="secondary">{{ porcentaje(fila) }}%</Badge>
+                </template>
+            </DataTable>
+        </div>
     </div>
 </template>

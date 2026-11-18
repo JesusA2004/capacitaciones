@@ -89,9 +89,11 @@ flowchart TD
 9. **[Nómina](#proceso-nomina)** — Recibos simples (no CFDI) por lote: semanal para sucursales y quincenal para corporativo. PEOPLE prepara, RH revisa uno por uno, emite, imprime y entrega el recibo impreso. _(30 a 60 minutos por lote; RH)_
 10. **[Avisos](#proceso-avisos)** — Comunicados de RH con título, mensaje e imagen, para toda la empresa o para una persona. Llegan por notificación y push y quedan en su expediente. _(2 minutos; RH, Colaborador)_
 11. **[Vida laboral](#proceso-vida-laboral)** — Lo que pasa mientras la persona trabaja: cumpleaños y aniversarios, cambios de puesto o sucursal registrados en su historial y el uso diario de la app. _(Continuo; Colaborador, RH, Gerente)_
-12. **[Baja y finiquito](#proceso-baja)** — Cierre laboral: el gerente (o RH) registra la baja en «Bajas», sin solicitud previa, y queda aplicada; se generan sus documentos y el finiquito propuesto; RH ajusta y entrega el finiquito y cierra la baja con los documentos completos. _(1 a 3 semanas; Gerente, Regional, RH, Sistemas)_
-13. **[Reingresos](#proceso-reingresos)** — Volver a contratar a alguien sin crear otra persona: misma cuenta y mismo historial, un ciclo laboral nuevo. _(1 a 5 días; Gerente, RH)_
-14. **[Administración](#proceso-administracion)** — Estructura (empresas, sucursales, puestos, plantilla autorizada), cuentas y roles, notificaciones, documentos maestros, la app y la bandeja Mis pendientes. _(Según el ajuste; RH, Sistemas)_
+12. **[Capacitación y Certificación](#proceso-capacitacion)** — Etapa 6 del menú: cursos en aulas tipo Classroom, asignaciones a personas, puestos o sucursales, calificación de cuestionarios y actividades, sesiones en vivo, reporte de cumplimiento y la Certificación Mr. Lana con su formato oficial firmado. _(Según el curso (días a semanas); RH, Gerente, Colaborador)_
+13. **[Seguimiento y Nine Box](#proceso-seguimiento)** — Seguimientos técnicos por puesto («Seguimiento 15», «Seguimiento 30», «Seguimiento 60»…) programados solos, su calendario, los vínculos con Reportes (por persona y por sucursal) y la Nine Box: desempeño × potencial. _(Continuo (mensual o trimestral); RH, Gerente, Regional, Dirección Comercial, Colaborador)_
+14. **[Baja y finiquito](#proceso-baja)** — Cierre laboral: el gerente (o RH) registra la baja en «Bajas», sin solicitud previa, y queda aplicada; se generan sus documentos y el finiquito propuesto; RH ajusta y entrega el finiquito y cierra la baja con los documentos completos. _(1 a 3 semanas; Gerente, Regional, RH, Sistemas)_
+15. **[Reingresos](#proceso-reingresos)** — Volver a contratar a alguien sin crear otra persona: misma cuenta y mismo historial, un ciclo laboral nuevo. _(1 a 5 días; Gerente, RH)_
+16. **[Administración](#proceso-administracion)** — Estructura (empresas, sucursales, puestos, plantilla autorizada), cuentas y roles, notificaciones, documentos maestros, la app y la bandeja Mis pendientes. _(Según el ajuste; RH, Sistemas)_
 
 <a id="proceso-reclutamiento"></a>
 
@@ -985,7 +987,7 @@ RH, Sistemas.
 #### Pasos
 
 1. **RH cierra el onboarding** _(RH)_ — Ciclo laboral de la persona → «Cerrar onboarding». PEOPLE la activa en ese mismo paso.
-2. **Sistemas prepara accesos** _(Sistemas)_ — Recibe «Alta: Nombre (Puesto, Sucursal). Prepara su cuenta, accesos y equipo.»
+2. **Sistemas prepara accesos** _(Sistemas)_ — Recibe el correo «Alta en sistemas» en cuanto la persona completa sus datos personales, y lo atiende en Contratación → «Pendientes de alta en sistemas» («Marcar como dado de alta»).
 
 #### Qué pasa después
 
@@ -1010,6 +1012,7 @@ RH, Sistemas.
 
 - [Onboarding: la bienvenida del colaborador](#articulo-onboarding)
 - [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
+- [Pendientes de alta y de baja en sistemas](#articulo-pendientes-sistemas)
 
 #### En el sistema
 
@@ -1132,6 +1135,64 @@ RH, Colaborador.
 
 - **Ir a Expedientes** → `/rh/expedientes` _(permiso: expedientes.ver_todos o expedientes.ver_sucursal)_
 - Guía en pantalla → `/ayuda/articulo/completitud-expediente`
+
+<a id="articulo-fechas-laborales"></a>
+
+### Fechas laborales: ingreso, capacitación inicial y periodo de prueba
+
+> Una sola fuente para las fechas de cada persona (ingreso, inicio de capacitación inicial, inducción, alta IMSS) y su periodo de prueba (hereda del puesto o específico), con vista del impacto antes de guardar y captura masiva.
+
+#### Qué es
+
+De estas fechas salen el fin del periodo de prueba, la fecha de su evaluación y el calendario de sus Seguimientos técnicos. Se ven y corrigen en el expediente (pestaña «Fechas laborales») o, para muchas personas a la vez (por ejemplo la plantilla importada por Excel), en Permanencia → «Fechas laborales». El contrato nunca se cambia solo.
+
+#### Quién lo hace
+
+Quien tiene el permiso expedientes.editar_fechas (todo rol que puede editar expedientes). Nadie corrige sus propias fechas.
+
+> **Importante:** El contrato nunca se modifica desde aquí: sus fechas se corrigen en el contrato. La fecha de ingreso no se corrige si ya hay contrato firmado, recibos emitidos o finiquito firmado o pagado; el inicio de capacitación y el periodo de prueba sí.
+
+> **Nota:** Vacío = hereda del puesto. Si el inicio de capacitación inicial está vacío, se usa la fecha de ingreso.
+
+#### Antes de empezar
+
+- El puesto tiene su periodo de prueba en el catálogo de puestos (si la persona no lleva uno específico).
+- Tener a la mano el motivo del cambio: queda en el historial.
+
+#### Pasos
+
+1. **Una persona: abre su expediente** — Colaboradores → la persona → grupo «Datos» → pestaña «Fechas laborales». Verás la línea de tiempo (Ingreso, Alta IMSS, Inducción, Inicia capacitación inicial, cada Seguimiento, Se habilita la evaluación, Fin del periodo de prueba) y las alertas.
+2. **Edita las fechas** — «Editar fechas» (o «Capturar» en una fecha que falta). Captura las fechas y elige el periodo de prueba: «Hereda del puesto» o «Específico para esta persona» (duración en meses o días).
+3. **Revisa el impacto** — «Ver impacto» muestra lo capturado, las fechas que se recalculan (antes → después) y qué más se afecta («Requiere nuevo contrato», «Debes revisarlo»…).
+4. **Guarda con motivo** — Escribe el «Motivo del cambio» y pulsa «Guardar fechas». PEOPLE recalcula el fin del periodo de prueba, reprograma los Seguimientos pendientes y mueve la fecha límite de la evaluación de periodo de prueba pendiente.
+5. **Atiende las alertas** — Si aparece «Debes actualizar el contrato», pulsa «Actualizar contrato»; si el contrato ya estaba firmado, «La fecha impresa en el contrato firmado ya no coincide: genera uno nuevo». Cada alerta desaparece sola al corregir su causa.
+6. **Muchas personas: captura masiva** — Permanencia → «Fechas laborales» (o «Captura masiva» desde el expediente). Filtra por nombre, sucursal o puesto y deja «Con fechas faltantes». Edita las celdas en la tabla; aparece la barra «N persona(s) con cambios»: escribe el motivo (mínimo 5 caracteres) y pulsa «Guardar».
+
+#### Qué pasa después
+
+- En la captura masiva cada persona se guarda por separado: «Se guardaron N; M con error (revisa las filas marcadas)». Las filas con error quedan en rojo con su mensaje.
+- Los Seguimientos ya contestados no se tocan.
+
+#### Qué queda registrado
+
+- Cada cambio es una corrección auditada con su motivo (Cambios de datos → Correcciones auditadas), antes y después.
+
+#### Errores comunes
+
+- **«La fecha de ingreso no se corrige porque …»** Ya hay contrato firmado, recibos emitidos o finiquito: mueve el inicio de la capacitación inicial o el periodo de prueba, o corrige el contrato.
+- **«Captura la cantidad y la unidad (meses o días) del periodo específico…»** Llena ambas o deja ambas vacías para heredar el del puesto.
+
+#### Relacionado con
+
+- [El expediente del colaborador](#articulo-expediente)
+- [Evaluaciones de periodo de prueba](#articulo-evaluacion-capacitacion)
+- [Seguimientos técnicos: «Seguimiento 15», «30», «60»…](#articulo-seguimientos-tecnicos)
+- [Contrato de capacitación inicial](#articulo-contrato-inicial)
+
+#### En el sistema
+
+- **Ir a Fechas laborales** → `/rh/fechas-laborales` _(permiso: expedientes.editar_fechas)_
+- Guía en pantalla → `/ayuda/articulo/fechas-laborales`
 
 <a id="articulo-completar-datos"></a>
 
@@ -1797,7 +1858,7 @@ Es la bandeja donde se atienden las solicitudes de los colaboradores.
 
 Gerente, Regional, RH.
 
-> **Nota:** Columnas: Solicitudes recibidas (esperan vistos buenos) → Pendiente de autorizar → Requiere corrección → Aprobadas / No aprobadas. Una solicitud aprobada ya terminó: lo que sigue (documentos, pago) vive en su propio proceso.
+> **Nota:** Columnas: Recibidas (esperan vistos buenos) → En revisión (pendientes de autorizar por RH) → Requiere corrección → Aprobadas / No aprobadas. Una solicitud aprobada ya terminó: lo que sigue (documentos, pago) vive en su propio proceso.
 
 #### Antes de empezar
 
@@ -1805,7 +1866,7 @@ Gerente, Regional, RH.
 
 #### Pasos
 
-1. **Elige el tipo** _(Web)_ — Personal → Solicitudes: una tarjeta por tipo (préstamos, permisos, vacaciones…) con recibidas, por autorizar y en corrección. «Ver todas» abre el tablero completo.
+1. **Abre el tablero** _(Web)_ — Inicio → Solicitudes: un solo tablero con «Todos los tipos»; cada tarjeta lleva arriba una banda con el color y el nombre de su tipo (permiso, vacaciones, préstamo…). Acota con los filtros de tipo y sucursal. Las incapacidades se registran en su propio módulo.
 2. **Abre la solicitud** — Revisa motivo, evidencias y la «Cadena de autorización» (quién ya dio visto bueno).
 3. **Gerente / regional** _(Gerente · Web y app)_ — «Visto bueno» (web) o desde la app (Equipo → pendientes).
 4. **RH** _(RH)_ — Aprobar, rechazar o requerir corrección (las dos últimas exigen comentario).
@@ -1958,7 +2019,7 @@ RH, Colaborador.
 #### En el sistema
 
 - **Ir a Avisos (RH)** → `/rh/avisos` _(permiso: avisos.enviar)_
-- **Ir a mis Avisos** → `/avisos`
+- **Ir a Mis notificaciones** → `/mis-notificaciones`
 - Guía en pantalla → `/ayuda/articulo/avisos`
 
 <a id="proceso-vida-laboral"></a>
@@ -2196,9 +2257,565 @@ RH.
 - **Ir a Expedientes** → `/rh/expedientes` _(permiso: expedientes.ver_todos o expedientes.ver_sucursal)_
 - Guía en pantalla → `/ayuda/articulo/actividad-laboral`
 
+<a id="proceso-capacitacion"></a>
+
+## 12. Capacitación y Certificación
+
+Etapa 6 del menú: cursos en aulas tipo Classroom, asignaciones a personas, puestos o sucursales, calificación de cuestionarios y actividades, sesiones en vivo, reporte de cumplimiento y la Certificación Mr. Lana con su formato oficial firmado.
+
+**Tiempo estimado:** Según el curso (días a semanas) · **Roles:** RH, Gerente, Colaborador · **En pantalla:** `/ayuda/proceso/capacitacion`
+
+<a id="articulo-capacitacion-cursos"></a>
+
+### Crear un curso y su aula
+
+> De «Nuevo curso» a «Publicar»: módulos, lecciones (video, documento, cuestionario, actividad, sesión en vivo…) y constancia al terminar.
+
+#### Qué es
+
+Capacitación (etapa 6 del menú) funciona como aulas tipo Classroom: cada curso tiene un constructor (su contenido) y un aula (tablón, trabajo asignado, calificaciones y participantes). La «Portada de capacitación» resume indicadores, aulas y próximas sesiones.
+
+#### Quién lo hace
+
+Quien tiene cursos.crear (RH / administrador de capacitación). El material se sube en «Biblioteca multimedia» (multimedia.administrar) y las preguntas en «Banco de preguntas» (cuestionarios.administrar).
+
+#### Antes de empezar
+
+- Los videos y documentos ya están en Capacitación → «Biblioteca multimedia» («Cargar archivo»).
+- Si el curso lleva cuestionarios, sus preguntas están en «Banco de preguntas» («Nuevo banco» → «Agregar pregunta»).
+
+#### Pasos
+
+1. **Crea el curso** — Capacitación → «Cursos y aulas» → «Nuevo curso». Escribe Título, Descripción y Objetivo y pulsa «Crear curso»: se abre el constructor.
+2. **Agrega módulos** — «Agregar el primer módulo» (o «Agregar módulo»). Ordénalos con las flechas Subir / Bajar.
+3. **Agrega lecciones** — En cada módulo, «Agregar lección»: elige el Tipo (Video, Documento, Guía, Texto, Enlace, Cuestionario, Actividad, Sesión en vivo, Confirmación de lectura), el título, el recurso de la biblioteca o el enlace, la duración y si es obligatoria.
+4. **Configura cuestionarios, actividades y sesiones** — Al guardar una lección de esos tipos aparece «Configurar cuestionario» (calificación mínima, intentos, tiempo, preguntas del banco), «Configurar actividad» (tipo de entrega y fecha límite) o «Configurar sesión en vivo» (fecha, duración, proveedor Meet/Zoom/enlace y reglas de asistencia).
+5. **Ajusta los detalles** — «Más acciones» → «Editar detalles»: responsable, intentos máximos, fechas de disponibilidad, cursos requeridos, lecciones en orden y «Genera constancia al completarse».
+6. **Publica** — Pulsa «Publicar». Para retirarlo sin borrarlo usa «Más acciones» → «Archivar curso».
+
+#### Qué pasa después
+
+- El curso ya se puede asignar («Asignar»). Su aula («Abrir aula») muestra el avance de cada participante.
+
+#### Qué queda registrado
+
+- Estados del curso: Borrador, Publicado, Archivado. Cada módulo y lección con su orden.
+
+#### Errores comunes
+
+- **«No encuentro mi video para la lección.»** Súbelo primero en «Biblioteca multimedia»; los videos se convierten para reproducirse y tardan unos minutos.
+- **«Primero guarda la configuración» (cuestionario).** Guarda la configuración del cuestionario antes de agregarle preguntas.
+
+#### Relacionado con
+
+- [Asignar un curso](#articulo-capacitacion-asignar)
+- [Calificar cuestionarios, actividades y asistencia](#articulo-capacitacion-calificar)
+- [Certificación Mr. Lana (formato RH-CC-R-001)](#articulo-certificacion-mr-lana)
+
+#### En el sistema
+
+- **Ir a Portada de capacitación** → `/capacitacion` _(permiso: cursos.ver o asignaciones.ver o respuestas.ver)_
+- **Ir a Cursos y aulas** → `/cursos` _(permiso: cursos.ver)_
+- **Ir a Biblioteca multimedia** → `/multimedia` _(permiso: multimedia.administrar)_
+- **Ir a Banco de preguntas** → `/bancos-preguntas` _(permiso: cuestionarios.administrar)_
+- Guía en pantalla → `/ayuda/articulo/capacitacion-cursos`
+
+<a id="articulo-capacitacion-asignar"></a>
+
+### Asignar un curso
+
+> Inscribe a colaboradores en un curso por persona, sucursal, departamento, puesto, rol o a todos, con fecha límite opcional.
+
+#### Qué es
+
+Una asignación dice quién debe tomar un curso y para cuándo. PEOPLE calcula a quién le llega, inscribe a cada persona y le avisa.
+
+#### Quién lo hace
+
+RH.
+
+#### Antes de empezar
+
+- El curso existe (de preferencia publicado).
+- Tener el permiso asignaciones.crear.
+
+#### Pasos
+
+1. **Abre la asignación** — Capacitación → «Asignaciones» → «Nueva asignación» (o «Asignar curso» desde Cursos y aulas o el aula).
+2. **Elige el curso y el nombre** — Sección «Curso»: Curso y «Nombre de la asignación».
+3. **Plazo (opcional)** — «Fecha de inicio» y «Fecha límite» (la límite no puede ser antes del inicio). Marca «Asignación obligatoria» si aplica.
+4. **Destinatarios** — Con «Agregar destinatario» combina Usuario específico, Sucursal, Departamento, Puesto, Rol o Todos los colaboradores.
+5. **Revisa a quién le llega** — «Ver vista previa» muestra el total, posibles duplicados y una muestra de 25 personas.
+6. **Crea** — «Crear asignación»: «Se está aplicando a los colaboradores correspondientes.»
+
+#### Qué pasa después
+
+- Cada persona queda inscrita y ve el curso en Mi espacio → «Mi capacitación».
+- Si hace falta, «Cancelar» la asignación desde la lista («¿Cancelar la asignación?» → «Sí, cancelar»).
+
+#### Notificaciones
+
+- «Nueva capacitación asignada» a cada persona inscrita.
+- «Tienes una capacitación por vencer» cada mañana cuando se acerca la fecha límite.
+
+#### Qué queda registrado
+
+- Estados por persona: Pendiente, En progreso, Completada, Vencida, Cancelada.
+
+#### Errores comunes
+
+- **«Debes seleccionar un destino específico.»** En un destinatario de tipo Usuario, Sucursal, Departamento, Puesto o Rol, elige cuál.
+
+#### Relacionado con
+
+- [Crear un curso y su aula](#articulo-capacitacion-cursos)
+- [Mi capacitación: tomar mis cursos](#articulo-mi-capacitacion)
+- [Reporte de cumplimiento de capacitación](#articulo-capacitacion-cumplimiento)
+
+#### En el sistema
+
+- **Ir a Asignaciones** → `/asignaciones` _(permiso: asignaciones.ver)_
+- Guía en pantalla → `/ayuda/articulo/capacitacion-asignar`
+
+<a id="articulo-mi-capacitacion"></a>
+
+### Mi capacitación: tomar mis cursos
+
+> El colaborador ve sus aulas, lo que le falta y sus constancias; completa lecciones, contesta cuestionarios y entrega actividades.
+
+#### Qué es
+
+En Mi espacio → «Mi capacitación» están tus cursos asignados («Mis aulas»), lo que te falta («Pendientes») y tus constancias y nivel de la Certificación Mr. Lana («Mis certificados»). En Mi inicio la tarjeta «Mi capacitación» te dice cuántas lecciones te faltan y cuál sigue.
+
+#### Quién lo hace
+
+Colaborador.
+
+#### Antes de empezar
+
+- RH te asignó al menos un curso.
+
+#### Pasos
+
+1. **Abre tu curso** _(Web)_ — Mi espacio → «Mi capacitación» → «Mis aulas» → elige el curso (o «Sigue con…» en tu inicio).
+2. **Avanza lección por lección** — Documentos, textos, enlaces y confirmaciones: «Marcar como completada». Los videos se completan solos al verlos.
+3. **Cuestionarios** — «Iniciar cuestionario» → responde → «Enviar cuestionario». Si no apruebas y te quedan intentos, «Intentar de nuevo».
+4. **Actividades** — Escribe tu respuesta, sube tu archivo o pega el enlace y pulsa «Enviar entrega» antes de la fecha límite. Quien imparte el curso la califica.
+5. **Sesiones en vivo** — El enlace aparece cerca de la fecha. Tu asistencia la registra el instructor (o la conexión con Zoom).
+6. **Tu constancia** — Al terminar un curso que genera constancia, aparece en «Mis certificados» con folio, «Descargar» y «Verificación».
+
+#### Qué pasa después
+
+- Tus constancias suman para tu nivel de la Certificación Mr. Lana (Bronce, Plata, Oro).
+
+#### Notificaciones
+
+- «Resultado de tu cuestionario» y «Resultado de tu actividad» (aprobada, o rechazada con «Puedes volver a entregarla»).
+- «Tu sesión en vivo está por comenzar».
+
+#### Errores comunes
+
+- **«Esta lección está bloqueada.»** El curso pide completar las lecciones en orden: termina la anterior.
+- **«Ya no te quedan intentos disponibles.»** Pide a RH que revise tu caso.
+
+#### Relacionado con
+
+- [Asignar un curso](#articulo-capacitacion-asignar)
+- [Certificación Mr. Lana (formato RH-CC-R-001)](#articulo-certificacion-mr-lana)
+
+#### En el sistema
+
+- **Ir a Mi capacitación** → `/mi-capacitacion`
+- Guía en pantalla → `/ayuda/articulo/mi-capacitacion`
+
+<a id="articulo-capacitacion-calificar"></a>
+
+### Calificar cuestionarios, actividades y asistencia
+
+> Bandejas de lo que espera calificación: respuestas abiertas de cuestionarios y entregas de actividades; asistencia de sesiones en vivo.
+
+#### Qué es
+
+Las preguntas cerradas se califican solas. Lo abierto (respuestas cortas/largas, archivos) y las actividades las califica una persona desde «Calificar cuestionarios» y «Calificar actividades», del más antiguo al más reciente. Solo ves a las personas dentro de tu alcance.
+
+#### Quién lo hace
+
+RH.
+
+#### Antes de empezar
+
+- Tener el permiso respuestas.ver.
+
+#### Pasos
+
+1. **Abre la bandeja** — Capacitación → «Calificar cuestionarios» (pestañas «Cuestionarios» / «Actividades»).
+2. **Califica un intento** — «Calificar» → en cada respuesta abierta captura los puntos o marca «Correcta» / «Incorrecta». Al terminar: «Todas las respuestas abiertas ya están revisadas.»
+3. **Califica una entrega** — «Calificar» → revisa la entrega («Descargar» o «Abrir enlace entregado»), captura «Calificación (%)» y «Retroalimentación» y pulsa «Aprobar» o «Rechazar».
+4. **Corrige asistencia (sesiones en vivo)** — En la sesión, «Asistencias»: captura los minutos corregidos y el motivo (obligatorio).
+
+#### Qué pasa después
+
+- La persona recibe su resultado; una actividad aprobada completa su lección.
+
+#### Notificaciones
+
+- «Tienes calificaciones pendientes» cada mañana a quien califica.
+
+#### Errores comunes
+
+- **«Debes indicar el motivo de la corrección.»** Escribe por qué corriges la asistencia.
+
+#### Relacionado con
+
+- [Crear un curso y su aula](#articulo-capacitacion-cursos)
+- [Mi capacitación: tomar mis cursos](#articulo-mi-capacitacion)
+
+#### En el sistema
+
+- **Ir a Calificar cuestionarios** → `/calificaciones/cuestionarios` _(permiso: respuestas.ver)_
+- **Ir a Calificar actividades** → `/calificaciones/actividades` _(permiso: respuestas.ver)_
+- Guía en pantalla → `/ayuda/articulo/capacitacion-calificar`
+
+<a id="articulo-capacitacion-cumplimiento"></a>
+
+### Reporte de cumplimiento de capacitación
+
+> Avance de capacitación por colaborador: asignadas, completadas, vencidas y % de cumplimiento, con exportación a Excel o PDF.
+
+#### Qué es
+
+Muestra, para cada colaborador de tu alcance, cuántos cursos tiene asignados, completados y vencidos, y su porcentaje de cumplimiento, más una gráfica por rangos.
+
+#### Quién lo hace
+
+RH, Gerente.
+
+#### Antes de empezar
+
+- Tener reportes.sucursal o reportes.globales.
+
+#### Pasos
+
+1. **Abre el reporte** — Capacitación → «Reporte de cumplimiento».
+2. **Filtra** — Sucursal, Departamento y Curso; «Limpiar filtros» para volver a todo.
+3. **Lee la gráfica y la tabla** — «Distribución por rango de cumplimiento» (0–25 %, 25–50 %, 50–75 %, 75–100 %) y la tabla por colaborador.
+4. **Exporta** — «Excel» o «PDF» (con permiso reportes.exportar).
+
+#### Qué pasa después
+
+- Con las vencidas, RH puede recordar o reasignar.
+
+#### Errores comunes
+
+- **«No hay colaboradores para mostrar con estos filtros.»** Quita filtros o revisa tu alcance.
+
+#### Relacionado con
+
+- [Asignar un curso](#articulo-capacitacion-asignar)
+
+#### En el sistema
+
+- **Ir a Reporte de cumplimiento** → `/reportes/cumplimiento` _(permiso: reportes.globales o reportes.sucursal)_
+- Guía en pantalla → `/ayuda/articulo/capacitacion-cumplimiento`
+
+<a id="articulo-certificacion-mr-lana"></a>
+
+### Certificación Mr. Lana (formato RH-CC-R-001)
+
+> Descargar el formato oficial con nombre, sucursal y fecha de ingreso ya llenos, firmarlo, subirlo firmado con su promedio y emitir el certificado «Cuentas con tu Certificación Mr. Lana».
+
+#### Qué es
+
+La Certificación Mr. Lana del gestor se acredita con el formato oficial RH-CC-R-001 (certificación del gestor de crédito), que se llena y firma a pluma. PEOPLE lo prellena, guarda el escaneo firmado en el expediente y emite el certificado con folio verificable. Además, la pantalla muestra los niveles Mr. Lana Bronce, Plata y Oro según las constancias de cursos.
+
+#### Quién lo hace
+
+RH (o quien tenga certificacion.gestionar dentro de su alcance) descarga, sube y certifica; el colaborador ve su certificación en «Mi capacitación».
+
+> **Nota:** Si el certificado no se puede imprimir en ese momento, la certificación no se deshace: el certificado se genera al descargarlo.
+
+#### Antes de empezar
+
+- La persona es colaborador activo y está dentro de tu alcance.
+- Sus datos de expediente (nombre, sucursal, fecha de ingreso) están completos: salen impresos en el encabezado.
+
+#### Pasos
+
+1. **Abre Certificación** — Capacitación → «Certificación Mr. Lana» y busca a la persona (estado «Sin formato»).
+2. **Descarga el formato** — «Descargar formato»: es el PDF oficial RH-CC-R-001 con el encabezado (nombre, sucursal, fecha de ingreso) ya lleno. La persona pasa a «Formato descargado» y queda registrado quién y cuándo.
+3. **Llénalo y fírmalo** _(Automático)_ — En papel: temas, fechas, evaluación, promedio y firmas.
+4. **Sube el formato firmado** — «Subir formato firmado»: adjunta el escaneo, captura el «Promedio del formato» (mínimo aprobatorio configurado, 80 por defecto) y confirma que tiene las firmas del gestor y del gerente de sucursal y «Certificado: SÍ».
+5. **Queda certificado** _(Automático)_ — Al guardar, la persona queda «Certificado» con folio y se emite el certificado «Cuentas con tu Certificación Mr. Lana». El formato firmado y el certificado se guardan en su expediente; en su renglón aparecen «Ver certificado» y «Descargar».
+
+#### Qué pasa después
+
+- El colaborador ve su certificación en Mi espacio → «Mi capacitación» → «Mis certificados».
+
+#### Documentos que se generan
+
+- Formato RH-CC-R-001 prellenado (descarga) y firmado (expediente).
+- Certificado «Cuentas con tu Certificación Mr. Lana» con folio verificable.
+
+#### Qué queda registrado
+
+- Quién descargó el formato y cuándo; quién subió el firmado, el promedio y el folio del certificado (bitácora).
+
+#### Errores comunes
+
+- **«No aparece la persona.»** Está fuera de tu alcance o no es colaborador activo.
+- **«El promedio no alcanza.»** Con un promedio menor al mínimo no se certifica: revisa el formato con el área de capacitación.
+
+#### Relacionado con
+
+- [Crear un curso y su aula](#articulo-capacitacion-cursos)
+- [Mi capacitación: tomar mis cursos](#articulo-mi-capacitacion)
+- [El expediente del colaborador](#articulo-expediente)
+
+#### En el sistema
+
+- **Ir a Certificación Mr. Lana** → `/capacitacion/certificacion` _(permiso: cursos.ver o asignaciones.ver o respuestas.ver o certificacion.gestionar)_
+- Guía en pantalla → `/ayuda/articulo/certificacion-mr-lana`
+
+<a id="proceso-seguimiento"></a>
+
+## 13. Seguimiento y Nine Box
+
+Seguimientos técnicos por puesto («Seguimiento 15», «Seguimiento 30», «Seguimiento 60»…) programados solos, su calendario, los vínculos con Reportes (por persona y por sucursal) y la Nine Box: desempeño × potencial.
+
+**Tiempo estimado:** Continuo (mensual o trimestral) · **Roles:** RH, Gerente, Regional, Dirección Comercial, Colaborador · **En pantalla:** `/ayuda/proceso/seguimiento`
+
+<a id="articulo-seguimientos-tecnicos"></a>
+
+### Seguimientos técnicos: «Seguimiento 15», «30», «60»…
+
+> Evaluaciones técnicas por puesto que PEOPLE genera solas cada mañana al llegar el día desde el ingreso; las contesta el colaborador o su jefe directo y se califican al instante.
+
+#### Qué es
+
+Un Seguimiento técnico es una evaluación de conocimientos del puesto que se aplica en días fijos desde que la persona entró (por ejemplo día 15, 30 y 60). Cada puesto tiene su propio calendario y sus propios formularios. No dependen de Reportes: son la parte de «potencial» que después usa la Nine Box.
+
+#### Quién lo hace
+
+RH arma el calendario y los formularios; PEOPLE las genera solas; las contesta el colaborador (en Mi espacio) o su jefe directo, según el paso; RH y quien tiene alcance consultan los resultados.
+
+> **Nota:** Una evaluación vencida todavía se puede contestar. Si la persona deja de estar activa o cambia de puesto, sus evaluaciones pendientes se cancelan (no se borran).
+
+> **Atención:** Nadie contesta por sí mismo una evaluación que le toca al jefe directo, ni siquiera un super administrador.
+
+#### Antes de empezar
+
+- El puesto de la persona tiene calendario en «Calendario de seguimientos» y su formulario técnico está publicado.
+- La persona está activa y tiene fecha de inicio (inicio de capacitación inicial o, si no hay, fecha de ingreso) en «Fechas laborales».
+- El organigrama dice quién es su jefe directo (nunca se captura a mano).
+
+#### Pasos
+
+1. **PEOPLE genera la evaluación** _(Automático)_ — Cada mañana (6:45) revisa a los colaboradores activos: al llegar el día N de su puesto crea la evaluación con la versión publicada del formulario, su fecha límite (día programado + «Días para contestar») y avisa a quien la contesta. Si un día ya pasó, solo se genera hasta 15 días tarde.
+2. **Si te toca contestarla como colaborador** _(Colaborador · Web)_ — Mi espacio → «Mis seguimientos técnicos» → «Por contestar» → «Contestar ahora». Responde las preguntas, escribe comentarios si quieres y pulsa «Enviar evaluación» → «Enviar».
+3. **Si te toca como jefe directo** _(Gerente · Web)_ — Seguimiento → «Seguimientos técnicos» (o «Mis seguimientos técnicos») → bloque «Te toca evaluar a tu equipo». Abre la de la persona, contesta, agrega observaciones para RH y pulsa «Enviar evaluación».
+4. **Calificación al instante** _(Automático)_ — Al enviar se califica contra la mínima del paso (por defecto 80): queda «Aprobada» o «No aprobada». Ya no se puede cambiar.
+5. **RH da seguimiento** _(RH · Web)_ — En «Seguimientos técnicos» revisa indicadores, «Próximas a vencer» y «Vencidas», filtra por estado, puesto, sucursal o quién contesta, y abre cualquier renglón para ver la respuesta por pregunta o el nombre para ver la línea de tiempo de la persona. «Generar las que ya tocan» corre la generación al momento.
+
+#### Qué pasa después
+
+- El promedio de sus Seguimientos alimenta el potencial de la persona en la Nine Box.
+- Su jefe directo recibe el resultado cuando el colaborador contesta.
+
+#### Notificaciones
+
+- Al colaborador: «Tu {evaluación} está lista» con su fecha límite.
+- Al jefe directo: «{evaluación} por contestar».
+- A quien la contesta: «{evaluación} vencida» (prioridad alta) cuando pasa la fecha límite.
+- Al jefe directo: «{persona} contestó su {evaluación}» con el resultado.
+
+#### Qué queda registrado
+
+- Respuestas por pregunta, puntos, calificación, aprobada o no, comentarios, quién y cuándo la contestó (bitácora «evaluación técnica contestada»).
+
+#### Errores comunes
+
+- **«Esta evaluación ya se contestó o se canceló.»** Ya no admite respuestas; ábrela desde la lista para ver su resultado.
+- **«N no se generaron porque su formulario no tiene versión publicada.»** Abre «Calendario de seguimientos» → «Formularios técnicos», publica el formulario y vuelve a pulsar «Generar las que ya tocan».
+- **«No me aparece mi seguimiento.»** Todavía no llega el día, tu puesto no tiene calendario o falta tu fecha de inicio en Fechas laborales. Pregunta a RH.
+
+#### Relacionado con
+
+- [Calendario de seguimientos y formularios técnicos](#articulo-calendario-seguimientos)
+- [Nine Box: desempeño × potencial](#articulo-nine-box)
+- [Fechas laborales: ingreso, capacitación inicial y periodo de prueba](#articulo-fechas-laborales)
+
+#### En el sistema
+
+- **Ir a Seguimientos técnicos** → `/seguimiento/evaluaciones-tecnicas` _(permiso: evaluaciones_tecnicas.ver)_
+- **Ir a Mis seguimientos técnicos** → `/mis-evaluaciones-tecnicas`
+- Guía en pantalla → `/ayuda/articulo/seguimientos-tecnicos`
+
+<a id="articulo-calendario-seguimientos"></a>
+
+### Calendario de seguimientos y formularios técnicos
+
+> Por puesto: qué día desde el ingreso se aplica cada Seguimiento, con qué formulario, quién lo contesta, con cuánto aprueba y en cuántos días.
+
+#### Qué es
+
+Es la configuración de los Seguimientos técnicos. Tiene dos pestañas: «Calendario por puesto» (los días y reglas de cada puesto) y «Formularios técnicos» (las preguntas, que se editan con el mismo editor tipo Google Forms de las evaluaciones de ingreso).
+
+#### Quién lo hace
+
+RH.
+
+#### Antes de empezar
+
+- Tener el permiso evaluaciones_tecnicas.configurar.
+- El puesto tiene duración de contrato de capacitación en el catálogo de puestos (para la sugerencia de días).
+
+#### Pasos
+
+1. **Crea el formulario técnico** — Seguimiento → «Calendario de seguimientos» → «Nuevo formulario técnico». Escribe el nombre (por ejemplo «Técnica de cobranza — Gestor») y pulsa «Crear y abrir el editor».
+2. **Arma sus preguntas y publícalo** — En el editor usa «Preguntas», «Diseño» y «Vista previa»; el borrador se guarda solo. Pulsa «Publicar versión»: solo un formulario publicado se puede usar en el calendario.
+3. **Elige el puesto** — Pestaña «Calendario por puesto»: busca el puesto en la lista (puedes marcar «Solo con calendario»).
+4. **Agrega sus evaluaciones** — «Usar sugerencia» propone los días según su contrato de capacitación, o usa «Agregar evaluación» (máximo 12). En cada una: «Día desde el ingreso» (1–730), «Nombre» («Seguimiento N»), «Formulario técnico», «La contesta» (Colaborador o Jefe directo), «Aprueba con (0-100)», «Días para contestar» (1–60) y, si aplica, «Marcar como técnica final».
+5. **Guarda** — Pulsa «Guardar calendario». Aparece «Guardaste el calendario de {puesto}.»
+6. **Cópialo a otros puestos (opcional)** — «Copiar a otros puestos» → marca los puestos destino → «Copiar a N». Reemplaza su calendario.
+
+#### Qué pasa después
+
+- Desde la mañana siguiente PEOPLE genera las evaluaciones que ya tocan (hasta 15 días tarde). Quitar una evaluación del calendario no borra las ya generadas.
+- Las evaluaciones que ya se abrieron conservan la versión del formulario con la que nacieron.
+
+#### Qué queda registrado
+
+- Cada formulario guarda sus versiones publicadas; cada evaluación generada recuerda su versión.
+
+#### Errores comunes
+
+- **«Hay dos evaluaciones el día D: cada día solo puede tener una.»** Cambia el día de una de ellas.
+- **«Evaluación N: elige qué formulario técnico usa.»** Elige un formulario; si no hay, créalo primero en «Formularios técnicos».
+- **«Solo una evaluación puede ser la técnica final.»** Desmarca «Técnica final» en las demás.
+
+#### Relacionado con
+
+- [Seguimientos técnicos: «Seguimiento 15», «30», «60»…](#articulo-seguimientos-tecnicos)
+- [Nine Box: desempeño × potencial](#articulo-nine-box)
+
+#### En el sistema
+
+- **Ir a Calendario de seguimientos** → `/seguimiento/evaluaciones-tecnicas/configuracion` _(permiso: evaluaciones_tecnicas.configurar)_
+- Guía en pantalla → `/ayuda/articulo/calendario-seguimientos`
+
+<a id="articulo-vinculos-reportes"></a>
+
+### Vínculos con Reportes (por persona y por sucursal)
+
+> Une a cada persona y cada sucursal de Reportes con su colaborador y su sucursal de PEOPLE, para que la Nine Box tome sus datos. Nunca se vincula por ruta.
+
+#### Qué es
+
+Reportes conoce a la gente por sus rutas; PEOPLE, por colaborador. Aquí se dice «esta persona de Reportes es este colaborador» y «esta sucursal de Reportes es esta sucursal». Una persona con varias rutas se vincula una sola vez y la Nine Box suma todas sus rutas.
+
+#### Quién lo hace
+
+RH.
+
+> **Importante:** Nunca se vincula por ruta: una ruta cambia de gestor, la persona no. Los registros de Reportes que no son personas (vacantes, cartera vencida, códigos) no se vinculan.
+
+#### Antes de empezar
+
+- La conexión con Reportes está configurada (si no, Sistemas captura REPORTES_API_URL y REPORTES_API_TOKEN).
+- Tener el permiso seguimiento.vincular.
+
+#### Pasos
+
+1. **Abre la pantalla** — Seguimiento → «Vínculos con Reportes».
+2. **Actualiza los datos (si hubo altas)** — «Actualizar desde Reportes» vuelve a traer el directorio de personas y sucursales.
+3. **Elige qué vincular** — «Personas» o «Sucursales». En «Mostrar» deja «Sin vincular» (o «Con sugerencia») y busca por nombre, clave, sucursal o ruta.
+4. **Confirma o elige** — Si aparece «¿Es {colaborador}?», revisa el motivo y pulsa «Confirmar». Si no, elige al colaborador en «Colaborador de PEOPLE…» (o la sucursal en «Sucursal de PEOPLE…»). Se guarda al momento.
+5. **Todas las sugerencias de una vez (opcional)** — «Confirmar N sugerencias» acepta todas las de la pestaña actual.
+6. **Si te equivocaste** — El ícono de desvincular desactiva el vínculo; el historial se conserva. Después elige al correcto.
+
+#### Qué pasa después
+
+- La persona deja de aparecer «Sin vincular a PEOPLE» en la Nine Box y su desempeño entra a la matriz.
+
+#### Qué queda registrado
+
+- Cada vínculo guarda cómo se hizo («Elegido a mano» o «Sugerencia confirmada»), quién lo hizo y, si se desactivó, quién, cuándo y por qué. Nada se borra.
+
+#### Errores comunes
+
+- **«Esa persona ya no existe en Reportes (o está inactiva).»** Pulsa «Actualizar desde Reportes» y vuelve a buscarla.
+- **«homónimos: elige a mano»** Hay dos personas con el mismo nombre: revisa sucursal y rutas antes de elegir al colaborador.
+
+#### Relacionado con
+
+- [Nine Box: desempeño × potencial](#articulo-nine-box)
+- [Seguimientos técnicos: «Seguimiento 15», «30», «60»…](#articulo-seguimientos-tecnicos)
+
+#### En el sistema
+
+- **Ir a Vínculos con Reportes** → `/seguimiento/vinculos` _(permiso: seguimiento.vincular)_
+- Guía en pantalla → `/ayuda/articulo/vinculos-reportes`
+
+<a id="articulo-nine-box"></a>
+
+### Nine Box: desempeño × potencial
+
+> Matriz de 3 × 3 por mes o trimestre: el desempeño sale de Reportes (todas las rutas de la persona) y el potencial de sus Seguimientos técnicos más la calibración de su jefe.
+
+#### Qué es
+
+La Nine Box ubica a cada persona en uno de 9 cuadrantes (Estrella, Alto potencial, Enigma, Profesional clave, Núcleo, Dilema, Confiable, Efectivo, Bajo desempeño), cada uno con su acción sugerida. Los datos de Reportes solo se usan para esto; no hay tableros de datos duros aparte.
+
+#### Quién lo hace
+
+Consulta quien tiene nine_box.ver dentro de su alcance; calibra el jefe directo o RH (nine_box.calibrar); «Configurar» es de RH (nine_box.configurar).
+
+> **Importante:** Nadie calibra su propio potencial: lo hace su jefe directo o RH. Cada calibración queda en el historial y nunca se borra; sigue vigente en los periodos siguientes hasta que se guarde otra.
+
+#### Antes de empezar
+
+- Las personas y sucursales están vinculadas en «Vínculos con Reportes».
+- Hay Seguimientos técnicos contestados (para el potencial).
+
+#### Pasos
+
+1. **Abre la Nine Box** — Seguimiento → «Nine Box» (la entrada /seguimiento también lleva aquí).
+2. **Elige el periodo** — «Mes de Reportes» o «Trimestre» y el mes o trimestre. Si Reportes no tiene datos verás «Reportes aún no tiene datos de este periodo».
+3. **Lee el resumen y filtra** — Indicadores: «En la matriz», «Estrellas», «Calibrados», «Por calibrar», «Sin vincular a PEOPLE». Busca gestor, sucursal o ruta, filtra por sucursal y cambia entre «Matriz» y «Tabla». Clic en un cuadrante para filtrarlo.
+4. **Abre a una persona** — Clic en su nombre: verás su desempeño del periodo, tendencia semanal, potencial (promedio de Seguimientos y calibración vigente), sus evaluaciones técnicas y el historial de calibraciones, más «Detalle en Seguimiento» y «Expediente».
+5. **Calibra su potencial** _(Gerente)_ — En «Calibrar potencial» elige Bajo, Medio o Alto, explica por qué (mínimo 10 caracteres) y pulsa «Guardar calibración». Aparece «Potencial de {nombre} calibrado.»
+6. **Exporta (opcional)** — «Exportar a Excel» descarga la matriz del periodo.
+
+#### Qué pasa después
+
+- La persona cambia de cuadrante en ese periodo y su acción sugerida se actualiza.
+- RH puede ajustar metas, pesos y cortes en «Configurar» (con motivo; cada cambio crea una versión nueva).
+
+#### Qué queda registrado
+
+- Cada calibración: persona, periodo, nivel, comentario y quién la capturó (bitácora «nine box calibrada»).
+- Cada versión de la configuración con su motivo.
+
+#### Errores comunes
+
+- **«La conexión con Reportes todavía no está configurada.»** Pide a Sistemas que capture REPORTES_API_URL y REPORTES_API_TOKEN.
+- **«Reportes no responde en este momento.»** Intenta de nuevo en unos minutos; si sigue igual, avísalo a Sistemas.
+- **«No puedes calibrar el potencial de esta persona.»** Está fuera de tu alcance o no está vinculada a PEOPLE.
+
+#### Relacionado con
+
+- [Vínculos con Reportes (por persona y por sucursal)](#articulo-vinculos-reportes)
+- [Seguimientos técnicos: «Seguimiento 15», «30», «60»…](#articulo-seguimientos-tecnicos)
+- [Calendario de seguimientos y formularios técnicos](#articulo-calendario-seguimientos)
+
+#### En el sistema
+
+- **Ir a Nine Box** → `/seguimiento/nine-box` _(permiso: nine_box.ver)_
+- Guía en pantalla → `/ayuda/articulo/nine-box`
+
 <a id="proceso-baja"></a>
 
-## 12. Baja y finiquito
+## 14. Baja y finiquito
 
 Cierre laboral: el gerente (o RH) registra la baja en «Bajas», sin solicitud previa, y queda aplicada; se generan sus documentos y el finiquito propuesto; RH ajusta y entrega el finiquito y cierra la baja con los documentos completos.
 
@@ -2232,7 +2849,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 1. **«Registrar baja»** _(Gerente)_ — Cierres laborales → Bajas → «Registrar baja»: 1 ¿quién se va? (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso).
 2. **Vista previa y confirmar** _(Gerente)_ — «Vista previa» abre la renuncia (renuncia voluntaria) o el formato de la causal y el finiquito propuesto, con flechas para pasar de uno a otro. Nada se guarda hasta «Sí, registrar baja». Al confirmar: accesos suspendidos, documentos generados y finiquito propuesto. En rescisión no se genera documento: el aviso de rescisión se adjunta.
 3. **Documentos de la baja** _(RH)_ — En el expediente de la baja usa «Generar documento de salida»: vista previa, PDF para firma y carga del firmado. Adjunta lo que falta. En rescisión captura los hechos, los testigos y la entrega del aviso.
-4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
+4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega en Bajas → «Finiquitos». Los documentos de cada persona están en la pestaña «Documentos» y las causales en «Catálogo de causales». Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
 
 #### Qué pasa después
 
@@ -2243,6 +2860,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 #### Notificaciones
 
 - «Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.
+- Correo «Baja en sistemas: dar de baja accesos» y pendiente en «Pendientes de baja en sistemas»; al entregar el finiquito, «Baja concluida — finiquito entregado».
 - RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.
 - RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).
 - Antigüedad menor a 90 días: rotación temprana a RH.
@@ -2268,6 +2886,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 - [Finiquito](#articulo-finiquito)
 - [Reingreso de un excolaborador](#articulo-reingreso)
 - [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
+- [Pendientes de alta y de baja en sistemas](#articulo-pendientes-sistemas)
 
 #### En el sistema
 
@@ -2296,9 +2915,9 @@ RH.
 
 #### Pasos
 
-1. **«Calcular finiquito»** — Desde el ciclo laboral. El sueldo se toma del salario diario registrado (× 30) y puedes cambiarlo. Al terminar se abre el desglose.
+1. **«Calcular finiquito»** — Cierres laborales → Bajas → pestaña «Finiquitos» (el único lugar donde se edita; la solicitud de baja y el cierre solo lo consultan con «Abrir en Bajas → Finiquitos»). El sueldo se toma del salario diario registrado (× 30) y puedes cambiarlo. Al terminar se abre el desglose.
 2. **Revisa los conceptos** — Percepciones: sueldo pendiente, aguinaldo proporcional, vacaciones proporcionales, prima vacacional y bonos extra (si aplican). Deducciones: ISR retenido, otras deducciones y adeudos. En PEOPLE no existen liquidaciones: ninguna baja lleva indemnización ni gratificación.
-3. **Ajusta montos** — «Ver / editar finiquito» (en el estado del cierre o en la tarjeta «Finiquito» de Documentos de la baja): el lápiz de cada concepto cambia su importe con motivo; «Agregar renglón» suma una percepción o deducción. El total lo recalcula PEOPLE y queda quién y cuándo editó.
+3. **Ajusta montos** — En Bajas → «Finiquitos», abre el finiquito: el lápiz de cada concepto cambia su importe con motivo; «Agregar renglón» suma una percepción o deducción. El total lo recalcula PEOPLE y queda quién y cuándo editó.
 4. **Vista previa PDF** — Revisa el formato del finiquito con los montos actuales.
 5. **«Registrar entrega de finiquito»** — Fecha, forma de pago y comentario. El finiquito queda congelado (solo lectura) y el cierre laboral completo.
 
@@ -2329,9 +2948,58 @@ RH.
 - **Ir a Solicitudes** → `/rh/solicitudes` _(permiso: solicitudes.revisar o solicitudes.aprobar)_
 - Guía en pantalla → `/ayuda/articulo/finiquito`
 
+<a id="articulo-rotacion"></a>
+
+### Rotación de personal
+
+> Módulo de consulta con una sola fuente: las bajas del sistema más el histórico conciliado. Cinco áreas conectadas (Resumen, Tendencias, Causales, Sucursales e Histórico) con los mismos filtros, y exportación a Excel y PDF con las mismas cifras de la pantalla.
+
+#### Qué es
+
+Mide cuántas personas salen, por qué y dónde. Índice = bajas del periodo ÷ plantilla promedio × 100 (si no hay plantilla el índice queda «sin dato», nunca 0). Rotación temprana = bajas con menos de 6 meses de antigüedad sobre las bajas con fecha de ingreso. Cada baja conserva su motivo original, su causal homologada y su forma de salida por separado.
+
+#### Quién lo hace
+
+Cada quien ve solo las sucursales de su alcance. El detalle por persona (Histórico) lo ve quien puede ver bajas. Corregir causales, completar fechas y conciliar duplicados es de RH con permiso de gestionar bajas; cada corrección pide comentario y queda en bitácora. Cargar el histórico desde Excel es solo de super administrador.
+
+#### Antes de empezar
+
+- Las bajas cerradas del sistema ya cuentan solas.
+- Los meses anteriores al sistema salen del Excel de rotación o del histórico cargado.
+
+#### Pasos
+
+1. **Elige el periodo y los filtros** _(RH)_ — Acumulado, año, mes o rango; empresa, sucursal, área, puesto, clasificación, causal, antigüedad y fuente. Los filtros se conservan al cambiar de área y se usan tal cual en las exportaciones.
+2. **Explora de lo general a la persona** _(RH)_ — Un clic en un mes, una causal, una sucursal o una celda del mapa de calor abre el Histórico filtrado con esas bajas.
+3. **Corrige lo que falte** _(RH)_ — En Histórico: corregir causal homologada, completar fecha de ingreso o marcar un duplicado. Siempre con comentario; la cifra se recalcula al momento.
+4. **Exporta** _(RH)_ — Excel con todas las hojas, PDF ejecutivo (horizontal) o PDF detallado (vertical, con personas si tienes permiso).
+
+#### Qué pasa después
+
+- Los hallazgos señalan focos: ofertas laborales, rotación temprana, sucursales fuera de meta y registros incompletos.
+
+#### Qué queda registrado
+
+- Bitácora de correcciones: quién, cuándo, valor anterior, valor nuevo y comentario.
+
+#### Errores comunes
+
+- **«Un mes dice "sin desglose".»** Ese mes solo trae totales del Excel (sin persona ni causal): cuenta en el total, pero no en filtros por causal. Cargar el histórico individual lo resuelve.
+- **«El índice dice "sin dato".»** No hay plantilla registrada para ese mes y sucursal; se toma la foto mensual o la reconstrucción de plantilla.
+
+#### Relacionado con
+
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
+- [Finiquito](#articulo-finiquito)
+
+#### En el sistema
+
+- **Ir a Rotación de personal** → `/reportes/rotacion/tablero` _(permiso: bajas.tablero.ver)_
+- Guía en pantalla → `/ayuda/articulo/rotacion`
+
 <a id="proceso-reingresos"></a>
 
-## 13. Reingresos
+## 15. Reingresos
 
 Volver a contratar a alguien sin crear otra persona: misma cuenta y mismo historial, un ciclo laboral nuevo.
 
@@ -2387,7 +3055,7 @@ Gerente, RH.
 
 <a id="proceso-administracion"></a>
 
-## 14. Administración
+## 16. Administración
 
 Estructura (empresas, sucursales, puestos, plantilla autorizada), cuentas y roles, notificaciones, documentos maestros, la app y la bandeja Mis pendientes.
 
@@ -2514,9 +3182,9 @@ Sistemas, RH.
 
 #### Pasos
 
-1. **Alta → preparar accesos** _(Sistemas)_ — Llega «Alta: Nombre (Puesto, Sucursal). Prepara su cuenta, accesos y equipo.» Revisa sus roles en Administración → Usuarios.
+1. **Alta → preparar accesos** _(Sistemas)_ — Llega el correo «Alta en sistemas: Nombre — Puesto, Sucursal» y el pendiente aparece en Contratación → «Pendientes de alta en sistemas»: copia sus datos, crea sus cuentas y pulsa «Marcar como dado de alta». Revisa sus roles de PEOPLE en Administración → Usuarios.
 2. **«Generar credenciales»** _(RH)_ — Expediente → pestaña Cuenta (o Usuarios → «Nuevo usuario»): crea la cuenta o da una contraseña temporal nueva. Muestra usuario y contraseña una sola vez para entregarlos en privado.
-3. **Baja → retirar accesos** _(Sistemas)_ — Llega «Baja: Nombre… Retira accesos, cuentas y equipo.» PEOPLE ya bloqueó su acceso a la app y al portal; Sistemas retira lo externo (correo, equipo).
+3. **Baja → retirar accesos** _(Sistemas)_ — Llega el correo «Baja en sistemas: dar de baja accesos — …» y el pendiente aparece en «Pendientes de baja en sistemas». PEOPLE ya bloqueó su acceso a la app y al portal; Sistemas retira lo externo (correo, equipo, otras plataformas) y pulsa «Marcar como dado de baja».
 4. **Roles y permisos** _(Sistemas)_ — Administración → Roles y permisos: clona un rol parecido y ajusta permisos.
 
 #### Qué pasa después
@@ -2540,6 +3208,7 @@ Sistemas, RH.
 
 - [Alta real: colaborador activo](#articulo-alta-activa)
 - [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
+- [Pendientes de alta y de baja en sistemas](#articulo-pendientes-sistemas)
 
 #### En el sistema
 
@@ -2785,3 +3454,111 @@ RH, Gerente.
 #### Relacionado con
 
 - [Importar salarios y vacaciones (REPORTE_TRABAJADORES_VAC)](#articulo-importador-salarios)
+
+<a id="articulo-pendientes-sistemas"></a>
+
+### Pendientes de alta y de baja en sistemas
+
+> Dos bandejas de Sistemas: dar de alta en las demás plataformas a quien entra (con correo y datos para copiar) y retirar sus usuarios cuando sale.
+
+#### Qué es
+
+PEOPLE bloquea por sí mismo el acceso a su app y portal; las demás plataformas las atiende Sistemas. Cada alta y cada baja llega por correo y queda en su bandeja hasta que Sistemas la marca como atendida.
+
+#### Quién lo hace
+
+Ven las bandejas quienes tienen sistemas.altas.ver (RH consulta); marcan, deshacen y reenvían quienes tienen sistemas.altas.atender.
+
+#### Antes de empezar
+
+- El correo a Sistemas está encendido en el servidor (si no, la bandeja lo avisa y el trabajo sigue en pantalla).
+
+#### Pasos
+
+1. **Llega el correo de alta** _(Automático)_ — «Alta en sistemas: {Nombre} — {Puesto}, {Sucursal}». Sale una sola vez, cuando la persona ya capturó CURP, RFC, NSS, fecha de nacimiento, género, teléfono y correo personal (antes queda «En espera de sus datos»). También suena la campana de quien atiende.
+2. **Atiende el alta** _(Sistemas · Web)_ — Contratación → «Pendientes de alta en sistemas». Usa los indicadores («Por dar de alta», «Con 3 días o más», «Ya dados de alta»), busca por nombre o número y usa «Copiar datos» o «Copiar dato por dato». Crea sus cuentas y pulsa «Marcar como dado de alta» → notas (qué cuentas creaste) → «Confirmar».
+3. **Llega el correo de baja** _(Automático)_ — «Baja en sistemas: dar de baja accesos — …» al aplicarse la baja; «Baja concluida — finiquito entregado — …» cuando RH entrega el finiquito; «Baja cancelada: reactivar accesos — …» si se cancela. Trae la lista «Por desactivar»; nunca la causal ni montos.
+4. **Atiende la baja** _(Sistemas · Web)_ — Contratación → «Pendientes de baja en sistemas» → abre a la persona. Desactiva sus usuarios en cada plataforma y pulsa «Marcar como dado de baja» (o «Marcar como reactivado» en una cancelada) con tus notas.
+5. **Si te equivocaste** _(Sistemas)_ — «Deshacer» regresa el pendiente a la lista; «Reenviar correo» lo vuelve a mandar.
+
+#### Qué pasa después
+
+- Queda «Atendido por {nombre} · {fecha}» con tus notas.
+
+#### Notificaciones
+
+- Correo de alta (y campana de quien atiende).
+- Correos de baja: dar de baja accesos, baja concluida, baja cancelada (solo correo).
+
+#### Qué queda registrado
+
+- Quién atendió, cuándo y con qué notas; cada envío de correo.
+
+#### Errores comunes
+
+- **«El correo a Sistemas está apagado en este servidor…»** Trabaja desde la bandeja; pide a Sistemas encender el correo si lo necesitas.
+- **Un alta sigue «En espera de sus datos».** La persona aún no completa sus datos personales; RH puede pedírselos desde su expediente.
+
+#### Relacionado con
+
+- [Alta real: colaborador activo](#articulo-alta-activa)
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
+- [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
+
+#### En el sistema
+
+- **Ir a Pendientes de alta en sistemas** → `/sistemas/pendientes-alta` _(permiso: sistemas.altas.ver)_
+- **Ir a Pendientes de baja en sistemas** → `/sistemas/pendientes-baja` _(permiso: sistemas.altas.ver)_
+- Guía en pantalla → `/ayuda/articulo/pendientes-sistemas`
+
+<a id="articulo-recepcion-documental"></a>
+
+### Recepción documental: lo que RH recibe cada mes
+
+> Corte mensual de los originales firmados que deben llegar a RH (altas, IMSS, contratos, bajas, vacaciones, préstamos, nómina, asistencia), calculado solo a partir de eventos reales y un catálogo configurable.
+
+#### Qué es
+
+Cada mes PEOPLE calcula qué originales esperar según lo que realmente pasó (un alta, una baja, un préstamo autorizado, un recibo emitido…). RH marca lo que llegó, con observaciones, y cierra el corte. Qué se espera de cada evento se decide en «Lo que recibo cada mes».
+
+#### Quién lo hace
+
+recepcion_documental.ver para entrar; acciones aparte para calcular, recibir, observar, cerrar, reabrir, PDF y configurar el catálogo.
+
+#### Antes de empezar
+
+- Tener el permiso recepcion_documental.ver.
+
+#### Pasos
+
+1. **Abre Recepción documental** — Reportes → «Recepción documental». Arriba: «Esperados», «Recibidos», «Pendientes» y «Cumplimiento del mes».
+2. **Configura lo que recibes (una vez)** — «Configurar lo que recibo»: enciende o apaga cada entrada (Altas, Alta IMSS, Contrato indeterminado, Bajas, Vacaciones, Préstamos, Nómina, Listas de asistencia), ordénalas y en «Configurar» elige los documentos de cada evento, empresas y sucursales (vacío = todas). «Guardar y recalcular el mes».
+3. **El corte se calcula solo** _(Automático)_ — Cada mañana y cada vez que cambias el catálogo se actualiza el corte del mes. Para otro mes usa «Mes a conciliar» → «Calcular / actualizar corte». Nunca duplica ni borra lo ya recibido.
+4. **Marca lo recibido** — Abre el corte del mes. Filtra por sucursal, evento, tipo o estado y marca la casilla de cada original que llegó. En «Más acciones»: «Recibido con observación…», «No recibido…», «No aplica…», «Subir evidencia», «Historial».
+5. **Imprime si lo necesitas** — «PDF para marcar» o «PDF con estado».
+6. **Cierra el corte** — «Cerrar corte». Si faltan originales, explica por qué se cierra así. Un corte cerrado ya no se recalcula; para cambiarlo, «Reabrir» con motivo.
+
+#### Qué pasa después
+
+- Si un evento desaparece (por ejemplo se cancela un préstamo), su renglón pasa solo a «No aplica».
+
+#### Qué queda registrado
+
+- Cada cambio con antes y después (historial por renglón), evidencias y PDF con versión.
+
+#### Errores comunes
+
+- **«El corte está cerrado: reábrelo con motivo para cambiar la recepción.»** Usa «Reabrir» y escribe el motivo.
+- **«Elige al menos un documento antes de encenderla.»** En «Configurar» de esa entrada marca qué documentos genera cada evento.
+
+#### Relacionado con
+
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
+- [Recibos de nómina: preparar, revisar y emitir](#articulo-nomina-lotes)
+- [Préstamos personales](#articulo-prestamos)
+
+#### En el sistema
+
+- **Ir a Recepción documental** → `/rh/recepcion-documental` _(permiso: recepcion_documental.ver)_
+- **Lo que recibo cada mes** → `/rh/recepcion-documental/catalogo` _(permiso: recepcion_documental.ver)_
+- Guía en pantalla → `/ayuda/articulo/recepcion-documental`

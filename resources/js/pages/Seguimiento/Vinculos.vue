@@ -228,7 +228,7 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
             :icono="Link2"
         />
 
-        <section class="rounded-2xl border border-border bg-crema/60 p-4 text-sm text-pretty">
+        <section data-tour="vinculos-explicacion" class="rounded-2xl border border-border bg-crema/60 p-4 text-sm text-pretty">
             <p class="font-medium">Se vincula por persona y por sucursal, nunca por ruta</p>
             <p class="mt-1 text-muted-foreground">
                 En Reportes una misma persona aparece varias veces (una por ruta, por alta de nómina o con su nombre
@@ -239,6 +239,7 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
             </p>
         </section>
 
+        <div data-tour="vinculos-contenido" class="flex flex-col gap-5">
         <Deferred data="datos">
             <template #fallback>
                 <div class="flex flex-col gap-3" aria-busy="true">
@@ -252,7 +253,7 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
             <AvisoReportes v-if="datos?.error" :mensaje="datos.error" />
 
             <template v-else-if="pantalla">
-                <section class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4">
+                <section data-tour="vinculos-totales" class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4">
                     <div class="rounded-2xl border border-border bg-salvia p-4">
                         <p class="text-xs text-muted-foreground">Personas vinculadas</p>
                         <p class="text-2xl font-semibold tabular-nums">
@@ -276,14 +277,14 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
                         <p class="text-xs text-muted-foreground">
                             Datos de Reportes<span v-if="actualizado"> · {{ actualizado }}</span>
                         </p>
-                        <Button size="sm" variant="outline" :disabled="enviando !== null" @click="actualizar">
+                        <Button data-tour="vinculos-actualizar" size="sm" variant="outline" :disabled="enviando !== null" @click="actualizar">
                             <RefreshCw class="size-4" :class="{ 'animate-spin': enviando === 'actualizar' }" />
                             Actualizar desde Reportes
                         </Button>
                     </div>
                 </section>
 
-                <div class="flex flex-wrap items-center gap-3">
+                <div data-tour="vinculos-filtros" class="flex flex-wrap items-center gap-3">
                     <SelectorVista
                         v-model="vista"
                         etiqueta="Qué vincular"
@@ -321,7 +322,7 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
                             aria-label="Buscar"
                         />
                     </div>
-                    <Button v-if="sugerencias > 0" class="ml-auto" :disabled="enviando !== null" @click="confirmarSugerencias">
+                    <Button v-if="sugerencias > 0" data-tour="vinculos-confirmar-sugerencias" class="ml-auto" :disabled="enviando !== null" @click="confirmarSugerencias">
                         <Sparkles class="size-4" />
                         Confirmar {{ sugerencias }} sugerencias
                     </Button>
@@ -332,7 +333,7 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
                 </p>
 
                 <CambioSuave>
-                    <section v-if="vista === 'personas'" key="personas" class="flex flex-col gap-2">
+                    <section v-if="vista === 'personas'" key="personas" data-tour="vinculos-lista" class="flex flex-col gap-2">
                         <EmptyState
                             v-if="personas.length === 0"
                             :icono="UserRound"
@@ -431,7 +432,7 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
                         </article>
                     </section>
 
-                    <section v-else key="sucursales" class="flex flex-col gap-2">
+                    <section v-else key="sucursales" data-tour="vinculos-lista" class="flex flex-col gap-2">
                         <EmptyState
                             v-if="sucursales.length === 0"
                             :icono="Building2"
@@ -553,5 +554,6 @@ function buscadorPara(persona: VinculoPersona): (termino: string) => Promise<Opc
                 </section>
             </template>
         </Deferred>
+        </div>
     </div>
 </template>

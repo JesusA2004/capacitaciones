@@ -307,7 +307,10 @@ const vacio = computed(() => {
         />
 
         <!-- Indicadores (clic = filtra) -->
-        <div class="grid entrada-escalonada gap-3 sm:grid-cols-3">
+        <div
+            data-tour="sistemas-altas-indicadores"
+            class="grid entrada-escalonada gap-3 sm:grid-cols-3"
+        >
             <button
                 v-for="(ind, i) in indicadores"
                 :key="i"
@@ -347,13 +350,19 @@ const vacio = computed(() => {
         </p>
 
         <!-- Filtros -->
-        <div class="flex flex-wrap items-center gap-3">
+        <div
+            data-tour="sistemas-altas-filtros"
+            class="flex flex-wrap items-center gap-3"
+        >
             <SelectorVista
                 v-model="filtro"
                 :opciones="opciones"
                 etiqueta="Qué mostrar"
             />
-            <div class="relative w-full sm:w-72">
+            <div
+                data-tour="sistemas-altas-buscar"
+                class="relative w-full sm:w-72"
+            >
                 <Search
                     class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden="true"
@@ -380,6 +389,7 @@ const vacio = computed(() => {
             <ListaAnimada
                 v-else
                 key="lista"
+                data-tour="sistemas-altas-lista"
                 class="flex flex-col gap-3"
                 :cantidad="pendientes.data.length"
                 aria-label="Personas por dar de alta en sistemas"

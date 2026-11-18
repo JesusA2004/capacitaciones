@@ -1,18 +1,42 @@
+import { usePage } from '@inertiajs/vue3';
 import { MODULOS_GUIA } from './modulos';
-import type { ContextoGuia, ModuloGuia, PasoTour, Tour } from './tipos';
+import type {
+    BanderaGuia,
+    ContextoGuia,
+    ModuloGuia,
+    PasoTour,
+    Tour,
+} from './tipos';
 
 export const ID_RECORRIDO_COMPLETO = 'recorrido-completo';
 
 /**
  * Módulos que el usuario realmente tiene en su menú: mismo modo de
  * navegación y al menos uno de los permisos que exige el sidebar
- * (`AppSidebar.vue`). Así el recorrido nunca lo lleva a una pantalla que
- * le respondería 403.
+ * (`AppSidebar.vue`), con sus banderas de `config/features.php`
+ * encendidas. Así el recorrido nunca lo lleva a una pantalla que le
+ * respondería 403 o «Próximamente».
  */
+/** Bandera de la página actual (las mismas que oculta el menú). */
+function banderaDeLaPagina(bandera: BanderaGuia): boolean {
+    return Boolean(usePage().props.features?.[bandera]);
+}
+
+/** Todas las banderas pedidas están encendidas (sin banderas = sí). */
+export function banderasEncendidas(
+    banderas: BanderaGuia[] | undefined,
+    contexto: ContextoGuia,
+): boolean {
+    const activa = contexto.featureActiva ?? banderaDeLaPagina;
+
+    return (banderas ?? []).every((bandera) => activa(bandera));
+}
+
 export function modulosDisponibles(contexto: ContextoGuia): ModuloGuia[] {
     return MODULOS_GUIA.filter(
         (modulo) =>
             modulo.modo === contexto.modo &&
+            banderasEncendidas(modulo.features, contexto) &&
             (modulo.permisos.length === 0 ||
                 modulo.permisos.some((permiso) =>
                     contexto.tienePermiso(permiso),

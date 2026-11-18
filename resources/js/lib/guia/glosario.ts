@@ -110,6 +110,84 @@ export const GLOSARIO: TerminoGlosario[] = [
             'Tu bandeja de tareas: lo que otras personas esperan que hagas.',
         articulo: 'mis-pendientes',
     },
+    {
+        termino: 'Fechas laborales',
+        definicion:
+            'Ingreso, inicio de capacitación inicial, inducción y alta IMSS de una persona, más su periodo de prueba (hereda del puesto o específico). De ahí salen el fin del periodo de prueba, su evaluación y sus Seguimientos técnicos.',
+        articulo: 'fechas-laborales',
+    },
+    {
+        termino: 'Periodo de prueba específico',
+        definicion:
+            'Duración del periodo de prueba capturada para una sola persona; reemplaza la del puesto. Vacío = hereda del puesto.',
+        articulo: 'fechas-laborales',
+    },
+    {
+        termino: 'Seguimiento técnico',
+        definicion:
+            'Evaluación técnica del puesto que se aplica en días fijos desde el ingreso («Seguimiento 15», «30», «60»…). La contesta el colaborador o su jefe directo.',
+        articulo: 'seguimientos-tecnicos',
+    },
+    {
+        termino: 'Técnica final',
+        definicion:
+            'El último Seguimiento técnico del calendario de un puesto; solo puede haber una.',
+        articulo: 'calendario-seguimientos',
+    },
+    {
+        termino: 'Nine Box',
+        definicion:
+            'Matriz de 3 × 3 que cruza desempeño (datos de Reportes de todas las rutas de la persona) con potencial (Seguimientos técnicos + calibración del jefe).',
+        articulo: 'nine-box',
+    },
+    {
+        termino: 'Calibración',
+        definicion:
+            'Nivel de potencial (Bajo, Medio, Alto) que el jefe directo o RH asigna en la Nine Box con su porqué. Nunca se borra.',
+        articulo: 'nine-box',
+    },
+    {
+        termino: 'Vínculo con Reportes',
+        definicion:
+            'Une a una persona o sucursal de Reportes con su colaborador o sucursal de PEOPLE. Nunca se vincula por ruta.',
+        articulo: 'vinculos-reportes',
+    },
+    {
+        termino: 'Asignación (capacitación)',
+        definicion:
+            'Indica quién debe tomar un curso y para cuándo: por persona, sucursal, departamento, puesto, rol o todos.',
+        articulo: 'capacitacion-asignar',
+    },
+    {
+        termino: 'Aula',
+        definicion:
+            'La vista de un curso con su tablón, trabajo asignado, calificaciones y participantes.',
+        articulo: 'capacitacion-cursos',
+    },
+    {
+        termino: 'Constancia',
+        definicion:
+            'Documento con folio verificable que se emite al completar un curso que la genera. Suma para el nivel Mr. Lana (Bronce, Plata, Oro).',
+        articulo: 'mi-capacitacion',
+    },
+    {
+        termino: 'Certificación Mr. Lana',
+        definicion:
+            'Acreditación del gestor con el formato oficial RH-CC-R-001 firmado y su promedio; emite el certificado «Cuentas con tu Certificación Mr. Lana».',
+        articulo: 'certificacion-mr-lana',
+    },
+    {
+        termino: 'Corte de recepción documental',
+        definicion:
+            'La lista mensual de originales firmados que RH debe recibir, calculada a partir de los eventos reales del mes.',
+        articulo: 'recepcion-documental',
+    },
+    {
+        termino: 'Pendiente de alta / baja en sistemas',
+        definicion:
+            'Aviso a Sistemas para dar o retirar los usuarios de una persona en las demás plataformas; queda en su bandeja hasta marcarlo como atendido.',
+        articulo: 'pendientes-sistemas',
+    },
 ];
 
 /** Preguntas frecuentes (cada una lleva a su artículo). */
@@ -196,5 +274,41 @@ export const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
         respuesta:
             'Tu primer nombre y tu primer apellido, sin acentos (por ejemplo «Juan Perez»). Si se repite, lleva un número al final.',
         articulo: 'app-colaborador',
+    },
+    {
+        pregunta:
+            '¿Por qué alguien sale «Sin vincular a PEOPLE» en la Nine Box?',
+        respuesta:
+            'Su persona de Reportes todavía no está unida a su colaborador. En Seguimiento → «Vínculos con Reportes», pestaña «Personas», confirma la sugerencia o elige al colaborador.',
+        articulo: 'vinculos-reportes',
+        roles: ['rh', 'gerente', 'regional', 'direccion_comercial'],
+    },
+    {
+        pregunta: '¿Por qué no se generó un Seguimiento técnico?',
+        respuesta:
+            'Su puesto no tiene calendario, el formulario no tiene versión publicada, falta su fecha de inicio en Fechas laborales o el día ya pasó hace más de 15 días.',
+        articulo: 'seguimientos-tecnicos',
+        roles: ['rh', 'gerente', 'colaborador'],
+    },
+    {
+        pregunta: '¿Por qué dice «Debes actualizar el contrato»?',
+        respuesta:
+            'Cambiaron las fechas laborales y el contrato ya no coincide. PEOPLE nunca cambia el contrato solo: pulsa «Actualizar contrato» (o genera uno nuevo si ya estaba firmado).',
+        articulo: 'fechas-laborales',
+        roles: ['rh'],
+    },
+    {
+        pregunta: '¿Cómo certifico a un gestor en la Certificación Mr. Lana?',
+        respuesta:
+            'Capacitación → «Certificación Mr. Lana»: «Descargar formato» (sale prellenado), se firma, y «Subir formato firmado» con su promedio. Queda certificado y se emite su certificado.',
+        articulo: 'certificacion-mr-lana',
+        roles: ['rh'],
+    },
+    {
+        pregunta: '¿Dónde veo mis cursos?',
+        respuesta:
+            'En Mi espacio → «Mi capacitación»: «Mis aulas», «Pendientes» y «Mis certificados».',
+        articulo: 'mi-capacitacion',
+        roles: ['colaborador'],
     },
 ];

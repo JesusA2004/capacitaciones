@@ -1,10 +1,12 @@
 import {
+    Activity,
     BellRing,
     Building2,
     ClipboardCheck,
     ClipboardList,
     FileSignature,
     FolderKanban,
+    GraduationCap,
     Landmark,
     MapPinned,
     Megaphone,
@@ -27,12 +29,14 @@ import type { Component } from 'vue';
  * leerlos sin Vue al generar los Markdown); aquí se resuelve el componente.
  */
 const ICONOS: Record<string, Component> = {
+    Activity,
     BellRing,
     Building2,
     ClipboardCheck,
     ClipboardList,
     FileSignature,
     FolderKanban,
+    GraduationCap,
     Landmark,
     MapPinned,
     Megaphone,

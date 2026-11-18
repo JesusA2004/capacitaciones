@@ -1,5 +1,9 @@
 import type { Component } from 'vue';
 
+/** Banderas de módulo que el menú también exige (config/features.php). */
+export type BanderaGuia =
+    'capacitacion' | 'certificacion' | 'seguimiento' | 'nine_box';
+
 export type PasoTour = {
     /**
      * Selector CSS del elemento real de la pantalla que se resalta. Sin
@@ -66,6 +70,12 @@ export type ModuloGuia = {
     /** Basta con tener uno; vacío = cualquiera en ese modo. */
     permisos: string[];
     /**
+     * Banderas de `config/features.php` que deben estar encendidas (todas)
+     * para ofrecer el módulo, igual que el menú (p. ej. Nine Box pide
+     * `seguimiento` y `nine_box`). Sin banderas = siempre.
+     */
+    features?: BanderaGuia[];
+    /**
      * Selector del acceso al módulo en el recorrido completo, cuando no es
      * un enlace directo del sidebar (p. ej. Aniversarios es una pestaña de
      * Celebraciones). Por defecto: el enlace del sidebar a `ruta`.
@@ -86,4 +96,9 @@ export type ModuloGuia = {
 export type ContextoGuia = {
     tienePermiso: (permiso: string) => boolean;
     modo: ModoGuia;
+    /**
+     * Bandera encendida (features compartidas por Inertia). Si no se pasa,
+     * el registro la lee de la página actual (`usePage().props.features`).
+     */
+    featureActiva?: (bandera: BanderaGuia) => boolean;
 };

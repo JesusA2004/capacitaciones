@@ -112,6 +112,7 @@ function contadorSeccion(clave: Seccion): number | null {
 
     <div class="pagina-ancha flex flex-col gap-6">
         <section
+            data-tour="mi-capacitacion-encabezado"
             class="relative entrada-suave overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-menta via-salvia to-crema p-6 shadow-sm sm:p-8"
         >
             <span
@@ -132,6 +133,7 @@ function contadorSeccion(clave: Seccion): number | null {
                     </template>
                     <div
                         v-if="panel"
+                        data-tour="mi-capacitacion-certificacion"
                         class="flex items-center gap-4 rounded-2xl bg-card/80 p-4 shadow-sm backdrop-blur lg:w-96"
                     >
                         <AnilloProgreso
@@ -184,6 +186,7 @@ function contadorSeccion(clave: Seccion): number | null {
 
         <nav
             class="flex gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-crema/50 p-1"
+            data-tour="mi-capacitacion-secciones"
             aria-label="Secciones de Mi capacitación"
         >
             <Link
@@ -233,6 +236,7 @@ function contadorSeccion(clave: Seccion): number | null {
 
             <template v-if="panel">
                 <div
+                    data-tour="mi-capacitacion-resumen"
                     class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
                 >
                     <MetricCard

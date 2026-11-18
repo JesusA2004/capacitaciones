@@ -100,6 +100,7 @@ async function eliminar(curso: CursoItem) {
             :icono="GraduationCap"
         >
             <Button
+                data-tour="cursos-asignar"
                 v-if="tienePermiso('asignaciones.crear')"
                 variant="outline"
                 as-child
@@ -110,6 +111,7 @@ async function eliminar(curso: CursoItem) {
                 </Link>
             </Button>
             <Button
+                data-tour="cursos-nuevo"
                 v-if="tienePermiso('cursos.crear')"
                 @click="dialogAbierto = true"
             >
@@ -118,7 +120,10 @@ async function eliminar(curso: CursoItem) {
             </Button>
         </CrudPageHeader>
 
-        <div class="flex flex-wrap items-center gap-3">
+        <div
+            data-tour="cursos-filtros"
+            class="flex flex-wrap items-center gap-3"
+        >
             <TableFilters
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por título…"
@@ -132,6 +137,7 @@ async function eliminar(curso: CursoItem) {
             >
                 <div
                     class="flex flex-wrap gap-1 rounded-xl border border-border/60 bg-crema/40 p-1"
+                    data-tour="cursos-filtro-estado"
                     role="group"
                     aria-label="Filtrar por estado"
                 >
@@ -167,107 +173,112 @@ async function eliminar(curso: CursoItem) {
             </TableFilters>
         </div>
 
-        <DataTable
-            :columnas="columnas"
-            :datos="cursos"
-            mensaje-vacio="No se encontraron cursos. Crea uno nuevo o cambia los filtros."
-        >
-            <template #celda-titulo="{ fila }">
-                <Link
-                    :href="aula(fila.id)"
-                    class="group flex min-w-0 items-center gap-3"
-                >
-                    <PortadaCurso
-                        :curso-id="fila.id"
-                        alto="size-11"
-                        class="shrink-0 rounded-xl [&_svg]:size-5"
-                    />
-                    <span class="min-w-0">
-                        <span
-                            class="block truncate font-medium group-hover:text-primary group-hover:underline"
-                            >{{ fila.titulo }}</span
-                        >
-                        <span
-                            v-if="fila.descripcion || fila.objetivo"
-                            class="line-clamp-1 text-xs text-muted-foreground"
-                            >{{ fila.descripcion || fila.objetivo }}</span
-                        >
+        <div data-tour="cursos-tabla">
+            <DataTable
+                :columnas="columnas"
+                :datos="cursos"
+                mensaje-vacio="No se encontraron cursos. Crea uno nuevo o cambia los filtros."
+            >
+                <template #celda-titulo="{ fila }">
+                    <Link
+                        :href="aula(fila.id)"
+                        class="group flex min-w-0 items-center gap-3"
+                    >
+                        <PortadaCurso
+                            :curso-id="fila.id"
+                            alto="size-11"
+                            class="shrink-0 rounded-xl [&_svg]:size-5"
+                        />
+                        <span class="min-w-0">
+                            <span
+                                class="block truncate font-medium group-hover:text-primary group-hover:underline"
+                                >{{ fila.titulo }}</span
+                            >
+                            <span
+                                v-if="fila.descripcion || fila.objetivo"
+                                class="line-clamp-1 text-xs text-muted-foreground"
+                                >{{ fila.descripcion || fila.objetivo }}</span
+                            >
+                        </span>
+                    </Link>
+                </template>
+                <template #celda-modulos_count="{ fila }">
+                    <span
+                        class="inline-flex items-center gap-1.5 text-muted-foreground tabular-nums"
+                    >
+                        <Layers class="size-3.5" aria-hidden="true" />
+                        {{ fila.modulos_count ?? 0 }}
                     </span>
-                </Link>
-            </template>
-            <template #celda-modulos_count="{ fila }">
-                <span
-                    class="inline-flex items-center gap-1.5 text-muted-foreground tabular-nums"
-                >
-                    <Layers class="size-3.5" aria-hidden="true" />
-                    {{ fila.modulos_count ?? 0 }}
-                </span>
-            </template>
-            <template #celda-inscripciones_count="{ fila }">
-                <span
-                    class="inline-flex items-center gap-1.5 text-muted-foreground tabular-nums"
-                >
-                    <Users class="size-3.5" aria-hidden="true" />
-                    {{ fila.inscripciones_count ?? 0 }}
-                </span>
-            </template>
-            <template #celda-estado="{ fila }">
-                <Badge
-                    variant="secondary"
-                    :class="
-                        CLASE_ESTADO[fila.estado] ??
-                        'bg-muted text-muted-foreground'
-                    "
-                    >{{
-                        estados.find((e) => e.value === fila.estado)
-                            ?.etiqueta ?? fila.estado
-                    }}</Badge
-                >
-            </template>
-            <template #celda-responsable="{ fila }">
-                <span :class="{ 'text-muted-foreground': !fila.responsable }">{{
-                    fila.responsable
-                        ? `${fila.responsable.name} ${fila.responsable.apellidos ?? ''}`
-                        : 'Sin asignar'
-                }}</span>
-            </template>
-            <template #acciones="{ fila }">
-                <div class="flex justify-end gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Abrir aula (tablón, trabajo, calificaciones y participantes)"
-                        aria-label="Abrir aula"
-                        as-child
+                </template>
+                <template #celda-inscripciones_count="{ fila }">
+                    <span
+                        class="inline-flex items-center gap-1.5 text-muted-foreground tabular-nums"
                     >
-                        <Link :href="aula(fila.id)">
-                            <Presentation class="size-4" />
-                        </Link>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Abrir constructor (módulos y lecciones)"
-                        aria-label="Abrir constructor"
-                        as-child
+                        <Users class="size-3.5" aria-hidden="true" />
+                        {{ fila.inscripciones_count ?? 0 }}
+                    </span>
+                </template>
+                <template #celda-estado="{ fila }">
+                    <Badge
+                        variant="secondary"
+                        :class="
+                            CLASE_ESTADO[fila.estado] ??
+                            'bg-muted text-muted-foreground'
+                        "
+                        >{{
+                            estados.find((e) => e.value === fila.estado)
+                                ?.etiqueta ?? fila.estado
+                        }}</Badge
                     >
-                        <Link :href="edit(fila.id)">
-                            <BookOpen class="size-4" />
-                        </Link>
-                    </Button>
-                    <Button
-                        v-if="tienePermiso('cursos.eliminar')"
-                        variant="ghost"
-                        size="icon"
-                        title="Eliminar"
-                        aria-label="Eliminar curso"
-                        @click="eliminar(fila)"
+                </template>
+                <template #celda-responsable="{ fila }">
+                    <span
+                        :class="{ 'text-muted-foreground': !fila.responsable }"
+                        >{{
+                            fila.responsable
+                                ? `${fila.responsable.name} ${fila.responsable.apellidos ?? ''}`
+                                : 'Sin asignar'
+                        }}</span
                     >
-                        <Trash2 class="size-4 text-destructive" />
-                    </Button>
-                </div>
-            </template>
-        </DataTable>
+                </template>
+                <template #acciones="{ fila }">
+                    <div class="flex justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Abrir aula (tablón, trabajo, calificaciones y participantes)"
+                            aria-label="Abrir aula"
+                            as-child
+                        >
+                            <Link :href="aula(fila.id)">
+                                <Presentation class="size-4" />
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Abrir constructor (módulos y lecciones)"
+                            aria-label="Abrir constructor"
+                            as-child
+                        >
+                            <Link :href="edit(fila.id)">
+                                <BookOpen class="size-4" />
+                            </Link>
+                        </Button>
+                        <Button
+                            v-if="tienePermiso('cursos.eliminar')"
+                            variant="ghost"
+                            size="icon"
+                            title="Eliminar"
+                            aria-label="Eliminar curso"
+                            @click="eliminar(fila)"
+                        >
+                            <Trash2 class="size-4 text-destructive" />
+                        </Button>
+                    </div>
+                </template>
+            </DataTable>
+        </div>
     </div>
 
     <CursoFormDialog v-if="dialogAbierto" v-model:open="dialogAbierto" />

@@ -331,13 +331,13 @@ const campo =
             descripcion="Por puesto: qué día desde el ingreso, qué formulario, quién la contesta y con cuánto aprueba."
             :icono="CalendarRange"
         >
-            <Button variant="outline" @click="abrirPlantilla(null)">
+            <Button data-tour="calendario-seguimientos-nuevo-formulario" variant="outline" @click="abrirPlantilla(null)">
                 <FilePlus2 class="size-4" /> Nuevo formulario técnico
             </Button>
         </CrudPageHeader>
 
         <!-- Pestañas -->
-        <nav class="scroll-x-limpio flex w-fit gap-1 rounded-2xl border border-border bg-card p-1 shadow-xs" aria-label="Secciones">
+        <nav data-tour="calendario-seguimientos-pestanas" class="scroll-x-limpio flex w-fit gap-1 rounded-2xl border border-border bg-card p-1 shadow-xs" aria-label="Secciones">
             <button
                 v-for="p in [
                     { clave: 'calendario', texto: `Calendario por puesto · ${conCalendario}`, icono: CalendarRange },
@@ -362,7 +362,7 @@ const campo =
             <!-- ======================= CALENDARIO ======================= -->
             <div v-if="pestana === 'calendario'" key="calendario" class="grid items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
                 <!-- Lista de puestos -->
-                <aside class="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs lg:sticky lg:top-20">
+                <aside data-tour="calendario-seguimientos-puestos" class="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs lg:sticky lg:top-20">
                     <label class="relative">
                         <span class="sr-only">Buscar puesto</span>
                         <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -406,7 +406,7 @@ const campo =
                 </aside>
 
                 <!-- Calendario -->
-                <section v-if="puesto" class="flex flex-col gap-4">
+                <section v-if="puesto" data-tour="calendario-seguimientos-calendario" class="flex flex-col gap-4">
                     <header class="flex flex-wrap items-start justify-between gap-3 rounded-3xl border border-border bg-gradient-to-br from-crema/70 via-card to-salvia/40 p-5 shadow-xs">
                         <div class="min-w-0">
                             <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -576,7 +576,7 @@ const campo =
                         "
                     />
 
-                    <div class="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-md backdrop-blur">
+                    <div data-tour="calendario-seguimientos-guardar" class="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-md backdrop-blur">
                         <Button variant="outline" :disabled="pasos.length >= 12" @click="agregar">
                             <Plus class="size-4" /> Agregar evaluación
                         </Button>
@@ -594,7 +594,7 @@ const campo =
             </div>
 
             <!-- ======================= FORMULARIOS ======================= -->
-            <div v-else key="formularios" class="flex flex-col gap-4">
+            <div v-else key="formularios" data-tour="calendario-seguimientos-formularios" class="flex flex-col gap-4">
                 <div v-if="plantillas.length" class="grid entrada-escalonada gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     <article
                         v-for="p in plantillas"

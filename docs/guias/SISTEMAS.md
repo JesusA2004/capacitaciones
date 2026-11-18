@@ -16,6 +16,7 @@ Cuentas, contraseñas, roles y accesos; la app móvil y sus versiones; notificac
 
 - [ ] Alta: preparar cuenta, accesos y equipo → [Alta real: colaborador activo](#articulo-alta-activa)
 - [ ] Baja: retirar accesos y equipo → [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
+- [ ] Pendientes de alta y de baja en sistemas → [Pendientes de alta y de baja en sistemas](#articulo-pendientes-sistemas)
 - [ ] Cuentas, contraseñas, roles y acceso → [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
 - [ ] A quién llega cada notificación → [A quién le llega cada notificación](#articulo-configuracion-notificaciones)
 - [ ] Publicar versiones de la app → [La app móvil: descarga y versiones](#articulo-app-movil)
@@ -52,7 +53,7 @@ RH, Sistemas.
 #### Pasos
 
 1. **RH cierra el onboarding** _(RH)_ — Ciclo laboral de la persona → «Cerrar onboarding». PEOPLE la activa en ese mismo paso.
-2. **Sistemas prepara accesos** _(Sistemas)_ — Recibe «Alta: Nombre (Puesto, Sucursal). Prepara su cuenta, accesos y equipo.»
+2. **Sistemas prepara accesos** _(Sistemas)_ — Recibe el correo «Alta en sistemas» en cuanto la persona completa sus datos personales, y lo atiende en Contratación → «Pendientes de alta en sistemas» («Marcar como dado de alta»).
 
 #### Qué pasa después
 
@@ -77,6 +78,7 @@ RH, Sistemas.
 
 - [Onboarding: la bienvenida del colaborador](FLUJO_COMPLETO.md#articulo-onboarding)
 - [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
+- [Pendientes de alta y de baja en sistemas](#articulo-pendientes-sistemas)
 
 #### En el sistema
 
@@ -121,7 +123,7 @@ Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
 - **Ir al Directorio** → `/directorio`
 - Guía en pantalla → `/ayuda/articulo/directorio`
 
-## 12. Baja y finiquito
+## 14. Baja y finiquito
 
 <a id="articulo-baja"></a>
 
@@ -151,7 +153,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 1. **«Registrar baja»** _(Gerente)_ — Cierres laborales → Bajas → «Registrar baja»: 1 ¿quién se va? (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso).
 2. **Vista previa y confirmar** _(Gerente)_ — «Vista previa» abre la renuncia (renuncia voluntaria) o el formato de la causal y el finiquito propuesto, con flechas para pasar de uno a otro. Nada se guarda hasta «Sí, registrar baja». Al confirmar: accesos suspendidos, documentos generados y finiquito propuesto. En rescisión no se genera documento: el aviso de rescisión se adjunta.
 3. **Documentos de la baja** _(RH)_ — En el expediente de la baja usa «Generar documento de salida»: vista previa, PDF para firma y carga del firmado. Adjunta lo que falta. En rescisión captura los hechos, los testigos y la entrega del aviso.
-4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
+4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega en Bajas → «Finiquitos». Los documentos de cada persona están en la pestaña «Documentos» y las causales en «Catálogo de causales». Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
 
 #### Qué pasa después
 
@@ -162,6 +164,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 #### Notificaciones
 
 - «Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.
+- Correo «Baja en sistemas: dar de baja accesos» y pendiente en «Pendientes de baja en sistemas»; al entregar el finiquito, «Baja concluida — finiquito entregado».
 - RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.
 - RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).
 - Antigüedad menor a 90 días: rotación temprana a RH.
@@ -187,6 +190,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 - [Finiquito](FLUJO_COMPLETO.md#articulo-finiquito)
 - [Reingreso de un excolaborador](FLUJO_COMPLETO.md#articulo-reingreso)
 - [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
+- [Pendientes de alta y de baja en sistemas](#articulo-pendientes-sistemas)
 
 #### En el sistema
 
@@ -195,7 +199,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 - **Tablero de rotación** → `/reportes/rotacion/tablero` _(permiso: bajas.tablero.ver)_
 - Guía en pantalla → `/ayuda/articulo/baja`
 
-## 14. Administración
+## 16. Administración
 
 <a id="articulo-usuarios-y-roles"></a>
 
@@ -219,9 +223,9 @@ Sistemas, RH.
 
 #### Pasos
 
-1. **Alta → preparar accesos** _(Sistemas)_ — Llega «Alta: Nombre (Puesto, Sucursal). Prepara su cuenta, accesos y equipo.» Revisa sus roles en Administración → Usuarios.
+1. **Alta → preparar accesos** _(Sistemas)_ — Llega el correo «Alta en sistemas: Nombre — Puesto, Sucursal» y el pendiente aparece en Contratación → «Pendientes de alta en sistemas»: copia sus datos, crea sus cuentas y pulsa «Marcar como dado de alta». Revisa sus roles de PEOPLE en Administración → Usuarios.
 2. **«Generar credenciales»** _(RH)_ — Expediente → pestaña Cuenta (o Usuarios → «Nuevo usuario»): crea la cuenta o da una contraseña temporal nueva. Muestra usuario y contraseña una sola vez para entregarlos en privado.
-3. **Baja → retirar accesos** _(Sistemas)_ — Llega «Baja: Nombre… Retira accesos, cuentas y equipo.» PEOPLE ya bloqueó su acceso a la app y al portal; Sistemas retira lo externo (correo, equipo).
+3. **Baja → retirar accesos** _(Sistemas)_ — Llega el correo «Baja en sistemas: dar de baja accesos — …» y el pendiente aparece en «Pendientes de baja en sistemas». PEOPLE ya bloqueó su acceso a la app y al portal; Sistemas retira lo externo (correo, equipo, otras plataformas) y pulsa «Marcar como dado de baja».
 4. **Roles y permisos** _(Sistemas)_ — Administración → Roles y permisos: clona un rol parecido y ajusta permisos.
 
 #### Qué pasa después
@@ -245,6 +249,7 @@ Sistemas, RH.
 
 - [Alta real: colaborador activo](#articulo-alta-activa)
 - [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
+- [Pendientes de alta y de baja en sistemas](#articulo-pendientes-sistemas)
 
 #### En el sistema
 
@@ -371,3 +376,59 @@ Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
 
 - **Ir al Directorio** → `/directorio`
 - Guía en pantalla → `/ayuda/articulo/directorio`
+
+<a id="articulo-pendientes-sistemas"></a>
+
+### Pendientes de alta y de baja en sistemas
+
+> Dos bandejas de Sistemas: dar de alta en las demás plataformas a quien entra (con correo y datos para copiar) y retirar sus usuarios cuando sale.
+
+#### Qué es
+
+PEOPLE bloquea por sí mismo el acceso a su app y portal; las demás plataformas las atiende Sistemas. Cada alta y cada baja llega por correo y queda en su bandeja hasta que Sistemas la marca como atendida.
+
+#### Quién lo hace
+
+Ven las bandejas quienes tienen sistemas.altas.ver (RH consulta); marcan, deshacen y reenvían quienes tienen sistemas.altas.atender.
+
+#### Antes de empezar
+
+- El correo a Sistemas está encendido en el servidor (si no, la bandeja lo avisa y el trabajo sigue en pantalla).
+
+#### Pasos
+
+1. **Llega el correo de alta** _(Automático)_ — «Alta en sistemas: {Nombre} — {Puesto}, {Sucursal}». Sale una sola vez, cuando la persona ya capturó CURP, RFC, NSS, fecha de nacimiento, género, teléfono y correo personal (antes queda «En espera de sus datos»). También suena la campana de quien atiende.
+2. **Atiende el alta** _(Sistemas · Web)_ — Contratación → «Pendientes de alta en sistemas». Usa los indicadores («Por dar de alta», «Con 3 días o más», «Ya dados de alta»), busca por nombre o número y usa «Copiar datos» o «Copiar dato por dato». Crea sus cuentas y pulsa «Marcar como dado de alta» → notas (qué cuentas creaste) → «Confirmar».
+3. **Llega el correo de baja** _(Automático)_ — «Baja en sistemas: dar de baja accesos — …» al aplicarse la baja; «Baja concluida — finiquito entregado — …» cuando RH entrega el finiquito; «Baja cancelada: reactivar accesos — …» si se cancela. Trae la lista «Por desactivar»; nunca la causal ni montos.
+4. **Atiende la baja** _(Sistemas · Web)_ — Contratación → «Pendientes de baja en sistemas» → abre a la persona. Desactiva sus usuarios en cada plataforma y pulsa «Marcar como dado de baja» (o «Marcar como reactivado» en una cancelada) con tus notas.
+5. **Si te equivocaste** _(Sistemas)_ — «Deshacer» regresa el pendiente a la lista; «Reenviar correo» lo vuelve a mandar.
+
+#### Qué pasa después
+
+- Queda «Atendido por {nombre} · {fecha}» con tus notas.
+
+#### Notificaciones
+
+- Correo de alta (y campana de quien atiende).
+- Correos de baja: dar de baja accesos, baja concluida, baja cancelada (solo correo).
+
+#### Qué queda registrado
+
+- Quién atendió, cuándo y con qué notas; cada envío de correo.
+
+#### Errores comunes
+
+- **«El correo a Sistemas está apagado en este servidor…»** Trabaja desde la bandeja; pide a Sistemas encender el correo si lo necesitas.
+- **Un alta sigue «En espera de sus datos».** La persona aún no completa sus datos personales; RH puede pedírselos desde su expediente.
+
+#### Relacionado con
+
+- [Alta real: colaborador activo](#articulo-alta-activa)
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
+- [Cuentas, credenciales y roles (Sistemas)](#articulo-usuarios-y-roles)
+
+#### En el sistema
+
+- **Ir a Pendientes de alta en sistemas** → `/sistemas/pendientes-alta` _(permiso: sistemas.altas.ver)_
+- **Ir a Pendientes de baja en sistemas** → `/sistemas/pendientes-baja` _(permiso: sistemas.altas.ver)_
+- Guía en pantalla → `/ayuda/articulo/pendientes-sistemas`

@@ -204,7 +204,7 @@ const urlExportar = computed(() =>
             descripcion="Desempeño con datos duros de Reportes × potencial (Seguimientos técnicos + calibración del jefe)."
             :icono="Grid3x3"
         >
-            <Button variant="outline" as-child>
+            <Button variant="outline" as-child data-tour="ninebox-por-gestor">
                 <Link :href="indexGestores()"><Users class="size-4" /> Por gestor</Link>
             </Button>
             <Button v-if="matriz?.periodo" variant="outline" as-child>
@@ -215,6 +215,7 @@ const urlExportar = computed(() =>
             </Button>
         </CrudPageHeader>
 
+        <div data-tour="ninebox-contenido" class="flex flex-col gap-5">
         <Deferred data="datos">
             <template #fallback>
                 <div class="flex flex-col gap-5" aria-busy="true" aria-label="Cargando la Nine Box">
@@ -235,7 +236,7 @@ const urlExportar = computed(() =>
 
             <template v-else-if="matriz">
                 <!-- Periodo: mes de Reportes o trimestre -->
-                <div class="flex flex-col gap-3">
+                <div data-tour="ninebox-periodo" class="flex flex-col gap-3">
                     <SelectorVista
                         v-model="tipoElegido"
                         etiqueta="Tipo de periodo"
@@ -298,7 +299,7 @@ const urlExportar = computed(() =>
                     />
 
                     <div v-else key="tablero" class="flex flex-col gap-5">
-                        <section class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5">
+                        <section data-tour="ninebox-kpis" class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5">
                             <TarjetaKpi
                                 etiqueta="En la matriz"
                                 :valor="matriz.resumen.ubicados"
@@ -336,7 +337,7 @@ const urlExportar = computed(() =>
                         </section>
 
                         <!-- Barra de herramientas -->
-                        <section class="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3">
+                        <section data-tour="ninebox-herramientas" class="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3">
                             <div class="relative w-full sm:w-72">
                                 <Search
                                     class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -384,6 +385,7 @@ const urlExportar = computed(() =>
                                 class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]"
                             >
                                 <div
+                                    data-tour="ninebox-matriz"
                                     class="relative rounded-2xl border border-border bg-card p-4 transicion-ui"
                                     :class="cargando && 'opacity-70'"
                                     :aria-busy="cargando"
@@ -540,6 +542,7 @@ const urlExportar = computed(() =>
                 </CambioSuave>
             </template>
         </Deferred>
+        </div>
 
         <PanelPersonaNineBox
             v-model:abierto="panelAbierto"

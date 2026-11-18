@@ -2,7 +2,7 @@
 
 # Guía maestra de MR. LANA PEOPLE
 
-Documentación oficial de uso del sistema, escrita contra el **flujo real del código** (rutas, servicios, enums y pantallas). La misma información vive dentro del sistema en **Ayuda → Guía del sistema** (`/ayuda`): buscador, flujo general clicable, 14 procesos, guía por rol, recorridos guiados, glosario, preguntas frecuentes y video.
+Documentación oficial de uso del sistema, escrita contra el **flujo real del código** (rutas, servicios, enums y pantallas). La misma información vive dentro del sistema en **Ayuda → Guía del sistema** (`/ayuda`): buscador, flujo general clicable, 16 procesos, guía por rol, recorridos guiados, glosario, preguntas frecuentes y video.
 
 ## Documentos
 
@@ -23,7 +23,7 @@ Documentación oficial de uso del sistema, escrita contra el **flujo real del c�
 | 1 | [Reclutamiento](FLUJO_COMPLETO.md#proceso-reclutamiento) | 1 a 3 semanas por candidato | RH, Gerente, Regional, Dirección Comercial | 11 |
 | 2 | [Contratación](FLUJO_COMPLETO.md#proceso-contratacion) | 5 minutos (RH) · el QR vive 24 h | RH | 2 |
 | 3 | [Alta del colaborador](FLUJO_COMPLETO.md#proceso-alta) | 1 a 5 días | Colaborador, RH, Sistemas | 4 |
-| 4 | [Expediente](FLUJO_COMPLETO.md#proceso-expediente) | Consulta inmediata | RH, Gerente, Colaborador | 3 |
+| 4 | [Expediente](FLUJO_COMPLETO.md#proceso-expediente) | Consulta inmediata | RH, Gerente, Colaborador | 4 |
 | 5 | [Contratos](FLUJO_COMPLETO.md#proceso-contratos) | 1 a 3 días (firma y envío del original) | RH, Gerente | 2 |
 | 6 | [Onboarding](FLUJO_COMPLETO.md#proceso-onboarding) | 1 a 2 semanas | Colaborador, RH, Gerente | 3 |
 | 7 | [Evaluación inicial](FLUJO_COMPLETO.md#proceso-evaluacion) | 15 días antes del vencimiento | Gerente, RH | 2 |
@@ -31,9 +31,11 @@ Documentación oficial de uso del sistema, escrita contra el **flujo real del c�
 | 9 | [Nómina](FLUJO_COMPLETO.md#proceso-nomina) | 30 a 60 minutos por lote | RH | 1 |
 | 10 | [Avisos](FLUJO_COMPLETO.md#proceso-avisos) | 2 minutos | RH, Colaborador | 1 |
 | 11 | [Vida laboral](FLUJO_COMPLETO.md#proceso-vida-laboral) | Continuo | Colaborador, RH, Gerente | 5 |
-| 12 | [Baja y finiquito](FLUJO_COMPLETO.md#proceso-baja) | 1 a 3 semanas | Gerente, Regional, RH, Sistemas | 2 |
-| 13 | [Reingresos](FLUJO_COMPLETO.md#proceso-reingresos) | 1 a 5 días | Gerente, RH | 1 |
-| 14 | [Administración](FLUJO_COMPLETO.md#proceso-administracion) | Según el ajuste | RH, Sistemas | 9 |
+| 12 | [Capacitación y Certificación](FLUJO_COMPLETO.md#proceso-capacitacion) | Según el curso (días a semanas) | RH, Gerente, Colaborador | 6 |
+| 13 | [Seguimiento y Nine Box](FLUJO_COMPLETO.md#proceso-seguimiento) | Continuo (mensual o trimestral) | RH, Gerente, Regional, Dirección Comercial, Colaborador | 4 |
+| 14 | [Baja y finiquito](FLUJO_COMPLETO.md#proceso-baja) | 1 a 3 semanas | Gerente, Regional, RH, Sistemas | 3 |
+| 15 | [Reingresos](FLUJO_COMPLETO.md#proceso-reingresos) | 1 a 5 días | Gerente, RH | 1 |
+| 16 | [Administración](FLUJO_COMPLETO.md#proceso-administracion) | Según el ajuste | RH, Sistemas | 11 |
 
 ## Dónde vive cada cosa en el código
 

@@ -392,7 +392,7 @@ escribir(
     'README.md',
     [
         `${AVISO}# Guía maestra de MR. LANA PEOPLE`,
-        'Documentación oficial de uso del sistema, escrita contra el **flujo real del código** (rutas, servicios, enums y pantallas). La misma información vive dentro del sistema en **Ayuda → Guía del sistema** (`/ayuda`): buscador, flujo general clicable, 14 procesos, guía por rol, recorridos guiados, glosario, preguntas frecuentes y video.',
+        'Documentación oficial de uso del sistema, escrita contra el **flujo real del código** (rutas, servicios, enums y pantallas). La misma información vive dentro del sistema en **Ayuda → Guía del sistema** (`/ayuda`): buscador, flujo general clicable, 16 procesos, guía por rol, recorridos guiados, glosario, preguntas frecuentes y video.',
         '## Documentos',
         lista([
             '[FLUJO_COMPLETO.md](FLUJO_COMPLETO.md) — el recorrido completo, de la plantilla autorizada al contrato indeterminado y la vida laboral, con todos los artículos.',

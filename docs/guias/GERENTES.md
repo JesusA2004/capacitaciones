@@ -23,6 +23,8 @@ Entrevista y revisa a los candidatos de su sucursal (psicométricos y socioecon�
 - [ ] Evaluaciones de periodo de prueba → [Evaluaciones de periodo de prueba](#articulo-evaluacion-capacitacion)
 - [ ] Visto bueno de permisos y vacaciones → [Revisar solicitudes (gerente, regional y RH)](#articulo-revisar-solicitudes)
 - [ ] Levantar un acta → [Acta administrativa circunstanciada](#articulo-actas)
+- [ ] Contestar los Seguimientos técnicos de tu equipo → [Seguimientos técnicos: «Seguimiento 15», «30», «60»…](#articulo-seguimientos-tecnicos)
+- [ ] Calibrar potencial en la Nine Box → [Nine Box: desempeño × potencial](#articulo-nine-box)
 - [ ] Iniciar la baja de alguien de tu equipo → [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
 - [ ] Directorio → [Directorio y correo corporativo](#articulo-directorio)
 - [ ] Mis pendientes → [Mis pendientes: tu bandeja de trabajo](#articulo-mis-pendientes)
@@ -47,6 +49,7 @@ Monitorea las sucursales de su región, da el segundo visto bueno de solicitudes
 - [ ] Intervenciones de Gestor / Volante (solo si se piden) → [Intervención sobre un rechazo de RH](#articulo-intervencion)
 - [ ] Entrevistar y revisar candidatos a Gerente de sucursal → [Entrevista con el gerente](#articulo-entrevista-gerente)
 - [ ] Monitorear vacantes de la región → [De dónde nace una vacante](#articulo-plantilla-y-vacantes)
+- [ ] Nine Box de tu región → [Nine Box: desempeño × potencial](#articulo-nine-box)
 
 ### Lo que NO le toca
 
@@ -649,11 +652,11 @@ Es la bandeja donde se atienden las solicitudes de los colaboradores.
 
 Gerente, Regional, RH.
 
-> **Nota:** Columnas: Solicitudes recibidas (esperan vistos buenos) → Pendiente de autorizar → Requiere corrección → Aprobadas / No aprobadas. Una solicitud aprobada ya terminó: lo que sigue (documentos, pago) vive en su propio proceso.
+> **Nota:** Columnas: Recibidas (esperan vistos buenos) → En revisión (pendientes de autorizar por RH) → Requiere corrección → Aprobadas / No aprobadas. Una solicitud aprobada ya terminó: lo que sigue (documentos, pago) vive en su propio proceso.
 
 #### Pasos
 
-1. **Elige el tipo** _(Web)_ — Personal → Solicitudes: una tarjeta por tipo (préstamos, permisos, vacaciones…) con recibidas, por autorizar y en corrección. «Ver todas» abre el tablero completo.
+1. **Abre el tablero** _(Web)_ — Inicio → Solicitudes: un solo tablero con «Todos los tipos»; cada tarjeta lleva arriba una banda con el color y el nombre de su tipo (permiso, vacaciones, préstamo…). Acota con los filtros de tipo y sucursal. Las incapacidades se registran en su propio módulo.
 2. **Abre la solicitud** — Revisa motivo, evidencias y la «Cadena de autorización» (quién ya dio visto bueno).
 3. **Gerente / regional** _(Gerente · Web y app)_ — «Visto bueno» (web) o desde la app (Equipo → pendientes).
 4. **RH** _(RH)_ — Aprobar, rechazar o requerir corrección (las dos últimas exigen comentario).
@@ -738,7 +741,129 @@ Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance glob
 - **Ir a Actas** → `/rh/actas` _(permiso: actas.ver)_
 - Guía en pantalla → `/ayuda/articulo/actas`
 
-## 12. Baja y finiquito
+## 12. Capacitación y Certificación
+
+<a id="articulo-capacitacion-cumplimiento"></a>
+
+### Reporte de cumplimiento de capacitación
+
+> Avance de capacitación por colaborador: asignadas, completadas, vencidas y % de cumplimiento, con exportación a Excel o PDF.
+
+#### Qué es
+
+Muestra, para cada colaborador de tu alcance, cuántos cursos tiene asignados, completados y vencidos, y su porcentaje de cumplimiento, más una gráfica por rangos.
+
+#### Quién lo hace
+
+RH, Gerente.
+
+#### Pasos
+
+1. **Abre el reporte** — Capacitación → «Reporte de cumplimiento».
+2. **Filtra** — Sucursal, Departamento y Curso; «Limpiar filtros» para volver a todo.
+3. **Lee la gráfica y la tabla** — «Distribución por rango de cumplimiento» (0–25 %, 25–50 %, 50–75 %, 75–100 %) y la tabla por colaborador.
+4. **Exporta** — «Excel» o «PDF» (con permiso reportes.exportar).
+
+#### Qué pasa después
+
+- Con las vencidas, RH puede recordar o reasignar.
+
+#### Errores comunes
+
+- **«No hay colaboradores para mostrar con estos filtros.»** Quita filtros o revisa tu alcance.
+
+#### En el sistema
+
+- **Ir a Reporte de cumplimiento** → `/reportes/cumplimiento` _(permiso: reportes.globales o reportes.sucursal)_
+- Guía en pantalla → `/ayuda/articulo/capacitacion-cumplimiento`
+
+## 13. Seguimiento y Nine Box
+
+<a id="articulo-seguimientos-tecnicos"></a>
+
+### Seguimientos técnicos: «Seguimiento 15», «30», «60»…
+
+> Evaluaciones técnicas por puesto que PEOPLE genera solas cada mañana al llegar el día desde el ingreso; las contesta el colaborador o su jefe directo y se califican al instante.
+
+#### Qué es
+
+Un Seguimiento técnico es una evaluación de conocimientos del puesto que se aplica en días fijos desde que la persona entró (por ejemplo día 15, 30 y 60). Cada puesto tiene su propio calendario y sus propios formularios. No dependen de Reportes: son la parte de «potencial» que después usa la Nine Box.
+
+#### Quién lo hace
+
+RH arma el calendario y los formularios; PEOPLE las genera solas; las contesta el colaborador (en Mi espacio) o su jefe directo, según el paso; RH y quien tiene alcance consultan los resultados.
+
+> **Nota:** Una evaluación vencida todavía se puede contestar. Si la persona deja de estar activa o cambia de puesto, sus evaluaciones pendientes se cancelan (no se borran).
+
+> **Atención:** Nadie contesta por sí mismo una evaluación que le toca al jefe directo, ni siquiera un super administrador.
+
+#### Pasos
+
+1. **PEOPLE genera la evaluación** _(Automático)_ — Cada mañana (6:45) revisa a los colaboradores activos: al llegar el día N de su puesto crea la evaluación con la versión publicada del formulario, su fecha límite (día programado + «Días para contestar») y avisa a quien la contesta. Si un día ya pasó, solo se genera hasta 15 días tarde.
+2. **Si te toca contestarla como colaborador** _(Colaborador · Web)_ — Mi espacio → «Mis seguimientos técnicos» → «Por contestar» → «Contestar ahora». Responde las preguntas, escribe comentarios si quieres y pulsa «Enviar evaluación» → «Enviar».
+3. **Si te toca como jefe directo** _(Gerente · Web)_ — Seguimiento → «Seguimientos técnicos» (o «Mis seguimientos técnicos») → bloque «Te toca evaluar a tu equipo». Abre la de la persona, contesta, agrega observaciones para RH y pulsa «Enviar evaluación».
+4. **Calificación al instante** _(Automático)_ — Al enviar se califica contra la mínima del paso (por defecto 80): queda «Aprobada» o «No aprobada». Ya no se puede cambiar.
+5. **RH da seguimiento** _(RH · Web)_ — En «Seguimientos técnicos» revisa indicadores, «Próximas a vencer» y «Vencidas», filtra por estado, puesto, sucursal o quién contesta, y abre cualquier renglón para ver la respuesta por pregunta o el nombre para ver la línea de tiempo de la persona. «Generar las que ya tocan» corre la generación al momento.
+
+#### Qué pasa después
+
+- El promedio de sus Seguimientos alimenta el potencial de la persona en la Nine Box.
+- Su jefe directo recibe el resultado cuando el colaborador contesta.
+
+#### Errores comunes
+
+- **«Esta evaluación ya se contestó o se canceló.»** Ya no admite respuestas; ábrela desde la lista para ver su resultado.
+- **«N no se generaron porque su formulario no tiene versión publicada.»** Abre «Calendario de seguimientos» → «Formularios técnicos», publica el formulario y vuelve a pulsar «Generar las que ya tocan».
+- **«No me aparece mi seguimiento.»** Todavía no llega el día, tu puesto no tiene calendario o falta tu fecha de inicio en Fechas laborales. Pregunta a RH.
+
+#### En el sistema
+
+- **Ir a Seguimientos técnicos** → `/seguimiento/evaluaciones-tecnicas` _(permiso: evaluaciones_tecnicas.ver)_
+- **Ir a Mis seguimientos técnicos** → `/mis-evaluaciones-tecnicas`
+- Guía en pantalla → `/ayuda/articulo/seguimientos-tecnicos`
+
+<a id="articulo-nine-box"></a>
+
+### Nine Box: desempeño × potencial
+
+> Matriz de 3 × 3 por mes o trimestre: el desempeño sale de Reportes (todas las rutas de la persona) y el potencial de sus Seguimientos técnicos más la calibración de su jefe.
+
+#### Qué es
+
+La Nine Box ubica a cada persona en uno de 9 cuadrantes (Estrella, Alto potencial, Enigma, Profesional clave, Núcleo, Dilema, Confiable, Efectivo, Bajo desempeño), cada uno con su acción sugerida. Los datos de Reportes solo se usan para esto; no hay tableros de datos duros aparte.
+
+#### Quién lo hace
+
+Consulta quien tiene nine_box.ver dentro de su alcance; calibra el jefe directo o RH (nine_box.calibrar); «Configurar» es de RH (nine_box.configurar).
+
+> **Importante:** Nadie calibra su propio potencial: lo hace su jefe directo o RH. Cada calibración queda en el historial y nunca se borra; sigue vigente en los periodos siguientes hasta que se guarde otra.
+
+#### Pasos
+
+1. **Abre la Nine Box** — Seguimiento → «Nine Box» (la entrada /seguimiento también lleva aquí).
+2. **Elige el periodo** — «Mes de Reportes» o «Trimestre» y el mes o trimestre. Si Reportes no tiene datos verás «Reportes aún no tiene datos de este periodo».
+3. **Lee el resumen y filtra** — Indicadores: «En la matriz», «Estrellas», «Calibrados», «Por calibrar», «Sin vincular a PEOPLE». Busca gestor, sucursal o ruta, filtra por sucursal y cambia entre «Matriz» y «Tabla». Clic en un cuadrante para filtrarlo.
+4. **Abre a una persona** — Clic en su nombre: verás su desempeño del periodo, tendencia semanal, potencial (promedio de Seguimientos y calibración vigente), sus evaluaciones técnicas y el historial de calibraciones, más «Detalle en Seguimiento» y «Expediente».
+5. **Calibra su potencial** _(Gerente)_ — En «Calibrar potencial» elige Bajo, Medio o Alto, explica por qué (mínimo 10 caracteres) y pulsa «Guardar calibración». Aparece «Potencial de {nombre} calibrado.»
+6. **Exporta (opcional)** — «Exportar a Excel» descarga la matriz del periodo.
+
+#### Qué pasa después
+
+- La persona cambia de cuadrante en ese periodo y su acción sugerida se actualiza.
+- RH puede ajustar metas, pesos y cortes en «Configurar» (con motivo; cada cambio crea una versión nueva).
+
+#### Errores comunes
+
+- **«La conexión con Reportes todavía no está configurada.»** Pide a Sistemas que capture REPORTES_API_URL y REPORTES_API_TOKEN.
+- **«Reportes no responde en este momento.»** Intenta de nuevo en unos minutos; si sigue igual, avísalo a Sistemas.
+- **«No puedes calibrar el potencial de esta persona.»** Está fuera de tu alcance o no está vinculada a PEOPLE.
+
+#### En el sistema
+
+- **Ir a Nine Box** → `/seguimiento/nine-box` _(permiso: nine_box.ver)_
+- Guía en pantalla → `/ayuda/articulo/nine-box`
+
+## 14. Baja y finiquito
 
 <a id="articulo-baja"></a>
 
@@ -763,7 +888,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 1. **«Registrar baja»** _(Gerente)_ — Cierres laborales → Bajas → «Registrar baja»: 1 ¿quién se va? (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso).
 2. **Vista previa y confirmar** _(Gerente)_ — «Vista previa» abre la renuncia (renuncia voluntaria) o el formato de la causal y el finiquito propuesto, con flechas para pasar de uno a otro. Nada se guarda hasta «Sí, registrar baja». Al confirmar: accesos suspendidos, documentos generados y finiquito propuesto. En rescisión no se genera documento: el aviso de rescisión se adjunta.
 3. **Documentos de la baja** _(RH)_ — En el expediente de la baja usa «Generar documento de salida»: vista previa, PDF para firma y carga del firmado. Adjunta lo que falta. En rescisión captura los hechos, los testigos y la entrega del aviso.
-4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
+4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega en Bajas → «Finiquitos». Los documentos de cada persona están en la pestaña «Documentos» y las causales en «Catálogo de causales». Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
 
 #### Qué pasa después
 
@@ -783,7 +908,42 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 - **Tablero de rotación** → `/reportes/rotacion/tablero` _(permiso: bajas.tablero.ver)_
 - Guía en pantalla → `/ayuda/articulo/baja`
 
-## 13. Reingresos
+<a id="articulo-rotacion"></a>
+
+### Rotación de personal
+
+> Módulo de consulta con una sola fuente: las bajas del sistema más el histórico conciliado. Cinco áreas conectadas (Resumen, Tendencias, Causales, Sucursales e Histórico) con los mismos filtros, y exportación a Excel y PDF con las mismas cifras de la pantalla.
+
+#### Qué es
+
+Mide cuántas personas salen, por qué y dónde. Índice = bajas del periodo ÷ plantilla promedio × 100 (si no hay plantilla el índice queda «sin dato», nunca 0). Rotación temprana = bajas con menos de 6 meses de antigüedad sobre las bajas con fecha de ingreso. Cada baja conserva su motivo original, su causal homologada y su forma de salida por separado.
+
+#### Quién lo hace
+
+Cada quien ve solo las sucursales de su alcance. El detalle por persona (Histórico) lo ve quien puede ver bajas. Corregir causales, completar fechas y conciliar duplicados es de RH con permiso de gestionar bajas; cada corrección pide comentario y queda en bitácora. Cargar el histórico desde Excel es solo de super administrador.
+
+#### Pasos
+
+1. **Elige el periodo y los filtros** _(RH)_ — Acumulado, año, mes o rango; empresa, sucursal, área, puesto, clasificación, causal, antigüedad y fuente. Los filtros se conservan al cambiar de área y se usan tal cual en las exportaciones.
+2. **Explora de lo general a la persona** _(RH)_ — Un clic en un mes, una causal, una sucursal o una celda del mapa de calor abre el Histórico filtrado con esas bajas.
+3. **Corrige lo que falte** _(RH)_ — En Histórico: corregir causal homologada, completar fecha de ingreso o marcar un duplicado. Siempre con comentario; la cifra se recalcula al momento.
+4. **Exporta** _(RH)_ — Excel con todas las hojas, PDF ejecutivo (horizontal) o PDF detallado (vertical, con personas si tienes permiso).
+
+#### Qué pasa después
+
+- Los hallazgos señalan focos: ofertas laborales, rotación temprana, sucursales fuera de meta y registros incompletos.
+
+#### Errores comunes
+
+- **«Un mes dice "sin desglose".»** Ese mes solo trae totales del Excel (sin persona ni causal): cuenta en el total, pero no en filtros por causal. Cargar el histórico individual lo resuelve.
+- **«El índice dice "sin dato".»** No hay plantilla registrada para ese mes y sucursal; se toma la foto mensual o la reconstrucción de plantilla.
+
+#### En el sistema
+
+- **Ir a Rotación de personal** → `/reportes/rotacion/tablero` _(permiso: bajas.tablero.ver)_
+- Guía en pantalla → `/ayuda/articulo/rotacion`
+
+## 15. Reingresos
 
 <a id="articulo-reingreso"></a>
 
@@ -820,7 +980,7 @@ Gerente, RH.
 - **Ir a Reingresos** → `/rh/reingresos` _(permiso: reingresos.solicitar o reingresos.gestionar)_
 - Guía en pantalla → `/ayuda/articulo/reingreso`
 
-## 14. Administración
+## 16. Administración
 
 <a id="articulo-mis-pendientes"></a>
 

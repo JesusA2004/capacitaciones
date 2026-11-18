@@ -62,6 +62,7 @@ function porcentaje(completaron: number, inscritos: number): number {
     <div class="pagina-ancha flex flex-col gap-6">
         <!-- Encabezado tipo «aula»: saludo, propósito y accesos rápidos. -->
         <section
+            data-tour="capacitacion-encabezado"
             class="relative entrada-suave overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-salvia via-menta to-crema p-6 shadow-sm sm:p-8"
         >
             <span
@@ -87,7 +88,10 @@ function porcentaje(completaron: number, inscritos: number): number {
                         description="Aulas, trabajo asignado, calificaciones y la Certificación Mr. Lana en un solo lugar."
                     />
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div
+                    data-tour="capacitacion-accesos"
+                    class="flex flex-wrap gap-2"
+                >
                     <Button v-if="puede.ver_cursos" as-child>
                         <Link :href="indexCursos()">
                             <Plus v-if="puede.crear_curso" class="size-4" />
@@ -146,6 +150,7 @@ function porcentaje(completaron: number, inscritos: number): number {
 
             <template v-if="portada">
                 <div
+                    data-tour="capacitacion-indicadores"
                     class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5"
                 >
                     <MetricCard
@@ -247,7 +252,10 @@ function porcentaje(completaron: number, inscritos: number): number {
                     </div>
                 </div>
 
-                <section class="flex flex-col gap-3">
+                <section
+                    data-tour="capacitacion-aulas"
+                    class="flex flex-col gap-3"
+                >
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-semibold">Aulas</h2>
                         <Link

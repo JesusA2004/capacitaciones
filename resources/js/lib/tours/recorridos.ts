@@ -1,4 +1,5 @@
-import type { ContextoGuia, PasoTour, Tour } from './tipos';
+import { banderasEncendidas } from './registro';
+import type { BanderaGuia, ContextoGuia, PasoTour, Tour } from './tipos';
 
 /**
  * Recorridos guiados POR PROCESO (Guía maestra → «Recorridos guiados»): a
@@ -21,6 +22,8 @@ export type RecorridoProceso = {
     modo: 'operativo' | 'colaborador';
     /** Basta uno para ofrecer el recorrido. */
     permisos: string[];
+    /** Banderas de config/features.php que deben estar encendidas. */
+    features?: BanderaGuia[];
     pasos: PasoTour[];
 };
 
@@ -318,6 +321,181 @@ export const RECORRIDOS_PROCESO: RecorridoProceso[] = [
             },
         ],
     },
+    {
+        id: 'seguimiento-nine-box',
+        titulo: 'Seguimiento: de los Seguimientos técnicos a la Nine Box',
+        descripcion:
+            'Calendario por puesto, evaluaciones que se generan solas, vínculos con Reportes y calibración en la Nine Box.',
+        articulo: 'nine-box',
+        modo: 'operativo',
+        permisos: [
+            'evaluaciones_tecnicas.configurar',
+            'evaluaciones_tecnicas.ver',
+            'seguimiento.vincular',
+            'nine_box.ver',
+        ],
+        features: ['seguimiento'],
+        pasos: [
+            {
+                titulo: 'Cómo se arma el Seguimiento',
+                texto: '1) Cada puesto tiene su calendario de Seguimientos técnicos; 2) PEOPLE los genera solos y los contesta el colaborador o su jefe; 3) cada persona de Reportes se vincula con su colaborador; 4) la Nine Box cruza su desempeño con su potencial.',
+            },
+            {
+                ruta: '/seguimiento/evaluaciones-tecnicas/configuracion',
+                selector: sel('calendario-seguimientos-pestanas'),
+                titulo: '1. Calendario por puesto',
+                texto: 'Día desde el ingreso, formulario técnico, quién contesta, calificación mínima y días para contestar. Los formularios se arman en la otra pestaña.',
+                permisos: ['evaluaciones_tecnicas.configurar'],
+            },
+            {
+                ruta: '/seguimiento/evaluaciones-tecnicas',
+                selector: sel('seguimientos-contenido'),
+                titulo: '2. Seguimientos técnicos',
+                texto: 'Lo pendiente, lo que vence y lo vencido, con el resultado de cada evaluación contestada.',
+                permisos: ['evaluaciones_tecnicas.ver'],
+            },
+            {
+                ruta: '/seguimiento/vinculos',
+                selector: sel('vinculos-explicacion'),
+                titulo: '3. Vínculos con Reportes',
+                texto: 'Por persona y por sucursal, nunca por ruta: confirma sugerencias o elige a mano.',
+                permisos: ['seguimiento.vincular'],
+            },
+            {
+                ruta: '/seguimiento/nine-box',
+                selector: sel('ninebox-contenido'),
+                titulo: '4. Nine Box',
+                texto: 'Elige el periodo, abre a una persona y calibra su potencial (Bajo, Medio o Alto) con su porqué.',
+                permisos: ['nine_box.ver'],
+            },
+        ],
+    },
+    {
+        id: 'capacitacion-curso',
+        titulo: 'Capacitación: crear, asignar y calificar un curso',
+        descripcion:
+            'Del curso nuevo a la constancia: constructor, asignación, bandeja de calificación y reporte de cumplimiento.',
+        articulo: 'capacitacion-cursos',
+        modo: 'operativo',
+        permisos: ['cursos.ver', 'asignaciones.ver', 'respuestas.ver'],
+        features: ['capacitacion'],
+        pasos: [
+            {
+                ruta: '/capacitacion',
+                selector: sel('capacitacion-encabezado'),
+                titulo: 'Portada de capacitación',
+                texto: 'Indicadores, aulas y próximas sesiones. Desde aquí llegas a todo.',
+            },
+            {
+                ruta: '/cursos',
+                selector: sel('cursos-tabla'),
+                titulo: '1. Cursos y aulas',
+                texto: '«Nuevo curso» → constructor: «Agregar módulo», «Agregar lección» (video, documento, cuestionario, actividad, sesión en vivo…), «Editar detalles» y «Publicar».',
+                permisos: ['cursos.ver'],
+            },
+            {
+                ruta: '/asignaciones',
+                selector: sel('asignaciones-tabla'),
+                titulo: '2. Asignaciones',
+                texto: '«Nueva asignación»: curso, plazo, destinatarios, «Ver vista previa» y «Crear asignación». Cada persona lo ve en «Mi capacitación».',
+                permisos: ['asignaciones.ver'],
+            },
+            {
+                ruta: '/calificaciones/cuestionarios',
+                selector: sel('calificar-pestanas'),
+                titulo: '3. Calificar',
+                texto: 'Respuestas abiertas y entregas de actividades, de la más antigua a la más reciente.',
+                permisos: ['respuestas.ver'],
+            },
+            {
+                ruta: '/reportes/cumplimiento',
+                selector: sel('cumplimiento-filtros'),
+                titulo: '4. Cumplimiento',
+                texto: 'Quién completó, quién va atrasado y quién tiene vencidas; exporta a Excel o PDF.',
+                permisos: ['reportes.globales', 'reportes.sucursal'],
+            },
+        ],
+    },
+    {
+        id: 'fechas-laborales',
+        titulo: 'Capturar fechas laborales',
+        descripcion:
+            'Ingreso, capacitación inicial, inducción, alta IMSS y periodo de prueba específico para muchas personas a la vez.',
+        articulo: 'fechas-laborales',
+        modo: 'operativo',
+        permisos: ['expedientes.editar_fechas'],
+        pasos: [
+            {
+                ruta: '/rh/fechas-laborales',
+                selector: sel('fechas-laborales-filtros'),
+                titulo: '1. Filtra',
+                texto: 'Sucursal, puesto y nombre; deja «Con fechas faltantes».',
+            },
+            {
+                selector: sel('fechas-laborales-tabla'),
+                titulo: '2. Captura',
+                texto: 'Edita cada celda; el periodo vacío hereda el del puesto y el fin se recalcula solo.',
+                opcional: true,
+            },
+            {
+                titulo: '3. Guarda con motivo',
+                texto: 'Al editar aparece la barra «N persona(s) con cambios»: escribe el motivo y pulsa «Guardar». Para una sola persona usa su expediente → «Fechas laborales» → «Editar fechas» → «Ver impacto» → «Guardar fechas».',
+                consejo:
+                    'El contrato nunca se cambia solo: si aparece «Debes actualizar el contrato», atiéndelo desde el expediente.',
+            },
+        ],
+    },
+    {
+        id: 'sistemas-altas-bajas',
+        titulo: 'Sistemas: altas y bajas en las demás plataformas',
+        descripcion:
+            'Las dos bandejas de Sistemas: dar usuarios a quien entra y retirarlos a quien sale.',
+        articulo: 'pendientes-sistemas',
+        modo: 'operativo',
+        permisos: ['sistemas.altas.ver'],
+        pasos: [
+            {
+                ruta: '/sistemas/pendientes-alta',
+                selector: sel('sistemas-altas-indicadores'),
+                titulo: '1. Pendientes de alta',
+                texto: 'Llega por correo cuando la persona completa sus datos. Copia sus datos, crea sus cuentas y «Marcar como dado de alta».',
+            },
+            {
+                ruta: '/sistemas/pendientes-baja',
+                selector: sel('sistemas-bajas-indicadores'),
+                titulo: '2. Pendientes de baja',
+                texto: 'Llega por correo al aplicarse la baja. Desactiva sus usuarios y «Marcar como dado de baja» (o «reactivado» si se canceló).',
+            },
+        ],
+    },
+    {
+        id: 'recepcion-documental',
+        titulo: 'Recepción documental del mes',
+        descripcion:
+            'Configura lo que recibes, marca los originales que llegan y cierra el corte.',
+        articulo: 'recepcion-documental',
+        modo: 'operativo',
+        permisos: ['recepcion_documental.ver'],
+        pasos: [
+            {
+                ruta: '/rh/recepcion-documental/catalogo',
+                selector: sel('recepcion-catalogo-entradas'),
+                titulo: '1. Lo que recibo cada mes',
+                texto: 'Enciende las entradas y elige qué documentos genera cada evento.',
+            },
+            {
+                ruta: '/rh/recepcion-documental',
+                selector: sel('recepcion-indicadores'),
+                titulo: '2. El corte del mes',
+                texto: 'Se calcula solo cada mañana a partir de eventos reales.',
+            },
+            {
+                selector: sel('recepcion-cortes'),
+                titulo: '3. Marca y cierra',
+                texto: 'Abre el corte, marca cada original recibido (o con observación / no aplica) y «Cerrar corte».',
+            },
+        ],
+    },
 ];
 
 function tienePermisoDelPaso(paso: PasoTour, contexto: ContextoGuia): boolean {
@@ -334,6 +512,7 @@ export function recorridosDisponibles(
     return RECORRIDOS_PROCESO.filter(
         (r) =>
             r.modo === contexto.modo &&
+            banderasEncendidas(r.features, contexto) &&
             (r.permisos.length === 0 ||
                 r.permisos.some((p) => contexto.tienePermiso(p))),
     );

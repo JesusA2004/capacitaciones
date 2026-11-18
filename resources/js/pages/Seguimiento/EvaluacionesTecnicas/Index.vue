@@ -235,12 +235,12 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
             :icono="ClipboardCheck"
         >
             <template v-if="puedeConfigurar">
-                <Button variant="outline" :disabled="generando" @click="generarAhora">
+                <Button data-tour="seguimientos-generar" variant="outline" :disabled="generando" @click="generarAhora">
                     <LoaderCircle v-if="generando" class="size-4 animate-spin" />
                     <Sparkles v-else class="size-4" />
                     Generar las que ya tocan
                 </Button>
-                <Button as-child>
+                <Button as-child data-tour="seguimientos-ir-calendario">
                     <Link :href="configuracion()">
                         <Settings2 class="size-4" /> Calendario por puesto
                     </Link>
@@ -251,6 +251,7 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
         <!-- Por evaluar (jefe directo) -->
         <section
             v-if="porEvaluar.length"
+            data-tour="seguimientos-por-evaluar"
             class="flex entrada-suave flex-col gap-3 rounded-3xl border border-border bg-gradient-to-br from-salvia/70 via-card to-card p-5 shadow-xs"
         >
             <div class="flex flex-wrap items-center justify-between gap-2">
@@ -297,6 +298,7 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
             </ListaAnimada>
         </section>
 
+        <div data-tour="seguimientos-contenido" class="flex flex-col gap-5">
         <Deferred data="tablero">
             <template #fallback>
                 <div class="flex flex-col gap-5" aria-busy="true" aria-label="Cargando evaluaciones técnicas">
@@ -313,7 +315,7 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
 
             <template v-if="tablero">
                 <!-- KPIs -->
-                <div class="grid entrada-escalonada grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                <div data-tour="seguimientos-kpis" class="grid entrada-escalonada grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                     <TarjetaKpi etiqueta="Pendientes en plazo" :valor="tablero.kpis.pendientes" :icono="ListChecks" nota="Por contestar" />
                     <TarjetaKpi etiqueta="Próximas a vencer" :valor="tablero.kpis.por_vencer" :icono="AlarmClock" tono="crema" nota="En los próximos días" />
                     <TarjetaKpi etiqueta="Vencidas" :valor="tablero.kpis.vencidas" :icono="Hourglass" :tono="tablero.kpis.vencidas ? 'crema' : 'card'" nota="Sin contestar a tiempo" />
@@ -363,7 +365,7 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
                 </div>
 
                 <!-- Próximas a vencer / vencidas -->
-                <div class="grid gap-4 xl:grid-cols-2">
+                <div data-tour="seguimientos-vencimientos" class="grid gap-4 xl:grid-cols-2">
                     <section
                         v-for="bloque in [
                             { clave: 'por_vencer', titulo: 'Próximas a vencer', icono: AlarmClock, filas: tablero.por_vencer, vacio: 'Nada vence pronto. ¡Buen ritmo!' },
@@ -403,7 +405,7 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
                 </div>
 
                 <!-- Tabla con filtros -->
-                <section class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-xs">
+                <section data-tour="seguimientos-tabla" class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-xs">
                     <div class="flex flex-wrap items-end justify-between gap-3">
                         <h2 class="text-sm font-semibold">
                             Todas las evaluaciones
@@ -411,7 +413,7 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
                         </h2>
                         <Button v-if="hayFiltros" variant="ghost" size="sm" @click="limpiar">Quitar filtros</Button>
                     </div>
-                    <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                    <div data-tour="seguimientos-filtros" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                         <label class="relative xl:col-span-1">
                             <span class="sr-only">Buscar</span>
                             <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -531,5 +533,6 @@ function hrefFila(fila: FilaEvaluacionTecnica): string {
                 </section>
             </template>
         </Deferred>
+        </div>
     </div>
 </template>

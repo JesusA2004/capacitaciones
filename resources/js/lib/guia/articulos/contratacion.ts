@@ -432,7 +432,7 @@ export const ARTICULOS_CONTRATACION: ArticuloGuia[] = [
             {
                 titulo: 'Sistemas prepara accesos',
                 detalle:
-                    'Recibe «Alta: Nombre (Puesto, Sucursal). Prepara su cuenta, accesos y equipo.»',
+                    'Recibe el correo «Alta en sistemas» en cuanto la persona completa sus datos personales, y lo atiende en Contratación → «Pendientes de alta en sistemas» («Marcar como dado de alta»).',
                 quien: 'sistemas',
             },
         ],
@@ -453,7 +453,7 @@ export const ARTICULOS_CONTRATACION: ArticuloGuia[] = [
             },
         ],
         registro: ['Bitácora «colaborador activado» y actividad laboral.'],
-        relacionados: ['onboarding', 'usuarios-y-roles'],
+        relacionados: ['onboarding', 'usuarios-y-roles', 'pendientes-sistemas'],
         accesos: [
             {
                 etiqueta: 'Ir a Mis pendientes',
@@ -846,5 +846,104 @@ export const ARTICULOS_CONTRATACION: ArticuloGuia[] = [
             '¿Dónde está el original del contrato?',
             '¿Qué documentos tengo que imprimir?',
         ],
+    },
+    {
+        id: 'fechas-laborales',
+        titulo: 'Fechas laborales: ingreso, capacitación inicial y periodo de prueba',
+        proceso: 'expediente',
+        resumen:
+            'Una sola fuente para las fechas de cada persona (ingreso, inicio de capacitación inicial, inducción, alta IMSS) y su periodo de prueba (hereda del puesto o específico), con vista del impacto antes de guardar y captura masiva.',
+        queEs: 'De estas fechas salen el fin del periodo de prueba, la fecha de su evaluación y el calendario de sus Seguimientos técnicos. Se ven y corrigen en el expediente (pestaña «Fechas laborales») o, para muchas personas a la vez (por ejemplo la plantilla importada por Excel), en Permanencia → «Fechas laborales». El contrato nunca se cambia solo.',
+        quien: ['rh'],
+        quienDetalle:
+            'Quien tiene el permiso expedientes.editar_fechas (todo rol que puede editar expedientes). Nadie corrige sus propias fechas.',
+        antes: [
+            'El puesto tiene su periodo de prueba en el catálogo de puestos (si la persona no lleva uno específico).',
+            'Tener a la mano el motivo del cambio: queda en el historial.',
+        ],
+        pasos: [
+            {
+                titulo: 'Una persona: abre su expediente',
+                detalle:
+                    'Colaboradores → la persona → grupo «Datos» → pestaña «Fechas laborales». Verás la línea de tiempo (Ingreso, Alta IMSS, Inducción, Inicia capacitación inicial, cada Seguimiento, Se habilita la evaluación, Fin del periodo de prueba) y las alertas.',
+            },
+            {
+                titulo: 'Edita las fechas',
+                detalle:
+                    '«Editar fechas» (o «Capturar» en una fecha que falta). Captura las fechas y elige el periodo de prueba: «Hereda del puesto» o «Específico para esta persona» (duración en meses o días).',
+            },
+            {
+                titulo: 'Revisa el impacto',
+                detalle:
+                    '«Ver impacto» muestra lo capturado, las fechas que se recalculan (antes → después) y qué más se afecta («Requiere nuevo contrato», «Debes revisarlo»…).',
+            },
+            {
+                titulo: 'Guarda con motivo',
+                detalle:
+                    'Escribe el «Motivo del cambio» y pulsa «Guardar fechas». PEOPLE recalcula el fin del periodo de prueba, reprograma los Seguimientos pendientes y mueve la fecha límite de la evaluación de periodo de prueba pendiente.',
+            },
+            {
+                titulo: 'Atiende las alertas',
+                detalle:
+                    'Si aparece «Debes actualizar el contrato», pulsa «Actualizar contrato»; si el contrato ya estaba firmado, «La fecha impresa en el contrato firmado ya no coincide: genera uno nuevo». Cada alerta desaparece sola al corregir su causa.',
+            },
+            {
+                titulo: 'Muchas personas: captura masiva',
+                detalle:
+                    'Permanencia → «Fechas laborales» (o «Captura masiva» desde el expediente). Filtra por nombre, sucursal o puesto y deja «Con fechas faltantes». Edita las celdas en la tabla; aparece la barra «N persona(s) con cambios»: escribe el motivo (mínimo 5 caracteres) y pulsa «Guardar».',
+            },
+        ],
+        llamados: [
+            {
+                tono: 'importante',
+                texto: 'El contrato nunca se modifica desde aquí: sus fechas se corrigen en el contrato. La fecha de ingreso no se corrige si ya hay contrato firmado, recibos emitidos o finiquito firmado o pagado; el inicio de capacitación y el periodo de prueba sí.',
+            },
+            {
+                tono: 'info',
+                texto: 'Vacío = hereda del puesto. Si el inicio de capacitación inicial está vacío, se usa la fecha de ingreso.',
+            },
+        ],
+        despues: [
+            'En la captura masiva cada persona se guarda por separado: «Se guardaron N; M con error (revisa las filas marcadas)». Las filas con error quedan en rojo con su mensaje.',
+            'Los Seguimientos ya contestados no se tocan.',
+        ],
+        errores: [
+            {
+                problema: '«La fecha de ingreso no se corrige porque …»',
+                solucion:
+                    'Ya hay contrato firmado, recibos emitidos o finiquito: mueve el inicio de la capacitación inicial o el periodo de prueba, o corrige el contrato.',
+            },
+            {
+                problema:
+                    '«Captura la cantidad y la unidad (meses o días) del periodo específico…»',
+                solucion:
+                    'Llena ambas o deja ambas vacías para heredar el del puesto.',
+            },
+        ],
+        registro: [
+            'Cada cambio es una corrección auditada con su motivo (Cambios de datos → Correcciones auditadas), antes y después.',
+        ],
+        relacionados: [
+            'expediente',
+            'evaluacion-capacitacion',
+            'seguimientos-tecnicos',
+            'contrato-inicial',
+        ],
+        accesos: [
+            {
+                etiqueta: 'Ir a Fechas laborales',
+                ruta: '/rh/fechas-laborales',
+                permisos: ['expedientes.editar_fechas'],
+                modo: 'operativo',
+            },
+        ],
+        preguntas: [
+            '¿Cómo corrijo la fecha de ingreso?',
+            '¿Cómo pongo un periodo de prueba específico?',
+            '¿Cómo capturo las fechas de la plantilla importada?',
+            '¿Por qué dice debes actualizar contrato?',
+            '¿Cuándo termina el periodo de prueba?',
+        ],
+        recorrido: 'fechas-laborales',
     },
 ];

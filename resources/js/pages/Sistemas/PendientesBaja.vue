@@ -140,7 +140,10 @@ function estadoFila(fila: PendienteBajaSistemas): {
         />
 
         <!-- Indicadores (clic = filtra) -->
-        <div class="grid entrada-escalonada gap-3 sm:grid-cols-2">
+        <div
+            data-tour="sistemas-bajas-indicadores"
+            class="grid entrada-escalonada gap-3 sm:grid-cols-2"
+        >
             <button
                 v-for="ind in indicadores"
                 :key="ind.clave"
@@ -179,13 +182,19 @@ function estadoFila(fila: PendienteBajaSistemas): {
             funciona igual.
         </p>
 
-        <div class="flex flex-wrap items-center gap-3">
+        <div
+            data-tour="sistemas-bajas-filtros"
+            class="flex flex-wrap items-center gap-3"
+        >
             <SelectorVista
                 v-model="filtro"
                 :opciones="opciones"
                 etiqueta="Qué mostrar"
             />
-            <div class="relative w-full sm:w-72">
+            <div
+                data-tour="sistemas-bajas-buscar"
+                class="relative w-full sm:w-72"
+            >
                 <Search
                     class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden="true"
@@ -215,6 +224,7 @@ function estadoFila(fila: PendienteBajaSistemas): {
             <ul
                 v-else
                 key="lista"
+                data-tour="sistemas-bajas-lista"
                 class="flex entrada-escalonada flex-col gap-2"
             >
                 <li v-for="fila in pendientes.data" :key="fila.id">

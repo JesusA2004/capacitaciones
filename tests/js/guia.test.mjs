@@ -46,8 +46,8 @@ const ARTICULOS = [
 const IDS = new Set(ARTICULOS.map((a) => a.id));
 const RAIZ = join(import.meta.dirname, '..', '..');
 
-test('14 procesos y artículos con id único', () => {
-    assert.equal(PROCESOS.length, 14);
+test('16 procesos y artículos con id único', () => {
+    assert.equal(PROCESOS.length, 16);
     assert.equal(IDS.size, ARTICULOS.length, 'hay ids de artículo duplicados');
 });
 

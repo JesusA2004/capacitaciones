@@ -92,6 +92,8 @@ export type ProcesoGuiaId =
     | 'nomina'
     | 'avisos'
     | 'vida-laboral'
+    | 'capacitacion'
+    | 'seguimiento'
     | 'baja'
     | 'reingresos'
     | 'administracion';

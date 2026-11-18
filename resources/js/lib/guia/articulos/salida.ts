@@ -45,7 +45,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 titulo: 'Finiquito y «Cerrar baja»',
                 detalle:
-                    'RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.',
+                    'RH revisa / ajusta el finiquito y registra su entrega en Bajas → «Finiquitos». Los documentos de cada persona están en la pestaña «Documentos» y las causales en «Catálogo de causales». Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.',
                 quien: 'rh',
             },
         ],
@@ -66,6 +66,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         ],
         notificaciones: [
             '«Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.',
+            'Correo «Baja en sistemas: dar de baja accesos» y pendiente en «Pendientes de baja en sistemas»; al entregar el finiquito, «Baja concluida — finiquito entregado».',
             'RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.',
             'RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).',
             'Antigüedad menor a 90 días: rotación temprana a RH.',
@@ -91,7 +92,12 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         registro: [
             'Bitácora de la baja: quién, cuándo, valor anterior y nuevo de cada cambio (causal, recontratable, fechas, documentos, estatus).',
         ],
-        relacionados: ['finiquito', 'reingreso', 'usuarios-y-roles'],
+        relacionados: [
+            'finiquito',
+            'reingreso',
+            'usuarios-y-roles',
+            'pendientes-sistemas',
+        ],
         accesos: [
             {
                 etiqueta: 'Ir a Bajas',
@@ -212,7 +218,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 titulo: '«Calcular finiquito»',
                 detalle:
-                    'Desde el ciclo laboral. El sueldo se toma del salario diario registrado (× 30) y puedes cambiarlo. Al terminar se abre el desglose.',
+                    'Cierres laborales → Bajas → pestaña «Finiquitos» (el único lugar donde se edita; la solicitud de baja y el cierre solo lo consultan con «Abrir en Bajas → Finiquitos»). El sueldo se toma del salario diario registrado (× 30) y puedes cambiarlo. Al terminar se abre el desglose.',
             },
             {
                 titulo: 'Revisa los conceptos',
@@ -222,7 +228,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 titulo: 'Ajusta montos',
                 detalle:
-                    '«Ver / editar finiquito» (en el estado del cierre o en la tarjeta «Finiquito» de Documentos de la baja): el lápiz de cada concepto cambia su importe con motivo; «Agregar renglón» suma una percepción o deducción. El total lo recalcula PEOPLE y queda quién y cuándo editó.',
+                    'En Bajas → «Finiquitos», abre el finiquito: el lápiz de cada concepto cambia su importe con motivo; «Agregar renglón» suma una percepción o deducción. El total lo recalcula PEOPLE y queda quién y cuándo editó.',
             },
             {
                 titulo: 'Vista previa PDF',

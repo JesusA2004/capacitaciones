@@ -48,66 +48,69 @@ const columnas: ColumnaDataTable[] = [
         />
 
         <PestanasCalificar
+            data-tour="calificar-pestanas"
             actual="cuestionarios"
             :total="intentos.total"
             :curso="cursoFiltro"
         />
 
-        <DataTable
-            :columnas="columnas"
-            :datos="intentos"
-            mensaje-vacio="Todo al día: no hay cuestionarios esperando calificación."
-        >
-            <template #celda-usuario="{ fila }">
-                <div class="flex min-w-0 items-center gap-3">
-                    <span
-                        class="flex size-9 shrink-0 items-center justify-center rounded-full bg-salvia text-xs font-semibold text-primary"
-                        aria-hidden="true"
-                        >{{
-                            getInitials(
-                                `${fila.usuario.name} ${fila.usuario.apellidos ?? ''}`,
-                            )
-                        }}</span
+        <div data-tour="calificar-tabla">
+            <DataTable
+                :columnas="columnas"
+                :datos="intentos"
+                mensaje-vacio="Todo al día: no hay cuestionarios esperando calificación."
+            >
+                <template #celda-usuario="{ fila }">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span
+                            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-salvia text-xs font-semibold text-primary"
+                            aria-hidden="true"
+                            >{{
+                                getInitials(
+                                    `${fila.usuario.name} ${fila.usuario.apellidos ?? ''}`,
+                                )
+                            }}</span
+                        >
+                        <span class="truncate font-medium"
+                            >{{ fila.usuario.name }}
+                            {{ fila.usuario.apellidos ?? '' }}</span
+                        >
+                    </div>
+                </template>
+                <template #celda-cuestionario="{ fila }">
+                    <Link
+                        :href="show.url(fila.id)"
+                        class="enlace-animado font-medium text-primary"
                     >
-                    <span class="truncate font-medium"
-                        >{{ fila.usuario.name }}
-                        {{ fila.usuario.apellidos ?? '' }}</span
-                    >
-                </div>
-            </template>
-            <template #celda-cuestionario="{ fila }">
-                <Link
-                    :href="show.url(fila.id)"
-                    class="enlace-animado font-medium text-primary"
-                >
-                    {{ fila.cuestionario.titulo }}
-                </Link>
-                <span class="ml-1 text-xs text-muted-foreground"
-                    >· intento {{ fila.numero_intento }}</span
-                >
-            </template>
-            <template #celda-curso="{ fila }">
-                <Link
-                    v-if="fila.curso"
-                    :href="aula(fila.curso.id)"
-                    class="text-muted-foreground hover:text-primary hover:underline"
-                    >{{ fila.curso.titulo }}</Link
-                >
-                <span v-else class="text-muted-foreground">—</span>
-            </template>
-            <template #celda-enviado_en="{ fila }">
-                <span class="text-muted-foreground tabular-nums">{{
-                    formatearFechaHora(fila.enviado_en)
-                }}</span>
-            </template>
-            <template #acciones="{ fila }">
-                <Button size="sm" variant="secondary" as-child>
-                    <Link :href="show.url(fila.id)">
-                        Calificar
-                        <ChevronRight class="size-4" />
+                        {{ fila.cuestionario.titulo }}
                     </Link>
-                </Button>
-            </template>
-        </DataTable>
+                    <span class="ml-1 text-xs text-muted-foreground"
+                        >· intento {{ fila.numero_intento }}</span
+                    >
+                </template>
+                <template #celda-curso="{ fila }">
+                    <Link
+                        v-if="fila.curso"
+                        :href="aula(fila.curso.id)"
+                        class="text-muted-foreground hover:text-primary hover:underline"
+                        >{{ fila.curso.titulo }}</Link
+                    >
+                    <span v-else class="text-muted-foreground">—</span>
+                </template>
+                <template #celda-enviado_en="{ fila }">
+                    <span class="text-muted-foreground tabular-nums">{{
+                        formatearFechaHora(fila.enviado_en)
+                    }}</span>
+                </template>
+                <template #acciones="{ fila }">
+                    <Button size="sm" variant="secondary" as-child>
+                        <Link :href="show.url(fila.id)">
+                            Calificar
+                            <ChevronRight class="size-4" />
+                        </Link>
+                    </Button>
+                </template>
+            </DataTable>
+        </div>
     </div>
 </template>

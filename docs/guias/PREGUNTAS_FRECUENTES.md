@@ -75,3 +75,33 @@ Le falta el visto bueno del gerente o del regional. La «Cadena de autorización
 Tu primer nombre y tu primer apellido, sin acentos (por ejemplo «Juan Perez»). Si se repite, lleva un número al final.
 
 → [Cómo usar la app MR. LANA PEOPLE](FLUJO_COMPLETO.md#articulo-app-colaborador)
+
+## ¿Por qué alguien sale «Sin vincular a PEOPLE» en la Nine Box?
+
+Su persona de Reportes todavía no está unida a su colaborador. En Seguimiento → «Vínculos con Reportes», pestaña «Personas», confirma la sugerencia o elige al colaborador.
+
+→ [Vínculos con Reportes (por persona y por sucursal)](FLUJO_COMPLETO.md#articulo-vinculos-reportes)
+
+## ¿Por qué no se generó un Seguimiento técnico?
+
+Su puesto no tiene calendario, el formulario no tiene versión publicada, falta su fecha de inicio en Fechas laborales o el día ya pasó hace más de 15 días.
+
+→ [Seguimientos técnicos: «Seguimiento 15», «30», «60»…](FLUJO_COMPLETO.md#articulo-seguimientos-tecnicos)
+
+## ¿Por qué dice «Debes actualizar el contrato»?
+
+Cambiaron las fechas laborales y el contrato ya no coincide. PEOPLE nunca cambia el contrato solo: pulsa «Actualizar contrato» (o genera uno nuevo si ya estaba firmado).
+
+→ [Fechas laborales: ingreso, capacitación inicial y periodo de prueba](FLUJO_COMPLETO.md#articulo-fechas-laborales)
+
+## ¿Cómo certifico a un gestor en la Certificación Mr. Lana?
+
+Capacitación → «Certificación Mr. Lana»: «Descargar formato» (sale prellenado), se firma, y «Subir formato firmado» con su promedio. Queda certificado y se emite su certificado.
+
+→ [Certificación Mr. Lana (formato RH-CC-R-001)](FLUJO_COMPLETO.md#articulo-certificacion-mr-lana)
+
+## ¿Dónde veo mis cursos?
+
+En Mi espacio → «Mi capacitación»: «Mis aulas», «Pendientes» y «Mis certificados».
+
+→ [Mi capacitación: tomar mis cursos](FLUJO_COMPLETO.md#articulo-mi-capacitacion)

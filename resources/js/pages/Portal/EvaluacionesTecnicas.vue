@@ -44,7 +44,7 @@ defineOptions({
 
     <div class="pagina-ancha flex flex-col gap-6 pb-10">
         <!-- Por contestar -->
-        <section class="flex flex-col gap-3">
+        <section data-tour="mis-seguimientos-por-contestar" class="flex flex-col gap-3">
             <h2 class="flex items-center gap-2 px-1 font-semibold">
                 <ClipboardCheck class="size-5 text-bronce" /> Por contestar
             </h2>
@@ -86,7 +86,7 @@ defineOptions({
         </section>
 
         <!-- Por evaluar (jefe directo) -->
-        <section v-if="por_evaluar.length" class="flex flex-col gap-3">
+        <section v-if="por_evaluar.length" data-tour="mis-seguimientos-por-evaluar" class="flex flex-col gap-3">
             <h2 class="flex items-center gap-2 px-1 font-semibold">
                 <UserCheck class="size-5 text-primary" /> Te toca evaluar a tu equipo
             </h2>
@@ -107,7 +107,7 @@ defineOptions({
         </section>
 
         <!-- Historial -->
-        <section class="flex flex-col gap-3">
+        <section data-tour="mis-seguimientos-resultados" class="flex flex-col gap-3">
             <h2 class="flex items-center gap-2 px-1 font-semibold">
                 <History class="size-5 text-bronce" /> Mis resultados
             </h2>

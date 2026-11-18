@@ -180,7 +180,7 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
             {
                 titulo: 'Alta → preparar accesos',
                 detalle:
-                    'Llega «Alta: Nombre (Puesto, Sucursal). Prepara su cuenta, accesos y equipo.» Revisa sus roles en Administración → Usuarios.',
+                    'Llega el correo «Alta en sistemas: Nombre — Puesto, Sucursal» y el pendiente aparece en Contratación → «Pendientes de alta en sistemas»: copia sus datos, crea sus cuentas y pulsa «Marcar como dado de alta». Revisa sus roles de PEOPLE en Administración → Usuarios.',
                 quien: 'sistemas',
             },
             {
@@ -192,7 +192,7 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
             {
                 titulo: 'Baja → retirar accesos',
                 detalle:
-                    'Llega «Baja: Nombre… Retira accesos, cuentas y equipo.» PEOPLE ya bloqueó su acceso a la app y al portal; Sistemas retira lo externo (correo, equipo).',
+                    'Llega el correo «Baja en sistemas: dar de baja accesos — …» y el pendiente aparece en «Pendientes de baja en sistemas». PEOPLE ya bloqueó su acceso a la app y al portal; Sistemas retira lo externo (correo, equipo, otras plataformas) y pulsa «Marcar como dado de baja».',
                 quien: 'sistemas',
             },
             {
@@ -223,7 +223,7 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
         ],
         notificaciones: ['Alta y baja de colaborador → RH y Sistemas.'],
         registro: ['Cambios de cuenta y roles en la bitácora.'],
-        relacionados: ['alta-activa', 'baja'],
+        relacionados: ['alta-activa', 'baja', 'pendientes-sistemas'],
         accesos: [
             {
                 etiqueta: 'Ir a Usuarios',
@@ -533,5 +533,179 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
         relacionados: ['importador-salarios'],
         accesos: [],
         preguntas: ['¿Dónde veo todo lo que le ha pasado a un colaborador?'],
+    },
+    {
+        id: 'pendientes-sistemas',
+        titulo: 'Pendientes de alta y de baja en sistemas',
+        proceso: 'administracion',
+        resumen:
+            'Dos bandejas de Sistemas: dar de alta en las demás plataformas a quien entra (con correo y datos para copiar) y retirar sus usuarios cuando sale.',
+        queEs: 'PEOPLE bloquea por sí mismo el acceso a su app y portal; las demás plataformas las atiende Sistemas. Cada alta y cada baja llega por correo y queda en su bandeja hasta que Sistemas la marca como atendida.',
+        quien: ['sistemas', 'rh'],
+        quienDetalle:
+            'Ven las bandejas quienes tienen sistemas.altas.ver (RH consulta); marcan, deshacen y reenvían quienes tienen sistemas.altas.atender.',
+        antes: [
+            'El correo a Sistemas está encendido en el servidor (si no, la bandeja lo avisa y el trabajo sigue en pantalla).',
+        ],
+        pasos: [
+            {
+                titulo: 'Llega el correo de alta',
+                detalle:
+                    '«Alta en sistemas: {Nombre} — {Puesto}, {Sucursal}». Sale una sola vez, cuando la persona ya capturó CURP, RFC, NSS, fecha de nacimiento, género, teléfono y correo personal (antes queda «En espera de sus datos»). También suena la campana de quien atiende.',
+                canal: 'automatico',
+            },
+            {
+                titulo: 'Atiende el alta',
+                detalle:
+                    'Contratación → «Pendientes de alta en sistemas». Usa los indicadores («Por dar de alta», «Con 3 días o más», «Ya dados de alta»), busca por nombre o número y usa «Copiar datos» o «Copiar dato por dato». Crea sus cuentas y pulsa «Marcar como dado de alta» → notas (qué cuentas creaste) → «Confirmar».',
+                quien: 'sistemas',
+                canal: 'web',
+            },
+            {
+                titulo: 'Llega el correo de baja',
+                detalle:
+                    '«Baja en sistemas: dar de baja accesos — …» al aplicarse la baja; «Baja concluida — finiquito entregado — …» cuando RH entrega el finiquito; «Baja cancelada: reactivar accesos — …» si se cancela. Trae la lista «Por desactivar»; nunca la causal ni montos.',
+                canal: 'automatico',
+            },
+            {
+                titulo: 'Atiende la baja',
+                detalle:
+                    'Contratación → «Pendientes de baja en sistemas» → abre a la persona. Desactiva sus usuarios en cada plataforma y pulsa «Marcar como dado de baja» (o «Marcar como reactivado» en una cancelada) con tus notas.',
+                quien: 'sistemas',
+                canal: 'web',
+            },
+            {
+                titulo: 'Si te equivocaste',
+                detalle:
+                    '«Deshacer» regresa el pendiente a la lista; «Reenviar correo» lo vuelve a mandar.',
+                quien: 'sistemas',
+            },
+        ],
+        despues: ['Queda «Atendido por {nombre} · {fecha}» con tus notas.'],
+        notificaciones: [
+            'Correo de alta (y campana de quien atiende).',
+            'Correos de baja: dar de baja accesos, baja concluida, baja cancelada (solo correo).',
+        ],
+        errores: [
+            {
+                problema:
+                    '«El correo a Sistemas está apagado en este servidor…»',
+                solucion:
+                    'Trabaja desde la bandeja; pide a Sistemas encender el correo si lo necesitas.',
+            },
+            {
+                problema: 'Un alta sigue «En espera de sus datos».',
+                solucion:
+                    'La persona aún no completa sus datos personales; RH puede pedírselos desde su expediente.',
+            },
+        ],
+        registro: [
+            'Quién atendió, cuándo y con qué notas; cada envío de correo.',
+        ],
+        relacionados: ['alta-activa', 'baja', 'usuarios-y-roles'],
+        accesos: [
+            {
+                etiqueta: 'Ir a Pendientes de alta en sistemas',
+                ruta: '/sistemas/pendientes-alta',
+                permisos: ['sistemas.altas.ver'],
+                modo: 'operativo',
+            },
+            {
+                etiqueta: 'Ir a Pendientes de baja en sistemas',
+                ruta: '/sistemas/pendientes-baja',
+                permisos: ['sistemas.altas.ver'],
+                modo: 'operativo',
+            },
+        ],
+        preguntas: [
+            '¿Dónde veo las altas pendientes de sistemas?',
+            '¿Cómo marco que ya di de baja los accesos?',
+            '¿Cuándo llega el correo de alta a Sistemas?',
+            '¿Qué hace Sistemas cuando alguien se da de baja?',
+        ],
+        recorrido: 'sistemas-altas-bajas',
+    },
+    {
+        id: 'recepcion-documental',
+        titulo: 'Recepción documental: lo que RH recibe cada mes',
+        proceso: 'administracion',
+        resumen:
+            'Corte mensual de los originales firmados que deben llegar a RH (altas, IMSS, contratos, bajas, vacaciones, préstamos, nómina, asistencia), calculado solo a partir de eventos reales y un catálogo configurable.',
+        queEs: 'Cada mes PEOPLE calcula qué originales esperar según lo que realmente pasó (un alta, una baja, un préstamo autorizado, un recibo emitido…). RH marca lo que llegó, con observaciones, y cierra el corte. Qué se espera de cada evento se decide en «Lo que recibo cada mes».',
+        quien: ['rh'],
+        quienDetalle:
+            'recepcion_documental.ver para entrar; acciones aparte para calcular, recibir, observar, cerrar, reabrir, PDF y configurar el catálogo.',
+        antes: ['Tener el permiso recepcion_documental.ver.'],
+        pasos: [
+            {
+                titulo: 'Abre Recepción documental',
+                detalle:
+                    'Reportes → «Recepción documental». Arriba: «Esperados», «Recibidos», «Pendientes» y «Cumplimiento del mes».',
+            },
+            {
+                titulo: 'Configura lo que recibes (una vez)',
+                detalle:
+                    '«Configurar lo que recibo»: enciende o apaga cada entrada (Altas, Alta IMSS, Contrato indeterminado, Bajas, Vacaciones, Préstamos, Nómina, Listas de asistencia), ordénalas y en «Configurar» elige los documentos de cada evento, empresas y sucursales (vacío = todas). «Guardar y recalcular el mes».',
+            },
+            {
+                titulo: 'El corte se calcula solo',
+                detalle:
+                    'Cada mañana y cada vez que cambias el catálogo se actualiza el corte del mes. Para otro mes usa «Mes a conciliar» → «Calcular / actualizar corte». Nunca duplica ni borra lo ya recibido.',
+                canal: 'automatico',
+            },
+            {
+                titulo: 'Marca lo recibido',
+                detalle:
+                    'Abre el corte del mes. Filtra por sucursal, evento, tipo o estado y marca la casilla de cada original que llegó. En «Más acciones»: «Recibido con observación…», «No recibido…», «No aplica…», «Subir evidencia», «Historial».',
+            },
+            {
+                titulo: 'Imprime si lo necesitas',
+                detalle: '«PDF para marcar» o «PDF con estado».',
+            },
+            {
+                titulo: 'Cierra el corte',
+                detalle:
+                    '«Cerrar corte». Si faltan originales, explica por qué se cierra así. Un corte cerrado ya no se recalcula; para cambiarlo, «Reabrir» con motivo.',
+            },
+        ],
+        despues: [
+            'Si un evento desaparece (por ejemplo se cancela un préstamo), su renglón pasa solo a «No aplica».',
+        ],
+        errores: [
+            {
+                problema:
+                    '«El corte está cerrado: reábrelo con motivo para cambiar la recepción.»',
+                solucion: 'Usa «Reabrir» y escribe el motivo.',
+            },
+            {
+                problema: '«Elige al menos un documento antes de encenderla.»',
+                solucion:
+                    'En «Configurar» de esa entrada marca qué documentos genera cada evento.',
+            },
+        ],
+        registro: [
+            'Cada cambio con antes y después (historial por renglón), evidencias y PDF con versión.',
+        ],
+        relacionados: ['baja', 'nomina-lotes', 'prestamos'],
+        accesos: [
+            {
+                etiqueta: 'Ir a Recepción documental',
+                ruta: '/rh/recepcion-documental',
+                permisos: ['recepcion_documental.ver'],
+                modo: 'operativo',
+            },
+            {
+                etiqueta: 'Lo que recibo cada mes',
+                ruta: '/rh/recepcion-documental/catalogo',
+                permisos: ['recepcion_documental.ver'],
+                modo: 'operativo',
+            },
+        ],
+        preguntas: [
+            '¿Cómo marco que llegó un original?',
+            '¿Cómo configuro qué documentos recibo cada mes?',
+            '¿Cómo cierro el corte de recepción documental?',
+        ],
+        recorrido: 'recepcion-documental',
     },
 ];

@@ -122,7 +122,9 @@ const encendidas = computed(() => props.reglas.filter((r) => r.activa));
             :icono="PackageCheck"
         >
             <Button variant="outline" as-child>
-                <Link :href="rutaCatalogo.url()"
+                <Link
+                    data-tour="recepcion-configurar"
+                    :href="rutaCatalogo.url()"
                     ><Settings2 class="size-4" />
                     {{
                         puedeConfigurar
@@ -133,7 +135,10 @@ const encendidas = computed(() => props.reglas.filter((r) => r.activa));
             </Button>
         </CrudPageHeader>
 
-        <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4">
+        <div
+            data-tour="recepcion-indicadores"
+            class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
+        >
             <KpiRecepcion
                 :etiqueta="`Esperados en ${periodoActual.etiqueta}`"
                 :valor="metricasActuales.esperados"
@@ -202,6 +207,7 @@ const encendidas = computed(() => props.reglas.filter((r) => r.activa));
 
         <section
             v-if="puedeGenerar"
+            data-tour="recepcion-calcular"
             class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:flex-row sm:items-end"
         >
             <div class="flex flex-col gap-1.5">
@@ -233,6 +239,7 @@ const encendidas = computed(() => props.reglas.filter((r) => r.activa));
         </section>
 
         <section
+            data-tour="recepcion-cortes"
             class="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
         >
             <header
@@ -348,6 +355,7 @@ const encendidas = computed(() => props.reglas.filter((r) => r.activa));
         <PaginacionTabla :datos="cortes" />
 
         <Link
+            data-tour="recepcion-resumen-catalogo"
             :href="rutaCatalogo.url()"
             class="flex tarjeta-interactiva flex-col gap-3 rounded-2xl border border-border/60 bg-crema/50 p-4 text-sm"
         >

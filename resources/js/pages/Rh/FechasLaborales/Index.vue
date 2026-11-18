@@ -255,9 +255,10 @@ function deshacer(f: FilaCapturaFechas): void {
 
         <!-- Filtros -->
         <section
+            data-tour="fechas-laborales-filtros"
             class="flex flex-col gap-3 rounded-3xl border border-border bg-gradient-to-br from-crema/60 via-card to-salvia/30 p-4 shadow-xs lg:flex-row lg:items-center"
         >
-            <div class="min-w-0 flex-1">
+            <div data-tour="fechas-laborales-buscar" class="min-w-0 flex-1">
                 <CrudSearchInput
                     v-model="busqueda"
                     placeholder="Buscar por nombre o número de empleado"
@@ -282,6 +283,7 @@ function deshacer(f: FilaCapturaFechas): void {
                 aria-label="Puesto"
             />
             <div
+                data-tour="fechas-laborales-mostrar"
                 class="inline-flex rounded-xl border border-border bg-card p-1"
                 role="radiogroup"
                 aria-label="Qué mostrar"
@@ -317,6 +319,7 @@ function deshacer(f: FilaCapturaFechas): void {
         <!-- Tabla -->
         <div
             v-else
+            data-tour="fechas-laborales-tabla"
             class="overflow-x-auto rounded-3xl border border-border bg-card shadow-xs"
         >
             <table class="w-full min-w-[1100px] text-sm">
@@ -527,6 +530,7 @@ function deshacer(f: FilaCapturaFechas): void {
         <!-- Barra de guardado -->
         <div
             v-if="filasConCambios.length > 0 || mensaje"
+            data-tour="fechas-laborales-guardar"
             class="sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur md:flex-row md:items-center"
         >
             <p class="text-sm font-medium md:w-56">

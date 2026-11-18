@@ -701,6 +701,317 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Nada se envía antes de «Enviar evaluación»; «Solo repasar, sin sesión» no registra ni envía nada.',
         ],
     },
+    'sistemas-altas': {
+        queEs: 'La bandeja de Sistemas con cada persona que entra y necesita usuario en las demás plataformas.',
+        puedes: [
+            'Filtrar con los indicadores «Por dar de alta», «Con 3 días o más» y «Ya dados de alta».',
+            'Copiar sus datos de una vez o dato por dato.',
+            'Enviar o reenviar el correo de alta a Sistemas.',
+            'Marcar como dado de alta (con notas) o deshacer.',
+        ],
+        flujo: [
+            'La persona entra a contratación: aparece «En espera de sus datos».',
+            'Al completar CURP, RFC, NSS, nacimiento, género, teléfono y correo personal sale el correo «Alta en sistemas».',
+            'Sistemas crea sus cuentas copiando los datos.',
+            'Pulsa «Marcar como dado de alta» → notas → «Confirmar».',
+        ],
+        permisos:
+            'sistemas.altas.ver para ver (RH consulta); sistemas.altas.atender para marcar, deshacer y reenviar.',
+        errores: [
+            '«El correo a Sistemas está apagado en este servidor»: trabaja desde la bandeja.',
+            '«En espera de sus datos»: la persona aún no completa sus datos personales.',
+        ],
+    },
+    'sistemas-bajas': {
+        queEs: 'La bandeja de Sistemas con cada persona que salió y necesita que le retiren sus usuarios en las demás plataformas.',
+        puedes: [
+            'Ver por dar de baja y ya atendidos.',
+            'Abrir a la persona, copiar sus datos y reenviar el correo.',
+            'Marcar como dado de baja (o como reactivado si la baja se canceló) y deshacer.',
+        ],
+        flujo: [
+            'Al aplicarse la baja llega «Baja en sistemas: dar de baja accesos» (PEOPLE ya bloqueó su app y portal).',
+            'Sistemas desactiva sus usuarios en cada plataforma de la lista «Por desactivar».',
+            'Pulsa «Marcar como dado de baja» con sus notas.',
+            'Al entregarse el finiquito llega «Baja concluida»; si se cancela, «Baja cancelada: reactivar accesos».',
+        ],
+        permisos:
+            'sistemas.altas.ver para ver; sistemas.altas.atender para marcar y deshacer.',
+        errores: [
+            'Las bajas no suenan en la campana: solo llegan por correo y a esta bandeja.',
+            'El correo nunca trae la causal ni montos: es correcto.',
+        ],
+    },
+    'fechas-laborales': {
+        queEs: 'Captura en lote de las fechas laborales del personal activo: ingreso, inicio de capacitación inicial, inducción, alta IMSS y periodo de prueba específico.',
+        puedes: [
+            'Filtrar por nombre, sucursal y puesto, y ver solo a quien le faltan fechas.',
+            'Editar varias personas en la tabla y guardarlas juntas con un motivo.',
+            'Dejar el periodo vacío para heredar el del puesto o capturar uno específico.',
+        ],
+        flujo: [
+            'Filtra y deja «Con fechas faltantes».',
+            'Edita las celdas de cada persona.',
+            'Escribe el motivo (mínimo 5 caracteres) en la barra inferior.',
+            'Pulsa «Guardar»: cada persona se guarda por separado y las filas con error quedan marcadas.',
+        ],
+        permisos:
+            'expedientes.editar_fechas (todo rol que puede editar expedientes).',
+        errores: [
+            '«La fecha de ingreso no se corrige porque…»: ya hay contrato firmado, recibos emitidos o finiquito; mueve el inicio de capacitación o el periodo de prueba.',
+            'Periodo específico incompleto: captura cantidad y unidad, o deja ambas vacías.',
+        ],
+    },
+    capacitacion: {
+        queEs: 'La portada de la etapa 6: indicadores, aulas, próximas sesiones y accesos a cursos, asignaciones y Certificación Mr. Lana.',
+        puedes: [
+            'Ver cursos publicados, participantes, tasa de finalización, por calificar y constancias.',
+            'Abrir el aula de cualquier curso.',
+            'Ir a crear cursos, asignar o a Certificación.',
+        ],
+        flujo: [
+            'Revisa las alertas («entregas esperan calificación», «asignaciones vencen»).',
+            'Abre el aula o la bandeja correspondiente.',
+        ],
+        permisos:
+            'cursos.ver, asignaciones.ver, respuestas.ver o reportes de capacitación; bandera capacitacion encendida.',
+        errores: [
+            '«Próximamente»: la bandera de Capacitación está apagada en este servidor.',
+        ],
+    },
+    cursos: {
+        queEs: 'El catálogo de cursos: su constructor (contenido) y su aula (avance, trabajo y calificaciones).',
+        puedes: [
+            'Crear un curso y armar módulos y lecciones (video, documento, texto, enlace, cuestionario, actividad, sesión en vivo, confirmación de lectura).',
+            'Publicar, archivar o eliminar un curso.',
+            'Abrir su aula: tablón, trabajo asignado, calificaciones y participantes.',
+        ],
+        flujo: [
+            '«Nuevo curso» → título, descripción, objetivo → «Crear curso».',
+            '«Agregar módulo» y «Agregar lección»; configura cuestionarios, actividades y sesiones.',
+            '«Editar detalles» para la constancia y requisitos.',
+            '«Publicar» y asígnalo.',
+        ],
+        permisos:
+            'cursos.ver para ver; cursos.crear, cursos.publicar y cursos.eliminar para cada acción.',
+        errores: [
+            'El material se sube antes en «Biblioteca multimedia».',
+            '«Primero guarda la configuración» al armar un cuestionario.',
+        ],
+    },
+    asignaciones: {
+        queEs: 'Quién debe tomar cada curso y para cuándo.',
+        puedes: [
+            'Asignar por persona, sucursal, departamento, puesto, rol o a todos.',
+            'Ver a quién le llegará antes de crearla.',
+            'Cancelar una asignación activa.',
+        ],
+        flujo: [
+            '«Nueva asignación» → curso y nombre.',
+            'Plazo opcional y «Asignación obligatoria».',
+            'Destinatarios → «Ver vista previa».',
+            '«Crear asignación»: PEOPLE inscribe y avisa a cada persona.',
+        ],
+        permisos:
+            'asignaciones.ver; asignaciones.crear para crear y asignaciones.cancelar para cancelar.',
+        errores: [
+            '«Debes seleccionar un destino específico.»',
+            'La fecha límite no puede ser antes de la de inicio.',
+        ],
+    },
+    calificar: {
+        queEs: 'Bandejas de respuestas abiertas de cuestionarios y entregas de actividades que esperan calificación.',
+        puedes: [
+            'Calificar respuestas abiertas con puntos o Correcta / Incorrecta.',
+            'Aprobar o rechazar entregas con calificación y retroalimentación.',
+            'Filtrar por curso.',
+        ],
+        flujo: [
+            'Abre la pestaña «Cuestionarios» o «Actividades».',
+            '«Calificar» en el más antiguo.',
+            'Califica y guarda: la persona recibe su resultado.',
+        ],
+        permisos: 'respuestas.ver, y la persona debe estar en tu alcance.',
+        errores: [
+            '403 al abrir un intento: la persona está fuera de tu alcance.',
+        ],
+    },
+    cumplimiento: {
+        queEs: 'El avance de capacitación por colaborador.',
+        puedes: [
+            'Filtrar por sucursal, departamento y curso.',
+            'Ver la distribución por rango de cumplimiento.',
+            'Exportar a Excel o PDF.',
+        ],
+        flujo: [
+            'Filtra.',
+            'Revisa quién tiene vencidas.',
+            'Exporta si lo necesitas.',
+        ],
+        permisos:
+            'reportes.sucursal o reportes.globales; reportes.exportar para exportar.',
+        errores: [
+            '«No hay colaboradores para mostrar con estos filtros»: quita filtros.',
+        ],
+    },
+    certificacion: {
+        queEs: 'La Certificación Mr. Lana: niveles por constancias y la acreditación con el formato oficial RH-CC-R-001.',
+        puedes: [
+            'Ver a tu gente por nivel (Bronce, Plata, Oro) y quién va adelante.',
+            'Descargar el formato RH-CC-R-001 con nombre, sucursal y fecha de ingreso ya llenos.',
+            'Subir el formato firmado con su promedio y emitir el certificado «Cuentas con tu Certificación Mr. Lana».',
+        ],
+        flujo: [
+            '«Descargar formato» → la persona queda «Formato descargado».',
+            'Se llena y firma a pluma.',
+            '«Subir formato firmado» + promedio → queda «Certificado» con folio.',
+            'El formato firmado y el certificado quedan en su expediente.',
+        ],
+        permisos:
+            'Entra quien tiene cursos.ver, asignaciones.ver, respuestas.ver o certificacion.gestionar (bandera certificacion); descargar, subir y certificar piden certificacion.gestionar dentro de tu alcance.',
+        errores: [
+            'Con un promedio menor al mínimo (80 por defecto) no se certifica.',
+            'Si el certificado no se imprime al momento, la certificación no se deshace: se genera al descargarlo.',
+        ],
+    },
+    'recepcion-documental': {
+        queEs: 'El control mensual de los originales firmados que RH debe recibir, calculado a partir de eventos reales.',
+        puedes: [
+            'Ver esperados, recibidos, pendientes y cumplimiento del mes.',
+            'Calcular o actualizar el corte de un mes.',
+            'Marcar cada original como recibido, con observación, no recibido o no aplica, y subir evidencia.',
+            'Configurar qué se recibe de cada evento («Lo que recibo cada mes»).',
+            'Cerrar y reabrir cortes con motivo; PDF para marcar o con estado.',
+        ],
+        flujo: [
+            'Configura el catálogo una vez.',
+            'El corte del mes se calcula solo cada mañana.',
+            'Marca lo que llegó en el corte.',
+            '«Cerrar corte» al terminar el mes.',
+        ],
+        permisos:
+            'recepcion_documental.ver, más una acción por cada operación (generar, recibir, observar, cerrar, reabrir, PDF, configurar).',
+        errores: [
+            '«El corte está cerrado: reábrelo con motivo para cambiar la recepción.»',
+            '«Elige al menos un documento antes de encenderla.»',
+        ],
+    },
+    'nine-box': {
+        queEs: 'La matriz de 3 × 3 de desempeño (Reportes, todas las rutas de cada persona) × potencial (Seguimientos técnicos + calibración).',
+        puedes: [
+            'Elegir mes de Reportes o trimestre.',
+            'Filtrar por cuadrante, sucursal o búsqueda; ver matriz o tabla.',
+            'Abrir el detalle de una persona y calibrar su potencial.',
+            'Exportar a Excel y, con permiso, configurar metas, pesos y cortes.',
+        ],
+        flujo: [
+            'Elige el periodo.',
+            'Revisa «Por calibrar» y «Sin vincular a PEOPLE».',
+            'Abre a la persona, elige Bajo / Medio / Alto con su porqué y «Guardar calibración».',
+        ],
+        permisos:
+            'nine_box.ver para ver; nine_box.calibrar para calibrar; nine_box.configurar para «Configurar». Banderas seguimiento y nine_box.',
+        errores: [
+            '«La conexión con Reportes todavía no está configurada»: avisa a Sistemas.',
+            '«Nadie calibra su propio potencial: lo hace tu jefe directo o RH.»',
+            '«Sin vincular a PEOPLE»: vincúlalo en «Vínculos con Reportes».',
+        ],
+    },
+    'seguimientos-tecnicos': {
+        queEs: 'Las evaluaciones técnicas por puesto «Seguimiento 15 / 30 / 60…», generadas solas desde la fecha de inicio de cada persona.',
+        puedes: [
+            'Ver indicadores, próximas a vencer y vencidas.',
+            'Filtrar por estado, puesto, sucursal y quién contesta.',
+            'Contestar las de tu equipo si eres jefe directo.',
+            'Ver el resultado por pregunta y la línea de tiempo de cada persona.',
+            'Generar al momento las que ya tocan.',
+        ],
+        flujo: [
+            'Cada mañana PEOPLE genera las del día y avisa a quien contesta.',
+            'El colaborador o su jefe directo la contesta y «Enviar evaluación».',
+            'Se califica al instante contra la mínima.',
+        ],
+        permisos:
+            'evaluaciones_tecnicas.ver; evaluaciones_tecnicas.configurar para «Generar las que ya tocan»; evaluaciones_tecnicas.aplicar para contestar como evaluador.',
+        errores: [
+            '«N no se generaron porque su formulario no tiene versión publicada»: publícalo.',
+            '«Esta evaluación ya se contestó o se canceló.»',
+        ],
+    },
+    'calendario-seguimientos': {
+        queEs: 'El calendario de Seguimientos técnicos de cada puesto y sus formularios técnicos.',
+        puedes: [
+            'Definir por puesto el día, formulario, quién contesta, calificación mínima y días para contestar.',
+            'Usar la sugerencia según el contrato de capacitación y copiar el calendario a otros puestos.',
+            'Crear y editar formularios técnicos con el editor de evaluaciones.',
+        ],
+        flujo: [
+            'Crea y publica el formulario técnico.',
+            'Elige el puesto y agrega sus evaluaciones.',
+            '«Guardar calendario».',
+        ],
+        permisos: 'evaluaciones_tecnicas.configurar.',
+        errores: [
+            '«Hay dos evaluaciones el día D: cada día solo puede tener una.»',
+            '«Solo una evaluación puede ser la técnica final.»',
+            '«Evaluación N: elige qué formulario técnico usa.»',
+        ],
+    },
+    'vinculos-reportes': {
+        queEs: 'Donde se une cada persona y cada sucursal de Reportes con su colaborador y su sucursal de PEOPLE (nunca por ruta).',
+        puedes: [
+            'Actualizar el directorio desde Reportes.',
+            'Confirmar sugerencias una por una o todas.',
+            'Elegir a mano al colaborador o la sucursal.',
+            'Desvincular conservando el historial.',
+        ],
+        flujo: [
+            '«Actualizar desde Reportes» si hubo altas.',
+            'Pestaña «Personas» → «Sin vincular» → confirma o elige.',
+            'Pestaña «Sucursales» → igual.',
+        ],
+        permisos: 'seguimiento.vincular; bandera seguimiento.',
+        errores: [
+            '«Esa persona ya no existe en Reportes (o está inactiva).»',
+            '«homónimos: elige a mano»: revisa sucursal y rutas.',
+        ],
+    },
+    'mis-seguimientos': {
+        queEs: 'Tus Seguimientos técnicos por contestar y tus resultados.',
+        puedes: [
+            'Contestar tus Seguimientos antes de su fecha límite.',
+            'Ver tus resultados.',
+            'Contestar los de tu equipo si eres jefe directo.',
+        ],
+        flujo: [
+            'Te llega el aviso «Tu {evaluación} está lista».',
+            '«Contestar ahora» → responde → «Enviar evaluación».',
+        ],
+        permisos: 'Cualquier colaborador con cuenta vinculada, en Mi espacio.',
+        errores: [
+            'Una vez enviada ya no se puede cambiar.',
+            'Si no aparece, todavía no llega su día o tu puesto no tiene calendario.',
+        ],
+    },
+    'mi-capacitacion': {
+        queEs: 'Tus cursos asignados, lo que te falta y tus constancias.',
+        puedes: [
+            'Tomar tus cursos lección por lección.',
+            'Contestar cuestionarios, entregar actividades y entrar a sesiones en vivo.',
+            'Descargar tus constancias y ver tu nivel Mr. Lana.',
+        ],
+        flujo: [
+            '«Mis aulas» → elige el curso.',
+            'Completa cada lección.',
+            'Descarga tu constancia en «Mis certificados».',
+        ],
+        permisos:
+            'Cualquier colaborador en Mi espacio, con la bandera capacitacion encendida.',
+        errores: [
+            '«Esta lección está bloqueada»: termina la anterior.',
+            '«Ya no te quedan intentos disponibles»: pide ayuda a RH.',
+        ],
+    },
 };
 
 /**
@@ -741,4 +1052,20 @@ export const ARTICULOS_DE_MODULO: Record<string, string[]> = {
     portal: ['app-colaborador'],
     'mi-expediente': ['completar-datos', 'documentos-de-alta'],
     'mis-solicitudes': ['permisos', 'vacaciones', 'prestamos'],
+    'sistemas-altas': ['pendientes-sistemas', 'alta-activa'],
+    'sistemas-bajas': ['pendientes-sistemas', 'baja'],
+    'fechas-laborales': ['fechas-laborales'],
+    capacitacion: ['capacitacion-cursos', 'capacitacion-asignar'],
+    cursos: ['capacitacion-cursos'],
+    asignaciones: ['capacitacion-asignar'],
+    calificar: ['capacitacion-calificar'],
+    cumplimiento: ['capacitacion-cumplimiento'],
+    certificacion: ['certificacion-mr-lana'],
+    'recepcion-documental': ['recepcion-documental'],
+    'nine-box': ['nine-box', 'vinculos-reportes'],
+    'seguimientos-tecnicos': ['seguimientos-tecnicos'],
+    'calendario-seguimientos': ['calendario-seguimientos'],
+    'vinculos-reportes': ['vinculos-reportes'],
+    'mis-seguimientos': ['seguimientos-tecnicos'],
+    'mi-capacitacion': ['mi-capacitacion', 'certificacion-mr-lana'],
 };

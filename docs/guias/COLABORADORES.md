@@ -20,6 +20,8 @@ Usa «Mi espacio» (app o web) para su perfil, completar sus datos y documentos,
 - [ ] Subir mis documentos → [Documentos del alta y revisión de RH](#articulo-documentos-de-alta)
 - [ ] Inducción Mr. Lana → [Inducción Mr. Lana y su evaluación](#articulo-induccion-mr-lana)
 - [ ] Lecciones de bienvenida → [Onboarding: la bienvenida del colaborador](#articulo-onboarding)
+- [ ] Mi capacitación y mis constancias → [Mi capacitación: tomar mis cursos](#articulo-mi-capacitacion)
+- [ ] Mis seguimientos técnicos → [Seguimientos técnicos: «Seguimiento 15», «30», «60»…](#articulo-seguimientos-tecnicos)
 - [ ] Directorio → [Directorio y correo corporativo](#articulo-directorio)
 - [ ] Pedir un permiso → [Pedir y autorizar un permiso](#articulo-permisos)
 - [ ] Pedir vacaciones → [Vacaciones](#articulo-vacaciones)
@@ -482,7 +484,7 @@ RH, Colaborador.
 #### En el sistema
 
 - **Ir a Avisos (RH)** → `/rh/avisos` _(permiso: avisos.enviar)_
-- **Ir a mis Avisos** → `/avisos`
+- **Ir a Mis notificaciones** → `/mis-notificaciones`
 - Guía en pantalla → `/ayuda/articulo/avisos`
 
 ## 11. Vida laboral
@@ -592,7 +594,129 @@ RH, Colaborador.
 - **Ir al Muro de felicitaciones** → `/celebraciones`
 - Guía en pantalla → `/ayuda/articulo/celebraciones`
 
-## 14. Administración
+## 12. Capacitación y Certificación
+
+<a id="articulo-mi-capacitacion"></a>
+
+### Mi capacitación: tomar mis cursos
+
+> El colaborador ve sus aulas, lo que le falta y sus constancias; completa lecciones, contesta cuestionarios y entrega actividades.
+
+#### Qué es
+
+En Mi espacio → «Mi capacitación» están tus cursos asignados («Mis aulas»), lo que te falta («Pendientes») y tus constancias y nivel de la Certificación Mr. Lana («Mis certificados»). En Mi inicio la tarjeta «Mi capacitación» te dice cuántas lecciones te faltan y cuál sigue.
+
+#### Quién lo hace
+
+Colaborador.
+
+#### Pasos
+
+1. **Abre tu curso** _(Web)_ — Mi espacio → «Mi capacitación» → «Mis aulas» → elige el curso (o «Sigue con…» en tu inicio).
+2. **Avanza lección por lección** — Documentos, textos, enlaces y confirmaciones: «Marcar como completada». Los videos se completan solos al verlos.
+3. **Cuestionarios** — «Iniciar cuestionario» → responde → «Enviar cuestionario». Si no apruebas y te quedan intentos, «Intentar de nuevo».
+4. **Actividades** — Escribe tu respuesta, sube tu archivo o pega el enlace y pulsa «Enviar entrega» antes de la fecha límite. Quien imparte el curso la califica.
+5. **Sesiones en vivo** — El enlace aparece cerca de la fecha. Tu asistencia la registra el instructor (o la conexión con Zoom).
+6. **Tu constancia** — Al terminar un curso que genera constancia, aparece en «Mis certificados» con folio, «Descargar» y «Verificación».
+
+#### Qué pasa después
+
+- Tus constancias suman para tu nivel de la Certificación Mr. Lana (Bronce, Plata, Oro).
+
+#### Errores comunes
+
+- **«Esta lección está bloqueada.»** El curso pide completar las lecciones en orden: termina la anterior.
+- **«Ya no te quedan intentos disponibles.»** Pide a RH que revise tu caso.
+
+#### En el sistema
+
+- **Ir a Mi capacitación** → `/mi-capacitacion`
+- Guía en pantalla → `/ayuda/articulo/mi-capacitacion`
+
+<a id="articulo-certificacion-mr-lana"></a>
+
+### Certificación Mr. Lana (formato RH-CC-R-001)
+
+> Descargar el formato oficial con nombre, sucursal y fecha de ingreso ya llenos, firmarlo, subirlo firmado con su promedio y emitir el certificado «Cuentas con tu Certificación Mr. Lana».
+
+#### Qué es
+
+La Certificación Mr. Lana del gestor se acredita con el formato oficial RH-CC-R-001 (certificación del gestor de crédito), que se llena y firma a pluma. PEOPLE lo prellena, guarda el escaneo firmado en el expediente y emite el certificado con folio verificable. Además, la pantalla muestra los niveles Mr. Lana Bronce, Plata y Oro según las constancias de cursos.
+
+#### Quién lo hace
+
+RH (o quien tenga certificacion.gestionar dentro de su alcance) descarga, sube y certifica; el colaborador ve su certificación en «Mi capacitación».
+
+> **Nota:** Si el certificado no se puede imprimir en ese momento, la certificación no se deshace: el certificado se genera al descargarlo.
+
+#### Pasos
+
+1. **Abre Certificación** — Capacitación → «Certificación Mr. Lana» y busca a la persona (estado «Sin formato»).
+2. **Descarga el formato** — «Descargar formato»: es el PDF oficial RH-CC-R-001 con el encabezado (nombre, sucursal, fecha de ingreso) ya lleno. La persona pasa a «Formato descargado» y queda registrado quién y cuándo.
+3. **Llénalo y fírmalo** _(Automático)_ — En papel: temas, fechas, evaluación, promedio y firmas.
+4. **Sube el formato firmado** — «Subir formato firmado»: adjunta el escaneo, captura el «Promedio del formato» (mínimo aprobatorio configurado, 80 por defecto) y confirma que tiene las firmas del gestor y del gerente de sucursal y «Certificado: SÍ».
+5. **Queda certificado** _(Automático)_ — Al guardar, la persona queda «Certificado» con folio y se emite el certificado «Cuentas con tu Certificación Mr. Lana». El formato firmado y el certificado se guardan en su expediente; en su renglón aparecen «Ver certificado» y «Descargar».
+
+#### Qué pasa después
+
+- El colaborador ve su certificación en Mi espacio → «Mi capacitación» → «Mis certificados».
+
+#### Errores comunes
+
+- **«No aparece la persona.»** Está fuera de tu alcance o no es colaborador activo.
+- **«El promedio no alcanza.»** Con un promedio menor al mínimo no se certifica: revisa el formato con el área de capacitación.
+
+#### En el sistema
+
+- **Ir a Certificación Mr. Lana** → `/capacitacion/certificacion` _(permiso: cursos.ver o asignaciones.ver o respuestas.ver o certificacion.gestionar)_
+- Guía en pantalla → `/ayuda/articulo/certificacion-mr-lana`
+
+## 13. Seguimiento y Nine Box
+
+<a id="articulo-seguimientos-tecnicos"></a>
+
+### Seguimientos técnicos: «Seguimiento 15», «30», «60»…
+
+> Evaluaciones técnicas por puesto que PEOPLE genera solas cada mañana al llegar el día desde el ingreso; las contesta el colaborador o su jefe directo y se califican al instante.
+
+#### Qué es
+
+Un Seguimiento técnico es una evaluación de conocimientos del puesto que se aplica en días fijos desde que la persona entró (por ejemplo día 15, 30 y 60). Cada puesto tiene su propio calendario y sus propios formularios. No dependen de Reportes: son la parte de «potencial» que después usa la Nine Box.
+
+#### Quién lo hace
+
+RH arma el calendario y los formularios; PEOPLE las genera solas; las contesta el colaborador (en Mi espacio) o su jefe directo, según el paso; RH y quien tiene alcance consultan los resultados.
+
+> **Nota:** Una evaluación vencida todavía se puede contestar. Si la persona deja de estar activa o cambia de puesto, sus evaluaciones pendientes se cancelan (no se borran).
+
+> **Atención:** Nadie contesta por sí mismo una evaluación que le toca al jefe directo, ni siquiera un super administrador.
+
+#### Pasos
+
+1. **PEOPLE genera la evaluación** _(Automático)_ — Cada mañana (6:45) revisa a los colaboradores activos: al llegar el día N de su puesto crea la evaluación con la versión publicada del formulario, su fecha límite (día programado + «Días para contestar») y avisa a quien la contesta. Si un día ya pasó, solo se genera hasta 15 días tarde.
+2. **Si te toca contestarla como colaborador** _(Colaborador · Web)_ — Mi espacio → «Mis seguimientos técnicos» → «Por contestar» → «Contestar ahora». Responde las preguntas, escribe comentarios si quieres y pulsa «Enviar evaluación» → «Enviar».
+3. **Si te toca como jefe directo** _(Gerente · Web)_ — Seguimiento → «Seguimientos técnicos» (o «Mis seguimientos técnicos») → bloque «Te toca evaluar a tu equipo». Abre la de la persona, contesta, agrega observaciones para RH y pulsa «Enviar evaluación».
+4. **Calificación al instante** _(Automático)_ — Al enviar se califica contra la mínima del paso (por defecto 80): queda «Aprobada» o «No aprobada». Ya no se puede cambiar.
+5. **RH da seguimiento** _(RH · Web)_ — En «Seguimientos técnicos» revisa indicadores, «Próximas a vencer» y «Vencidas», filtra por estado, puesto, sucursal o quién contesta, y abre cualquier renglón para ver la respuesta por pregunta o el nombre para ver la línea de tiempo de la persona. «Generar las que ya tocan» corre la generación al momento.
+
+#### Qué pasa después
+
+- El promedio de sus Seguimientos alimenta el potencial de la persona en la Nine Box.
+- Su jefe directo recibe el resultado cuando el colaborador contesta.
+
+#### Errores comunes
+
+- **«Esta evaluación ya se contestó o se canceló.»** Ya no admite respuestas; ábrela desde la lista para ver su resultado.
+- **«N no se generaron porque su formulario no tiene versión publicada.»** Abre «Calendario de seguimientos» → «Formularios técnicos», publica el formulario y vuelve a pulsar «Generar las que ya tocan».
+- **«No me aparece mi seguimiento.»** Todavía no llega el día, tu puesto no tiene calendario o falta tu fecha de inicio en Fechas laborales. Pregunta a RH.
+
+#### En el sistema
+
+- **Ir a Seguimientos técnicos** → `/seguimiento/evaluaciones-tecnicas` _(permiso: evaluaciones_tecnicas.ver)_
+- **Ir a Mis seguimientos técnicos** → `/mis-evaluaciones-tecnicas`
+- Guía en pantalla → `/ayuda/articulo/seguimientos-tecnicos`
+
+## 16. Administración
 
 <a id="articulo-app-movil"></a>
 

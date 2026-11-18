@@ -420,13 +420,18 @@ function alcance(entrada: EntradaCatalogoRecepcion): string {
             detalle
         >
             <Button variant="outline" as-child>
-                <Link :href="inicioRecepcion.url()"
+                <Link
+                    data-tour="recepcion-catalogo-volver"
+                    :href="inicioRecepcion.url()"
                     ><ArrowLeft class="size-4" /> Volver a los cortes</Link
                 >
             </Button>
         </CrudPageHeader>
 
-        <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4">
+        <div
+            data-tour="recepcion-catalogo-indicadores"
+            class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
+        >
             <KpiRecepcion
                 etiqueta="Entradas encendidas"
                 :valor="activas.length"
@@ -481,7 +486,10 @@ function alcance(entrada: EntradaCatalogoRecepcion): string {
             empty-description="Enciende al menos una entrada para ver lo que se esperaría."
         />
 
-        <section class="flex flex-col gap-2">
+        <section
+            data-tour="recepcion-catalogo-entradas"
+            class="flex flex-col gap-2"
+        >
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-sm font-semibold">Entradas del catálogo</h2>
                 <p

@@ -54,6 +54,29 @@ export const ROLES_GUIA: RolGuia[] = [
             { texto: 'Autorizar solicitudes', articulo: 'revisar-solicitudes' },
             { texto: 'Preparar y emitir nómina', articulo: 'nomina-lotes' },
             { texto: 'Enviar avisos', articulo: 'avisos' },
+            {
+                texto: 'Fechas laborales y periodo de prueba',
+                articulo: 'fechas-laborales',
+            },
+            {
+                texto: 'Crear cursos de capacitación',
+                articulo: 'capacitacion-cursos',
+            },
+            { texto: 'Asignar capacitación', articulo: 'capacitacion-asignar' },
+            {
+                texto: 'Certificación Mr. Lana (RH-CC-R-001)',
+                articulo: 'certificacion-mr-lana',
+            },
+            {
+                texto: 'Calendario de Seguimientos técnicos',
+                articulo: 'calendario-seguimientos',
+            },
+            { texto: 'Vínculos con Reportes', articulo: 'vinculos-reportes' },
+            { texto: 'Nine Box y calibración', articulo: 'nine-box' },
+            {
+                texto: 'Recepción documental del mes',
+                articulo: 'recepcion-documental',
+            },
             { texto: 'Bajas y sus pestañas', articulo: 'baja' },
             { texto: 'Reingresos', articulo: 'reingreso' },
         ],
@@ -108,6 +131,14 @@ export const ROLES_GUIA: RolGuia[] = [
             },
             { texto: 'Levantar un acta', articulo: 'actas' },
             {
+                texto: 'Contestar los Seguimientos técnicos de tu equipo',
+                articulo: 'seguimientos-tecnicos',
+            },
+            {
+                texto: 'Calibrar potencial en la Nine Box',
+                articulo: 'nine-box',
+            },
+            {
                 texto: 'Iniciar la baja de alguien de tu equipo',
                 articulo: 'baja',
             },
@@ -144,6 +175,7 @@ export const ROLES_GUIA: RolGuia[] = [
                 texto: 'Monitorear vacantes de la región',
                 articulo: 'plantilla-y-vacantes',
             },
+            { texto: 'Nine Box de tu región', articulo: 'nine-box' },
         ],
     },
     {
@@ -189,6 +221,10 @@ export const ROLES_GUIA: RolGuia[] = [
             },
             { texto: 'Baja: retirar accesos y equipo', articulo: 'baja' },
             {
+                texto: 'Pendientes de alta y de baja en sistemas',
+                articulo: 'pendientes-sistemas',
+            },
+            {
                 texto: 'Cuentas, contraseñas, roles y acceso',
                 articulo: 'usuarios-y-roles',
             },
@@ -224,6 +260,14 @@ export const ROLES_GUIA: RolGuia[] = [
             { texto: 'Subir mis documentos', articulo: 'documentos-de-alta' },
             { texto: 'Inducción Mr. Lana', articulo: 'induccion-mr-lana' },
             { texto: 'Lecciones de bienvenida', articulo: 'onboarding' },
+            {
+                texto: 'Mi capacitación y mis constancias',
+                articulo: 'mi-capacitacion',
+            },
+            {
+                texto: 'Mis seguimientos técnicos',
+                articulo: 'seguimientos-tecnicos',
+            },
             { texto: 'Directorio', articulo: 'directorio' },
             { texto: 'Pedir un permiso', articulo: 'permisos' },
             { texto: 'Pedir vacaciones', articulo: 'vacaciones' },
