@@ -359,6 +359,7 @@ return [
             ],
         ],
         'importar_datos' => [
+                'usuarios.permisos_especiales' => 'Dar o quitar permisos especiales a una persona (sin tocar su rol)',
             'etiqueta' => 'Importar datos',
             'grupo' => 'Configuración',
             'etapa' => 'configuracion',
@@ -1033,6 +1034,9 @@ return [
         'configuracion.notificaciones.editar' => 'configuracion.notificaciones',
         'configuracion.rh.editar_parametros' => 'configuracion.rh',
         'configuracion.rh.puestos' => 'configuracion.rh',
+        // Permisos especiales por persona: de inicio, quien administra roles
+        // (super_admin y Sistemas, o cualquier rol con roles.administrar).
+        'usuarios.permisos_especiales' => 'roles.administrar',
         'configuracion.rh.tipos_documento' => 'configuracion.rh',
         'configuracion.rh.reclutamiento' => 'configuracion.rh',
         // Reclutamiento / Onboarding / Periodo de prueba / Reportes.
@@ -1208,6 +1212,7 @@ return [
         'usuarios.desactivar' => 'Revoca el acceso de una cuenta (no da de baja al colaborador).',
         'usuarios.restablecer_acceso' => 'Rehabilita una cuenta suspendida.',
         'usuarios.reactivar' => 'Reactiva a un colaborador dado de baja desde su expediente.',
+        'usuarios.permisos_especiales' => 'Concede o quita permisos (y alcance por módulo) a UNA persona sin tocar su rol, con motivo y vigencia opcional que vence sola (p. ej. un gerente que cubre a otro). Solo concede lo que él mismo tiene; nunca a sí mismo ni a una cuenta de rol superior. Muy sensible.',
         'expedientes.migrar' => 'Migración y carga inicial de colaboradores y expedientes históricos.',
         'expedientes.editar_fechas' => 'Edita las fechas laborales (ingreso, capacitación inicial, inducción, alta IMSS) y el periodo de prueba específico de una persona, con motivo e historial; incluye la captura masiva.',
         'expedientes.cambiar_sucursal' => 'Cambia a una persona de sucursal sin cambiar su puesto: valida plaza libre en destino, registra el movimiento laboral y recalcula su jefe directo.',
