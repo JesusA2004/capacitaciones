@@ -265,11 +265,17 @@ export type CandidatoFicha = {
         resultado: string;
         resultado_etiqueta: string;
         observaciones: string | null;
+        /** Quién registró la entrevista en PEOPLE. */
+        registrado_por?: string | null;
     }[];
     psicometricas: {
         id: number;
         link: string | null;
         enviada_en: string | null;
+        /** Quién envió el link / cargó los resultados / revisó. */
+        enviada_por?: string | null;
+        resultados_por?: string | null;
+        revisada_por?: string | null;
         resultados_en: string | null;
         resumen_resultados: string | null;
         revision_resultado: string | null;
@@ -292,8 +298,23 @@ export type CandidatoFicha = {
         resultado_etiqueta: string;
         revisado_en?: string | null;
         revision_observaciones?: string | null;
+        /** Quién cargó el estudio y quién lo revisó/autorizó. */
+        registrado_por?: string | null;
+        registrado_en?: string | null;
+        revisado_por?: string | null;
         evidencias: EvidenciaCandidato[];
     }[];
+    /** Pasos que quien consulta puede ver (permiso «Ver» de cada paso); sin él, el paso viaja vacío. */
+    pasos_visibles?: Record<
+        'entrevista' | 'psicometricas' | 'socioeconomico' | 'referencias',
+        boolean
+    >;
+    /** Quién concluyó la validación de referencias (null = aún no). */
+    referencias_conclusion?: {
+        por: string | null;
+        en: string | null;
+        viable: boolean;
+    } | null;
     /** Ver psicométrico / socioeconómico / video / CV (CandidatoPresenter::accesosRapidos). */
     accesos_rapidos?: AccesosRapidosCandidato;
     referencias: {

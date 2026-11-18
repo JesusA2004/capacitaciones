@@ -5,6 +5,7 @@ namespace App\Services\Reclutamiento;
 use App\Enums\EstadoCandidato;
 use App\Enums\FuenteCandidato;
 use App\Enums\TipoEvidenciaCandidato;
+use App\Enums\TipoSeguimientoCandidato;
 use App\Models\Candidato;
 use App\Models\CandidatoEntrevista;
 use App\Models\CandidatoEvidencia;
@@ -35,6 +36,7 @@ class CandidatoPresenter
         private readonly ExpedienteCandidatoService $expediente,
         private readonly FotoColaboradorService $fotos,
         private readonly FaseContratadoService $fasesContratado,
+        private readonly PermisosPasoCandidatoService $pasos,
     ) {}
 
     /**
@@ -213,10 +215,41 @@ class CandidatoPresenter
 
         $invitacion = IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->latest('id')->first();
         // Quién escribió las observaciones de cada revisión (aditivo).
+        // Y quién cargó cada paso (cargar ≠ revisar: se muestran los dos).
+        $conclusionReferencias = $this->conclusionReferencias($candidato);
         $revisores = $this->nombresDeUsuarios([
             ...$candidato->psicometricas->pluck('revisada_por')->all(),
             ...$candidato->socioeconomicos->pluck('revisado_por')->all(),
+            ...$candidato->psicometricas->pluck('enviada_por')->all(),
+            ...$candidato->psicometricas->pluck('resultados_por')->all(),
+            ...$candidato->socioeconomicos->pluck('registrado_por')->all(),
+            ...$candidato->entrevistas->pluck('registrado_por')->all(),
+            $conclusionReferencias['por_id'] ?? null,
         ]);
+        // Ver cada paso es un permiso propio (Socioeconómico · Ver…): sin
+        // él, el paso viaja vacío (web y API) y la ficha lo indica.
+        $visibles = $viewer !== null ? $this->pasos->pasosVisibles($viewer) : [
+            PermisosPasoCandidatoService::PASO_ENTREVISTA => true,
+            PermisosPasoCandidatoService::PASO_PSICOMETRICAS => true,
+            PermisosPasoCandidatoService::PASO_SOCIOECONOMICO => true,
+            PermisosPasoCandidatoService::PASO_REFERENCIAS => true,
+        ];
+        $accesosRapidos = $this->accesosRapidos($candidato);
+
+        if (! $visibles[PermisosPasoCandidatoService::PASO_PSICOMETRICAS]) {
+            $accesosRapidos['psicometrico'] = null;
+        }
+
+        if (! $visibles[PermisosPasoCandidatoService::PASO_SOCIOECONOMICO]) {
+            $accesosRapidos['socioeconomico'] = null;
+            $accesosRapidos['video'] = null;
+        }
+
+        $expediente = $this->expediente->resumen($candidato);
+        $expediente['grupos'] = array_values(array_filter(
+            $expediente['grupos'],
+            fn (array $grupo): bool => $visibles[$grupo['etapa']] ?? true,
+        ));
 
         return [
             'id' => $candidato->id,
@@ -267,28 +300,39 @@ class CandidatoPresenter
             // Sin quien mira no se manda: ausente = no. Misma regla que la ruta (CandidatoPolicy::view).
             ...($viewer !== null ? ['puede_descargar_cv' => $candidato->tiene_cv && $viewer->can('view', $candidato)] : []),
             // Ver psicométrico / socioeconómico / video / CV sin bajar toda la ficha.
-            'accesos_rapidos' => $this->accesosRapidos($candidato),
+            'accesos_rapidos' => $accesosRapidos,
             // Mini expediente previo a la contratación (CV, psicométricos,
             // videos del socioeconómico, referencias), agrupado como en el NAS.
-            'expediente' => $this->expediente->resumen($candidato),
+            'expediente' => $expediente,
+            // Qué pasos puede ver quien consulta (Ver de cada paso en Roles y permisos).
+            'pasos_visibles' => $visibles,
+            // Quién concluyó la validación de referencias (null = aún no).
+            'referencias_conclusion' => $visibles[PermisosPasoCandidatoService::PASO_REFERENCIAS] && $conclusionReferencias !== null ? [
+                'por' => $revisores[$conclusionReferencias['por_id'] ?? 0] ?? null,
+                'en' => $conclusionReferencias['en'],
+                'viable' => $conclusionReferencias['viable'],
+            ] : null,
             'colaborador_id' => $candidato->colaborador_id,
             // Foto oficial del expediente (URL protegida, nunca foto_path);
             // sin quien consulta (API móvil) no se calcula.
             'foto_url' => $viewer !== null ? $this->fotoOficial($candidato, $viewer, $api) : null,
             'creado_en' => $candidato->created_at?->toIso8601String(),
             'contratado_en' => $candidato->contratado_en?->toIso8601String(),
-            'entrevistas' => $candidato->entrevistas->map(fn (CandidatoEntrevista $e) => [
+            'entrevistas' => ! $visibles[PermisosPasoCandidatoService::PASO_ENTREVISTA] ? [] : $candidato->entrevistas->map(fn (CandidatoEntrevista $e) => [
                 'id' => $e->id,
                 'realizada_en' => $e->realizada_en->toIso8601String(),
                 'entrevistador' => $e->entrevistador?->nombreCompleto(),
                 'resultado' => $e->resultado->value,
                 'resultado_etiqueta' => $e->resultado->etiqueta(),
                 'observaciones' => $e->observaciones,
+                'registrado_por' => $revisores[(int) $e->registrado_por] ?? null,
             ])->values()->all(),
-            'psicometricas' => $candidato->psicometricas->map(fn (CandidatoPsicometrica $p) => [
+            'psicometricas' => ! $visibles[PermisosPasoCandidatoService::PASO_PSICOMETRICAS] ? [] : $candidato->psicometricas->map(fn (CandidatoPsicometrica $p) => [
                 'id' => $p->id,
                 'link' => $p->link,
                 'enviada_en' => $p->enviada_en?->toIso8601String(),
+                'enviada_por' => $revisores[(int) $p->enviada_por] ?? null,
+                'resultados_por' => $revisores[(int) $p->resultados_por] ?? null,
                 'resultados_en' => $p->resultados_en?->toIso8601String(),
                 'resumen_resultados' => $p->resumen_resultados,
                 'revision_resultado' => $p->revision_resultado?->value,
@@ -297,7 +341,7 @@ class CandidatoPresenter
                 'revisada_por' => $revisores[(int) $p->revisada_por] ?? null,
                 'evidencias' => $p->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
-            'socioeconomicos' => $candidato->socioeconomicos->map(fn (CandidatoSocioeconomico $s) => [
+            'socioeconomicos' => ! $visibles[PermisosPasoCandidatoService::PASO_SOCIOECONOMICO] ? [] : $candidato->socioeconomicos->map(fn (CandidatoSocioeconomico $s) => [
                 'id' => $s->id,
                 'fecha_visita' => $s->fecha_visita->toDateString(),
                 'visitador' => $s->visitador?->nombreCompleto(),
@@ -306,15 +350,17 @@ class CandidatoPresenter
                 'criterios' => $this->criteriosSocioeconomico($s->checklist ?? []),
                 'riesgos' => $s->riesgos,
                 'observaciones' => $s->observaciones,
-                // Cargado sin revisar = «Pendiente de revisión» (cargar ≠ decidir).
+                // Cargado sin revisar = «Cargado, pendiente de revisión» (cargar ≠ decidir).
                 'resultado' => $s->resultado?->value,
-                'resultado_etiqueta' => $s->resultado?->etiqueta() ?? 'Pendiente de revisión',
+                'resultado_etiqueta' => $s->resultado?->etiqueta() ?? 'Cargado, pendiente de revisión',
+                'registrado_por' => $revisores[(int) $s->registrado_por] ?? null,
+                'registrado_en' => $s->created_at?->toIso8601String(),
                 'revisado_en' => $s->revisado_en?->toIso8601String(),
                 'revision_observaciones' => $s->revision_observaciones,
                 'revisado_por' => $revisores[(int) $s->revisado_por] ?? null,
                 'evidencias' => $s->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
-            'referencias' => $candidato->referencias->map(fn (CandidatoReferencia $r) => [
+            'referencias' => ! $visibles[PermisosPasoCandidatoService::PASO_REFERENCIAS] ? [] : $candidato->referencias->map(fn (CandidatoReferencia $r) => [
                 'id' => $r->id,
                 'empresa' => $r->empresa,
                 'contacto' => $r->contacto,
@@ -465,7 +511,32 @@ class CandidatoPresenter
     {
         return [
             ...$this->expediente->evidencia($evidencia),
-            ...($viewer !== null ? ['puede_descargar' => $viewer->can('view', $candidato)] : []),
+            ...($viewer !== null ? ['puede_descargar' => $viewer->can('view', $candidato) && $this->pasos->puedeVerEvidencia($viewer, $evidencia)] : []),
+        ];
+    }
+
+    /**
+     * Quién concluyó la validación de referencias: el último avance o cierre
+     * registrado desde «Referencias pendientes» (null si aún no se concluye).
+     *
+     * @return array{por_id: int|null, en: string|null, viable: bool}|null
+     */
+    private function conclusionReferencias(Candidato $candidato): ?array
+    {
+        $seguimiento = $candidato->seguimientos()
+            ->where('tipo', TipoSeguimientoCandidato::CambioEstado->value)
+            ->where('estado_anterior', EstadoCandidato::ReferenciasPendientes->value)
+            ->latest('id')
+            ->first();
+
+        if ($seguimiento === null) {
+            return null;
+        }
+
+        return [
+            'por_id' => $seguimiento->registrado_por !== null ? (int) $seguimiento->registrado_por : null,
+            'en' => $seguimiento->fecha->toIso8601String(),
+            'viable' => $seguimiento->estado_nuevo !== null && EstadoCandidato::tryFrom((string) $seguimiento->estado_nuevo)?->esSalida() === false,
         ];
     }
 

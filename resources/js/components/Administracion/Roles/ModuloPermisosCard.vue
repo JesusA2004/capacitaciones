@@ -191,64 +191,66 @@ const accesoDifiere = computed(() =>
             :key="grupo.titulo ?? '—'"
             class="flex flex-col gap-1.5"
         >
-        <h5
-            v-if="grupo.titulo"
-            class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-        >
-            {{ grupo.titulo }}
-        </h5>
-        <ul class="grid gap-1.5 @md:grid-cols-2 @4xl:grid-cols-3">
-            <li
-                v-for="accion in grupo.acciones"
-                :key="accion.permiso"
-                class="flex items-center gap-2.5 rounded-xl border px-3 py-2"
-                :class="[
-                    difiere(accion.permiso)
-                        ? 'border-warning/50 bg-warning-soft/60'
-                        : 'border-transparent bg-muted/40',
-                    !tieneAcceso && !permisos.has(accion.permiso)
-                        ? 'opacity-60'
-                        : '',
-                ]"
+            <h5
+                v-if="grupo.titulo"
+                class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
             >
-                <PermisoSwitch
-                    tamano="sm"
-                    :model-value="permisos.has(accion.permiso)"
-                    :disabled="soloLectura"
-                    :etiqueta="accion.etiqueta"
-                    @update:model-value="emit('accion', accion.permiso, $event)"
-                />
-                <span class="min-w-0 flex-1 text-sm leading-tight">
-                    {{ accion.etiqueta }}
-                    <span
-                        v-if="difiere(accion.permiso)"
-                        class="block text-[11px] text-warning"
-                        >{{ nombreComparacion }}:
-                        {{
-                            comparacion?.has(accion.permiso) ? 'sí' : 'no'
-                        }}</span
-                    >
-                </span>
-                <Tooltip>
-                    <TooltipTrigger as-child>
-                        <button
-                            type="button"
-                            class="shrink-0 presionable rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                            :aria-label="`Qué permite: ${accion.etiqueta}`"
-                        >
-                            <Info class="size-3.5" />
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent class="max-w-xs">
-                        {{ accion.descripcion ?? accion.etiqueta }}
+                {{ grupo.titulo }}
+            </h5>
+            <ul class="grid gap-1.5 @md:grid-cols-2 @4xl:grid-cols-3">
+                <li
+                    v-for="accion in grupo.acciones"
+                    :key="accion.permiso"
+                    class="flex items-center gap-2.5 rounded-xl border px-3 py-2"
+                    :class="[
+                        difiere(accion.permiso)
+                            ? 'border-warning/50 bg-warning-soft/60'
+                            : 'border-transparent bg-muted/40',
+                        !tieneAcceso && !permisos.has(accion.permiso)
+                            ? 'opacity-60'
+                            : '',
+                    ]"
+                >
+                    <PermisoSwitch
+                        tamano="sm"
+                        :model-value="permisos.has(accion.permiso)"
+                        :disabled="soloLectura"
+                        :etiqueta="accion.etiqueta"
+                        @update:model-value="
+                            emit('accion', accion.permiso, $event)
+                        "
+                    />
+                    <span class="min-w-0 flex-1 text-sm leading-tight">
+                        {{ accion.etiqueta }}
                         <span
-                            class="mt-1 block font-mono text-[10px] opacity-80"
-                            >{{ accion.permiso }}</span
+                            v-if="difiere(accion.permiso)"
+                            class="block text-[11px] text-warning"
+                            >{{ nombreComparacion }}:
+                            {{
+                                comparacion?.has(accion.permiso) ? 'sí' : 'no'
+                            }}</span
                         >
-                    </TooltipContent>
-                </Tooltip>
-            </li>
-        </ul>
+                    </span>
+                    <Tooltip>
+                        <TooltipTrigger as-child>
+                            <button
+                                type="button"
+                                class="shrink-0 presionable rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                :aria-label="`Qué permite: ${accion.etiqueta}`"
+                            >
+                                <Info class="size-3.5" />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent class="max-w-xs">
+                            {{ accion.descripcion ?? accion.etiqueta }}
+                            <span
+                                class="mt-1 block font-mono text-[10px] opacity-80"
+                                >{{ accion.permiso }}</span
+                            >
+                        </TooltipContent>
+                    </Tooltip>
+                </li>
+            </ul>
         </div>
         <p
             v-if="modulo.acciones.length === 0"

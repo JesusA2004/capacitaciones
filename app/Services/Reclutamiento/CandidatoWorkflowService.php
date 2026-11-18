@@ -78,7 +78,11 @@ class CandidatoWorkflowService
 
     public const PERMISO_ENTREVISTA = 'candidatos.aprobar_entrevista';
 
+    /** Psicométricas · Cargar resultados (el link va aparte: PERMISO_ENVIAR_PSICOMETRICAS). */
     public const PERMISO_PSICOMETRICAS = 'candidatos.registrar_psicometricas';
+
+    /** Psicométricas · Enviar link (se separó de registrar_psicometricas, 2026-11-18). */
+    public const PERMISO_ENVIAR_PSICOMETRICAS = 'candidatos.enviar_psicometricas';
 
     public const PERMISO_REVISAR_PSICOMETRICAS = 'candidatos.revisar_psicometricas';
 
@@ -86,7 +90,11 @@ class CandidatoWorkflowService
 
     public const PERMISO_REVISAR_SOCIOECONOMICO = 'candidatos.revisar_socioeconomico';
 
+    /** Referencias · Revisar y concluir (viable / no viable). */
     public const PERMISO_REFERENCIAS = 'candidatos.validar_referencias';
+
+    /** Referencias · Cargar cada referencia y su soporte (se separó de validar_referencias, 2026-11-18). */
+    public const PERMISO_CARGAR_REFERENCIAS = 'candidatos.registrar_referencias';
 
     public const PERMISO_DESCARTAR = 'candidatos.cerrar_proceso';
 
@@ -106,10 +114,12 @@ class CandidatoWorkflowService
     public const PERMISOS_PASOS = [
         self::PERMISO_REVISAR_PERFIL,
         self::PERMISO_ENTREVISTA,
+        self::PERMISO_ENVIAR_PSICOMETRICAS,
         self::PERMISO_PSICOMETRICAS,
         self::PERMISO_REVISAR_PSICOMETRICAS,
         self::PERMISO_SOCIOECONOMICO,
         self::PERMISO_REVISAR_SOCIOECONOMICO,
+        self::PERMISO_CARGAR_REFERENCIAS,
         self::PERMISO_REFERENCIAS,
     ];
 
@@ -368,7 +378,7 @@ class CandidatoWorkflowService
 
     public function enviarPsicometricas(Candidato $candidato, User $actor, string $link): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_PSICOMETRICAS, $candidato);
+        $this->autorizar($actor, self::PERMISO_ENVIAR_PSICOMETRICAS, $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::PsicometricasPendientes, function (Candidato $c) use ($actor, $link): void {
             $registro = $this->psicometricaAbierta($c);
@@ -506,11 +516,13 @@ class CandidatoWorkflowService
      */
     public function registrarReferencia(Candidato $candidato, User $actor, array $datos, array $archivos = []): CandidatoReferencia
     {
-        $this->autorizar($actor, self::PERMISO_REFERENCIAS, $candidato);
+        $this->autorizar($actor, self::PERMISO_CARGAR_REFERENCIAS, $candidato);
+        $primera = false;
 
-        return DB::transaction(function () use ($candidato, $actor, $datos, $archivos): CandidatoReferencia {
+        $registrada = DB::transaction(function () use ($candidato, $actor, $datos, $archivos, &$primera): CandidatoReferencia {
             $c = $this->bloquear($candidato);
             $this->exigirEstado($c, EstadoCandidato::ReferenciasPendientes);
+            $primera = ! CandidatoReferencia::query()->where('candidato_id', $c->id)->exists();
 
             $referencia = CandidatoReferencia::query()->create([
                 'candidato_id' => $c->id,
@@ -531,6 +543,14 @@ class CandidatoWorkflowService
 
             return $referencia;
         });
+
+        // Con la primera referencia cargada el pendiente pasa de «cargar» a
+        // quien revisa y concluye (Cargado, pendiente de revisión).
+        if ($primera) {
+            $this->abrirPendiente($candidato->refresh(), $actor);
+        }
+
+        return $registrada;
     }
 
     public function concluirReferencias(Candidato $candidato, User $actor, bool $viables, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
@@ -770,72 +790,110 @@ class CandidatoWorkflowService
      */
     public function accionesPermitidas(Candidato $candidato, User $usuario): array
     {
+        $acciones = [];
+
+        foreach ($this->accionesDelEstado($candidato, $usuario) as $accion) {
+            if ($accion['permitida']) {
+                $acciones[] = ['clave' => $accion['clave'], 'etiqueta' => $accion['etiqueta'], 'tipo' => $accion['tipo']];
+            }
+        }
+
+        return $acciones;
+    }
+
+    /**
+     * Acciones del paso actual que le tocarían a quien mira, pero que su rol
+     * no tiene (p. ej. un gerente que carga el socioeconómico pero no lo
+     * revisa): la ficha las muestra deshabilitadas con «No tienes permiso
+     * para…». Nunca incluye lo que no le corresponde por organigrama.
+     *
+     * @return list<array{clave: string, etiqueta: string, motivo: string}>
+     */
+    public function accionesSinPermiso(Candidato $candidato, User $usuario): array
+    {
+        $acciones = [];
+
+        foreach ($this->accionesDelEstado($candidato, $usuario) as $accion) {
+            if (! $accion['permitida']) {
+                $acciones[] = ['clave' => $accion['clave'], 'etiqueta' => $accion['etiqueta'], 'motivo' => sprintf('No tienes permiso para %s.', $accion['sin_permiso'])];
+            }
+        }
+
+        return $acciones;
+    }
+
+    /**
+     * Botones del estado actual, cada uno con SU permiso (por paso y por
+     * acción: cargar ≠ revisar ≠ autorizar).
+     *
+     * @return list<array{clave: string, etiqueta: string, tipo: string, permitida: bool, sin_permiso: string}>
+     */
+    private function accionesDelEstado(Candidato $candidato, User $usuario): array
+    {
         if (! $this->jerarquia->alcanzaCandidato($usuario, $candidato)) {
             return [];
         }
 
         $acciones = [];
         $puede = fn (string $permiso): bool => $this->permisos->puede($usuario, $permiso);
+        $agregar = function (string $clave, string $etiqueta, string $tipo, bool $permitida, string $sinPermiso = '') use (&$acciones): void {
+            $acciones[] = ['clave' => $clave, 'etiqueta' => $etiqueta, 'tipo' => $tipo, 'permitida' => $permitida, 'sin_permiso' => $sinPermiso];
+        };
 
         switch ($candidato->estado) {
             case EstadoCandidato::Recibidos:
-                if ($puede(self::PERMISO_REVISAR_PERFIL)) {
-                    $acciones[] = ['clave' => 'evaluar_perfil', 'etiqueta' => 'Revisar perfil', 'tipo' => 'primaria'];
-                }
+                $agregar('evaluar_perfil', 'Revisar perfil', 'primaria', $puede(self::PERMISO_REVISAR_PERFIL), 'revisar el perfil (Perfil · Revisar y decidir)');
                 break;
             case EstadoCandidato::EntrevistaPendiente:
-                if ($puede(self::PERMISO_ENTREVISTA) && $this->aprobadorEntrevista->puedeAprobar($usuario, $candidato)) {
-                    $acciones[] = ['clave' => 'registrar_entrevista', 'etiqueta' => 'Registrar entrevista', 'tipo' => 'primaria'];
+                // Además del permiso, la entrevista la registra quien le
+                // corresponde por el puesto objetivo: a quien tiene el permiso
+                // pero no le toca no se le muestra (no es tema de permiso).
+                if (! $puede(self::PERMISO_ENTREVISTA)) {
+                    $agregar('registrar_entrevista', 'Registrar entrevista', 'primaria', false, 'registrar la entrevista (Entrevista · Registrar resultado)');
+                } elseif ($this->aprobadorEntrevista->puedeAprobar($usuario, $candidato)) {
+                    $agregar('registrar_entrevista', 'Registrar entrevista', 'primaria', true);
                 }
                 break;
             case EstadoCandidato::PsicometricasPendientes:
-                if ($puede(self::PERMISO_PSICOMETRICAS)) {
-                    $acciones[] = ['clave' => 'enviar_psicometricas', 'etiqueta' => 'Registrar link de psicométricas', 'tipo' => 'secundaria'];
-                    $acciones[] = ['clave' => 'registrar_resultados_psicometricas', 'etiqueta' => 'Cargar resultados psicométricos', 'tipo' => 'primaria'];
-                }
+                $agregar('enviar_psicometricas', 'Registrar link de psicométricas', 'secundaria', $puede(self::PERMISO_ENVIAR_PSICOMETRICAS), 'registrar el link de psicométricas (Psicométricas · Enviar link)');
+                $agregar('registrar_resultados_psicometricas', 'Cargar resultados psicométricos', 'primaria', $puede(self::PERMISO_PSICOMETRICAS), 'cargar los resultados psicométricos (Psicométricas · Cargar resultados)');
                 break;
             case EstadoCandidato::RevisionPsicometricas:
-                if ($puede(self::PERMISO_REVISAR_PSICOMETRICAS)) {
-                    $acciones[] = ['clave' => 'revisar_psicometricas', 'etiqueta' => 'Revisar psicométrico', 'tipo' => 'primaria'];
-                }
+                $agregar('revisar_psicometricas', 'Revisar psicométrico', 'primaria', $puede(self::PERMISO_REVISAR_PSICOMETRICAS), 'revisar el psicométrico (Psicométricas · Revisar y dictaminar)');
                 break;
             case EstadoCandidato::SocioeconomicoPendiente:
                 // Cargar ≠ decidir: con un estudio cargado sin revisar, lo
                 // único que sigue es que el responsable lo revise.
                 if ($this->socioeconomicoPendiente($candidato) !== null) {
-                    if ($puede(self::PERMISO_REVISAR_SOCIOECONOMICO)) {
-                        $acciones[] = ['clave' => 'revisar_socioeconomico', 'etiqueta' => 'Revisar socioeconómico', 'tipo' => 'primaria'];
-                    }
-                } elseif ($puede(self::PERMISO_SOCIOECONOMICO)) {
-                    $acciones[] = ['clave' => 'registrar_socioeconomico', 'etiqueta' => 'Cargar estudio socioeconómico', 'tipo' => 'primaria'];
+                    $agregar('revisar_socioeconomico', 'Revisar socioeconómico', 'primaria', $puede(self::PERMISO_REVISAR_SOCIOECONOMICO), 'revisar y autorizar el socioeconómico (Socioeconómico · Revisar y autorizar)');
+                } else {
+                    $agregar('registrar_socioeconomico', 'Cargar estudio socioeconómico', 'primaria', $puede(self::PERMISO_SOCIOECONOMICO), 'cargar el estudio socioeconómico (Socioeconómico · Cargar)');
                 }
                 break;
             case EstadoCandidato::ReferenciasPendientes:
-                if ($puede(self::PERMISO_REFERENCIAS)) {
-                    $acciones[] = ['clave' => 'registrar_referencia', 'etiqueta' => 'Registrar referencia', 'tipo' => 'secundaria'];
-                    $acciones[] = ['clave' => 'concluir_referencias', 'etiqueta' => 'Concluir validación de referencias', 'tipo' => 'primaria'];
-                }
+                $agregar('registrar_referencia', 'Registrar referencia', 'secundaria', $puede(self::PERMISO_CARGAR_REFERENCIAS), 'registrar referencias (Referencias · Cargar)');
+                $agregar('concluir_referencias', 'Concluir validación de referencias', 'primaria', $puede(self::PERMISO_REFERENCIAS), 'revisar y concluir las referencias (Referencias · Revisar y concluir)');
                 break;
             case EstadoCandidato::AutorizacionRhPendiente:
                 $pendiente = $this->aprobaciones->pendiente($candidato, ProcesoAprobacion::SeleccionCandidato);
 
                 if ($pendiente !== null && $this->jerarquia->puedeAutorizarRh($usuario, $pendiente)) {
-                    $acciones[] = ['clave' => 'autorizar_rh', 'etiqueta' => 'Autorizar contratación', 'tipo' => 'primaria'];
-                    $acciones[] = ['clave' => 'devolver_rh', 'etiqueta' => 'Devolver a referencias', 'tipo' => 'secundaria'];
-                    $acciones[] = ['clave' => 'rechazar_rh', 'etiqueta' => 'Rechazar', 'tipo' => 'peligro'];
+                    $agregar('autorizar_rh', 'Autorizar contratación', 'primaria', true);
+                    $agregar('devolver_rh', 'Devolver a referencias', 'secundaria', true);
+                    $agregar('rechazar_rh', 'Rechazar', 'peligro', true);
+                } elseif ($pendiente !== null && ! $puede(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH)) {
+                    $agregar('autorizar_rh', 'Autorizar contratación', 'primaria', false, 'autorizar la contratación (Autorización RH)');
                 }
                 break;
             case EstadoCandidato::AutorizadoRh:
-                if ($puede(ContratacionCandidatoService::PERMISO_CONTRATAR)) {
-                    $acciones[] = ['clave' => 'iniciar_contratacion', 'etiqueta' => 'Generar QR de contratación', 'tipo' => 'primaria'];
-                }
+                $agregar('iniciar_contratacion', 'Generar QR de contratación', 'primaria', $puede(ContratacionCandidatoService::PERMISO_CONTRATAR), 'generar el QR de contratación (Contratación · Generar QR)');
                 break;
             case EstadoCandidato::RechazadoRh:
                 // Solo el gerente que entrevistó, y solo si no hay ya una
                 // intervención pendiente de decisión (CLAUDE.md §10): nunca
                 // automático, nunca doble solicitud.
                 if ($puede(self::PERMISO_INTERVENCION) && ! $candidato->intervenciones()->where('estado', EstadoIntervencionCandidato::Pendiente->value)->exists()) {
-                    $acciones[] = ['clave' => 'solicitar_intervencion', 'etiqueta' => 'Solicitar intervención', 'tipo' => 'secundaria'];
+                    $agregar('solicitar_intervencion', 'Solicitar intervención', 'secundaria', true);
                 }
                 break;
             default:
@@ -843,7 +901,7 @@ class CandidatoWorkflowService
         }
 
         if ($candidato->estado->permiteDescartar() && $puede(self::PERMISO_DESCARTAR)) {
-            $acciones[] = ['clave' => 'descartar', 'etiqueta' => 'Cerrar proceso del candidato', 'tipo' => 'peligro'];
+            $agregar('descartar', 'Cerrar proceso del candidato', 'peligro', true);
         }
 
         return $acciones;
@@ -1159,7 +1217,12 @@ class CandidatoWorkflowService
             EstadoCandidato::PsicometricasPendientes => [TipoTarea::CandidatoPsicometricas, ['permiso' => self::PERMISO_PSICOMETRICAS, 'accion' => 'registrar_resultados_psicometricas']],
             EstadoCandidato::RevisionPsicometricas => [TipoTarea::CandidatoRevisionPsicometricas, $paraGerente('revisar_psicometricas')],
             EstadoCandidato::SocioeconomicoPendiente => [TipoTarea::CandidatoSocioeconomico, $paraGerente($this->socioeconomicoPendiente($candidato) !== null ? 'revisar_socioeconomico' : 'registrar_socioeconomico')],
-            EstadoCandidato::ReferenciasPendientes => [TipoTarea::CandidatoReferencias, ['permiso' => self::PERMISO_REFERENCIAS, 'accion' => 'concluir_referencias']],
+            // Sin referencias cargadas, el pendiente es de quien las carga; con
+            // al menos una, de quien revisa y concluye (Cargado, pendiente de revisión).
+            // (Mientras el permiso nuevo no exista en la base, como antes.)
+            EstadoCandidato::ReferenciasPendientes => CandidatoReferencia::query()->where('candidato_id', $candidato->id)->exists() || ! $this->permisos->existe(self::PERMISO_CARGAR_REFERENCIAS)
+                ? [TipoTarea::CandidatoReferencias, ['permiso' => self::PERMISO_REFERENCIAS, 'accion' => 'concluir_referencias']]
+                : [TipoTarea::CandidatoReferencias, ['permiso' => self::PERMISO_CARGAR_REFERENCIAS, 'accion' => 'registrar_referencia']],
             EstadoCandidato::PreseleccionGerente, EstadoCandidato::AutorizacionRhPendiente => [TipoTarea::CandidatoAutorizacionRh, ['permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH, 'accion' => 'autorizar_rh', 'prioridad' => PrioridadTarea::Alta]],
             EstadoCandidato::AutorizadoRh => [TipoTarea::CandidatoInvitacion, ['permiso' => ContratacionCandidatoService::PERMISO_CONTRATAR, 'accion' => 'iniciar_contratacion', 'prioridad' => PrioridadTarea::Alta]],
             default => null,

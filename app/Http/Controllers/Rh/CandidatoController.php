@@ -207,6 +207,9 @@ class CandidatoController extends Controller
             'intervencionPendienteId' => $intervencionPendiente?->id,
             'reaperturas' => $request->user() !== null ? $this->reaperturas->disponibles($request->user(), $candidato) : [],
             'puedeAdjuntar' => $request->user()?->can('adjuntar', $candidato) ?? false,
+            // Botones del paso actual que su rol no tiene (permiso por paso y
+            // acción): se ven deshabilitados con «No tienes permiso para…».
+            'accionesSinPermiso' => $request->user() !== null ? $this->workflow->accionesSinPermiso($candidato, $request->user()) : [],
             // RN-09: baja previa «No recontratable» / «Con reservas» → alerta
             // en Reclutamiento (la causal solo la ve quien consulta bajas).
             'antecedenteBaja' => $this->antecedenteBaja($candidato, $request),
@@ -318,8 +321,8 @@ class CandidatoController extends Controller
      */
     public function descargarEvidencia(Request $request, Candidato $candidato, CandidatoEvidencia $evidencia): StreamedResponse
     {
-        $this->authorize('view', $candidato);
         abort_unless($evidencia->candidato_id === $candidato->id, 404);
+        $this->authorize('verEvidencia', [$candidato, $evidencia]);
 
         return $this->cvStorage->respuestaArchivo(
             $request,

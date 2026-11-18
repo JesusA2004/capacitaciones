@@ -58,6 +58,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
     archivoCvCandidato,
     archivosDelExpediente,
     claveEvidencia,
@@ -108,6 +113,8 @@ const props = defineProps<{
     reaperturas: ReaperturaDisponible[];
     /** Puede agregar archivos al mini expediente (CandidatoPolicy::adjuntar). */
     puedeAdjuntar: boolean;
+    /** Botones del paso actual que su rol no tiene (permiso por paso y acción). */
+    accionesSinPermiso?: { clave: string; etiqueta: string; motivo: string }[];
     limitesArchivos: LimitesArchivosCandidato;
     perfilPuesto: PerfilPuestoCandidato;
     /** RN-09: baja previa «No recontratable» / «Con reservas». */
@@ -749,6 +756,29 @@ const esDecisionViable = computed(() =>
                             :sin-principal="!!siguientePaso.accion"
                             @accion="abrir"
                         />
+                        <div
+                            v-if="accionesSinPermiso?.length"
+                            class="mt-2 flex flex-wrap items-center gap-2"
+                        >
+                            <Tooltip
+                                v-for="a in accionesSinPermiso"
+                                :key="`sin-${a.clave}`"
+                            >
+                                <TooltipTrigger as-child>
+                                    <span tabindex="0" class="inline-flex">
+                                        <Button
+                                            variant="outline"
+                                            disabled
+                                            :aria-label="`${a.etiqueta}: ${a.motivo}`"
+                                            >{{ a.etiqueta }}</Button
+                                        >
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent class="max-w-xs">{{
+                                    a.motivo
+                                }}</TooltipContent>
+                            </Tooltip>
+                        </div>
                     </div>
                     <BotonReabrir :reaperturas="reaperturas" />
                 </SiguientePasoPanel>

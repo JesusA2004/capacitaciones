@@ -59,8 +59,8 @@ class CandidatoController extends Controller
 
     public function evidencia(Request $request, Candidato $candidato, CandidatoEvidencia $evidencia): StreamedResponse
     {
-        $this->authorize('view', $candidato);
         abort_unless($evidencia->candidato_id === $candidato->id, 404);
+        $this->authorize('verEvidencia', [$candidato, $evidencia]);
 
         return $this->cvStorage->respuestaArchivo($request, $evidencia->path, $evidencia->original_name, $evidencia->mime, true);
     }
@@ -211,6 +211,9 @@ class CandidatoController extends Controller
             // Mismo estado candidato → contratación → expediente que la web.
             'contratacion' => $this->cadena->paraCandidato($candidato, $request->user()),
             'reaperturas' => app(ReaperturaService::class)->disponibles($request->user(), $candidato),
+            // Botones del paso actual que su rol no tiene: deshabilitados con
+            // «No tienes permiso para…» (aditivo; ciclo.acciones_permitidas no cambia).
+            'acciones_sin_permiso' => $this->workflow->accionesSinPermiso($candidato, $request->user()),
         ]]);
     }
 }

@@ -7,6 +7,7 @@ import {
     CircleX,
     ClipboardList,
     Eye,
+    EyeOff,
     Home,
     Hourglass,
     LayoutList,
@@ -153,6 +154,45 @@ function siNo(valor: string): boolean | null {
     return ['no', '0', 'false'].includes(limpio) ? false : null;
 }
 
+/** Pasos que su rol no deja ver (permiso «Ver» de cada paso): se avisa, no se oculta en silencio. */
+const NOMBRE_PASO: Record<string, string> = {
+    entrevista: 'Entrevista',
+    psicometricas: 'Psicométricas',
+    socioeconomico: 'Socioeconómico',
+    referencias: 'Referencias',
+};
+
+const pasosOcultos = computed(() =>
+    Object.entries(props.candidato.pasos_visibles ?? {})
+        .filter(([, visible]) => !visible)
+        .map(([paso]) => NOMBRE_PASO[paso] ?? paso),
+);
+
+/** Referencias: cargadas → pendientes de revisión, o quién las concluyó. */
+const estadoReferencias = computed((): { tono: Tono; texto: string } | null => {
+    const conclusion = props.candidato.referencias_conclusion ?? null;
+
+    if (conclusion) {
+        const resultado = conclusion.viable ? 'viable' : 'no viable';
+        const por = conclusion.por ? ` por ${conclusion.por}` : '';
+        const en = conclusion.en
+            ? ` · ${formatearFechaHora(conclusion.en)}`
+            : '';
+
+        return {
+            tono: conclusion.viable ? 'exito' : 'peligro',
+            texto: `Validación concluida (${resultado})${por}${en}`,
+        };
+    }
+
+    return props.candidato.referencias.length > 0
+        ? {
+              tono: 'alerta',
+              texto: 'Referencias cargadas, pendiente de revisión',
+          }
+        : null;
+});
+
 /** Sin revisión aún: «esperando resultados» si no ha llegado nada todavía. */
 function etiquetaRevisionPsicometrica(item: Psicometrica): string {
     if (item.revision_resultado === null) {
@@ -161,7 +201,9 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
             !!item.resumen_resultados ||
             item.evidencias.length > 0;
 
-        return hayResultados ? 'Pendiente de revisión' : 'Esperando resultados';
+        return hayResultados
+            ? 'Cargado, pendiente de revisión'
+            : 'Esperando resultados';
     }
 
     return item.revision_resultado === 'viable'
@@ -208,6 +250,23 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
             </button>
         </div>
 
+        <p
+            v-if="pasosOcultos.length"
+            class="flex items-start gap-2 rounded-xl bg-[var(--mrl-fondo)] px-3 py-2 text-xs text-muted-foreground"
+        >
+            <EyeOff class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            No tienes permiso para ver: {{ pasosOcultos.join(', ') }}. Si lo
+            necesitas, pide a RH el permiso «Ver» de ese paso.
+        </p>
+        <p
+            v-if="estadoReferencias && ve('referencias')"
+            class="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+            :class="TONO_SUAVE[estadoReferencias.tono]"
+        >
+            <UserCheck class="size-3.5" aria-hidden="true" />
+            {{ estadoReferencias.texto }}
+        </p>
+
         <CambioSuave>
             <div :key="pestana" class="grid items-start gap-3 xl:grid-cols-2">
                 <!-- Entrevistas -->
@@ -249,6 +308,19 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                     aria-hidden="true"
                                 />
                                 {{ item.entrevistador ?? 'Sin entrevistador' }}
+                            </li>
+                            <li
+                                v-if="
+                                    item.registrado_por &&
+                                    item.registrado_por !== item.entrevistador
+                                "
+                                class="inline-flex items-center gap-1"
+                            >
+                                <ClipboardList
+                                    class="size-3.5"
+                                    aria-hidden="true"
+                                />
+                                Registró {{ item.registrado_por }}
                             </li>
                         </ul>
                         <TextoLargo
@@ -297,6 +369,9 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                 <Link2 class="size-3.5" aria-hidden="true" />
                                 Link enviado
                                 {{ formatearFechaHora(item.enviada_en) }}
+                                <template v-if="item.enviada_por"
+                                    >· {{ item.enviada_por }}</template
+                                >
                             </li>
                             <li
                                 v-if="item.resultados_en"
@@ -306,8 +381,11 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                     class="size-3.5"
                                     aria-hidden="true"
                                 />
-                                Resultados
+                                Cargó resultados
                                 {{ formatearFechaHora(item.resultados_en) }}
+                                <template v-if="item.resultados_por"
+                                    >· {{ item.resultados_por }}</template
+                                >
                             </li>
                             <li
                                 v-if="item.revisada_en"
@@ -317,8 +395,11 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                     class="size-3.5"
                                     aria-hidden="true"
                                 />
-                                Revisada
+                                Revisó
                                 {{ formatearFechaHora(item.revisada_en) }}
+                                <template v-if="revisor(item)"
+                                    >· {{ revisor(item) }}</template
+                                >
                             </li>
                         </ul>
                         <TextoLargo
@@ -401,6 +482,22 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                 {{ item.visitador ?? 'Sin visitador' }}
                             </li>
                             <li
+                                v-if="item.registrado_por"
+                                class="inline-flex items-center gap-1"
+                            >
+                                <ClipboardList
+                                    class="size-3.5"
+                                    aria-hidden="true"
+                                />
+                                Cargó {{ item.registrado_por }}
+                                <template v-if="item.registrado_en"
+                                    >·
+                                    {{
+                                        formatearFechaHora(item.registrado_en)
+                                    }}</template
+                                >
+                            </li>
+                            <li
                                 v-if="item.revisado_en"
                                 class="inline-flex items-center gap-1"
                             >
@@ -408,8 +505,11 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                     class="size-3.5"
                                     aria-hidden="true"
                                 />
-                                Revisado
+                                Revisó y autorizó
                                 {{ formatearFechaHora(item.revisado_en) }}
+                                <template v-if="revisor(item)"
+                                    >· {{ revisor(item) }}</template
+                                >
                             </li>
                         </ul>
                         <p

@@ -4,12 +4,14 @@ namespace App\Policies;
 
 use App\Enums\EstadoCandidato;
 use App\Models\Candidato;
+use App\Models\CandidatoEvidencia;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Permisos\PermisoAccionService;
 use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\PermisosPasoCandidatoService;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -26,6 +28,7 @@ class CandidatoPolicy
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly PermisoAccionService $permisos,
         private readonly AprobadorEntrevistaService $aprobadorEntrevista,
+        private readonly PermisosPasoCandidatoService $pasos,
     ) {}
 
     public function viewAny(User $usuario): bool
@@ -42,6 +45,24 @@ class CandidatoPolicy
         return $this->visiblePara($usuario, $candidato)
             ? Response::allow()
             : Response::deny('Este candidato está fuera de tu alcance (otra sucursal o un puesto que no te corresponde revisar).');
+    }
+
+    /**
+     * Abrir un archivo de un paso (psicométricas, socioeconómico,
+     * referencias): ver al candidato + ver ESE paso (permiso «Ver» del paso
+     * o cualquier acción del paso). El CV y los archivos sueltos, con view.
+     */
+    public function verEvidencia(User $usuario, Candidato $candidato, CandidatoEvidencia $evidencia): Response
+    {
+        $vista = $this->view($usuario, $candidato);
+
+        if ($vista->denied()) {
+            return $vista;
+        }
+
+        return $this->pasos->puedeVerEvidencia($usuario, $evidencia)
+            ? Response::allow()
+            : Response::deny('No tienes permiso para ver los archivos de este paso del candidato.');
     }
 
     public function create(User $usuario): bool

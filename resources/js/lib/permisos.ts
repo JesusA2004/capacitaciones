@@ -286,9 +286,16 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
     'candidatos.revisar_socioeconomico': 'Revisar socioeconómico de candidatos',
     'candidatos.revisar_perfil':
         'Revisar el perfil del candidato (filtro inicial)',
-    'candidatos.registrar_psicometricas': 'Enviar y cargar psicométricas',
+    'candidatos.registrar_psicometricas': 'Cargar resultados psicométricos',
+    'candidatos.enviar_psicometricas': 'Enviar el link de psicométricas',
     'candidatos.registrar_socioeconomico': 'Cargar estudio socioeconómico',
-    'candidatos.validar_referencias': 'Registrar y concluir referencias',
+    'candidatos.validar_referencias': 'Revisar y concluir referencias',
+    'candidatos.registrar_referencias': 'Cargar referencias laborales',
+    'candidatos.consultar_entrevista': 'Ver la entrevista del candidato',
+    'candidatos.consultar_psicometricas': 'Ver psicométricas del candidato',
+    'candidatos.consultar_socioeconomico':
+        'Ver el estudio socioeconómico del candidato',
+    'candidatos.consultar_referencias': 'Ver las referencias del candidato',
     'candidatos.cerrar_proceso': 'Cerrar el proceso de un candidato',
     'candidatos.solicitar_intervencion':
         'Solicitar intervención sobre un rechazo',

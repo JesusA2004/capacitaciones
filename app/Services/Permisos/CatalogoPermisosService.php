@@ -69,6 +69,7 @@ class CatalogoPermisosService
             $etapa = isset($etapas[$etapa]) ? $etapa : self::ETAPA_OTROS;
 
             $acciones = [];
+            $grupoDe = $this->grupoDeCadaAccion($definicion);
 
             foreach ($modulo['acciones'] as $permiso => $etiqueta) {
                 $crudo = $definicion['acciones'][$permiso] ?? null;
@@ -78,6 +79,8 @@ class CatalogoPermisosService
                     'permiso' => $permiso,
                     'etiqueta' => $etiqueta !== '' ? $etiqueta : $permiso,
                     'descripcion' => $descripcion ?? $descripciones[$permiso] ?? null,
+                    // Paso del recorrido al que pertenece (grupos_acciones); null = sin agrupar.
+                    'grupo' => $grupoDe[$permiso] ?? null,
                 ];
             }
 
@@ -198,5 +201,27 @@ class CatalogoPermisosService
         }
 
         return $descripciones;
+    }
+
+    /**
+     * config/permisos_modulos.php → modulos.<clave>.grupos_acciones: título
+     * del grupo (p. ej. «Paso 4 · Socioeconómico») => permisos.
+     *
+     * @param  array<array-key, mixed>  $definicion
+     * @return array<string, string> permiso => grupo
+     */
+    private function grupoDeCadaAccion(array $definicion): array
+    {
+        $grupoDe = [];
+
+        foreach ((array) ($definicion['grupos_acciones'] ?? []) as $grupo => $permisos) {
+            foreach ((array) $permisos as $permiso) {
+                if (is_string($grupo) && is_string($permiso)) {
+                    $grupoDe[$permiso] = $grupo;
+                }
+            }
+        }
+
+        return $grupoDe;
     }
 }
