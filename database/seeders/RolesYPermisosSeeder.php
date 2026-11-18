@@ -69,6 +69,8 @@ class RolesYPermisosSeeder extends Seeder
         'reportes.globales',
         'reportes.sucursal',
         'reportes.exportar',
+        // Certificación Mr. Lana por formato oficial RH-CC-R-001 (migración 2026_11_18_200100).
+        'certificacion.gestionar',
         // Avisos de RH: mensaje + imagen a toda la empresa o a un colaborador.
         'avisos.ver',
         'avisos.enviar',
@@ -496,6 +498,7 @@ class RolesYPermisosSeeder extends Seeder
             'asignaciones.crear', 'asignaciones.ver', 'asignaciones.cancelar',
             'sesiones.administrar', 'asistencias.ver', 'asistencias.corregir',
             'reportes.globales', 'reportes.sucursal', 'reportes.exportar',
+            'certificacion.gestionar',
             'integraciones.administrar', 'auditoria.ver',
         ],
         'instructor' => [
@@ -519,6 +522,8 @@ class RolesYPermisosSeeder extends Seeder
             'seguimiento.ver', 'seguimiento.vincular',
             // Nine Box: ve todo, calibra el potencial y configura pesos/cortes.
             'nine_box.ver', 'nine_box.calibrar', 'nine_box.configurar',
+            // Certificación Mr. Lana: formato RH-CC-R-001 y certificado.
+            'certificacion.gestionar',
             // Evaluaciones técnicas por puesto (Seguimiento 15 / 30 / 60…).
             'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar', 'evaluaciones_tecnicas.configurar',
             // Consulta la bandeja «Pendientes de alta en sistemas» (la atiende Sistemas).

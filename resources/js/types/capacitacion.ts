@@ -210,6 +210,42 @@ export type TableroCertificacion = {
     total_certificados: number;
 };
 
+/** Estado de la certificación por formato RH-CC-R-001 (App\Enums\EstadoCertificacionMrLana). */
+export type EstadoCertificacionFormato =
+    'sin_formato' | 'formato_descargado' | 'certificado';
+
+/** Fila de CertificacionFormatoService::listado(). */
+export type PersonaCertificacionFormato = {
+    id: number;
+    nombre: string;
+    numero_empleado: string | null;
+    foto_url: string | null;
+    puesto: string | null;
+    sucursal: string | null;
+    fecha_ingreso: string | null;
+    activo: boolean;
+    estado: EstadoCertificacionFormato;
+    estado_etiqueta: string;
+    formato_descargado_en: string | null;
+    certificado_en: string | null;
+    promedio: number | null;
+    folio: string | null;
+    tiene_firmado: boolean;
+};
+
+export type GestionCertificacionFormato = {
+    personas: PersonaCertificacionFormato[];
+    resumen: {
+        total: number;
+        sin_formato: number;
+        formato_descargado: number;
+        certificados: number;
+    };
+    promedio_minimo: number;
+    formato_clave: string;
+    formato_disponible: boolean;
+};
+
 /** Tarjeta «Mi capacitación» del inicio del colaborador (MiCapacitacionService::resumenPortal). */
 export type ResumenMiCapacitacionPortal = {
     en_curso: number;

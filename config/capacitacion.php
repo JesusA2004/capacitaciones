@@ -28,6 +28,24 @@ return [
             'plata' => (int) env('CERTIFICACION_UMBRAL_PLATA', 3),
             'oro' => (int) env('CERTIFICACION_UMBRAL_ORO', 5),
         ],
+
+        /*
+        | Formato oficial «Programa de capacitación para Certificación Mr
+        | Lana» (RH-CC-R-001, 2 hojas). El sistema llena SOLO el encabezado
+        | (nombre, sucursal, fecha de ingreso) sobre el PDF original con
+        | FPDI; el resto se firma y llena a pluma. Copia versionada del
+        | archivo que entregó RH en docs/certificacion/.
+        */
+        'formato' => [
+            'clave' => 'RH-CC-R-001',
+            'pdf' => env('CERTIFICACION_FORMATO_PDF', 'docs/certificacion/RH-CC-R-001_certificacion_gestor_de_credito.pdf'),
+        ],
+
+        /*
+        | «NOTA: Para considerarse aprobado y asumir la certificación debe
+        | mantener un promedio mínimo de 80» (hoja 2 del formato).
+        */
+        'promedio_minimo' => (float) env('CERTIFICACION_PROMEDIO_MINIMO', 80),
     ],
 
     /*

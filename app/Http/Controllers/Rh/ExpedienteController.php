@@ -31,6 +31,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Autenticacion\CredencialesService;
 use App\Services\Avisos\AvisoService;
 use App\Services\Bajas\BajaService;
+use App\Services\Certificados\CertificacionFormatoService;
 use App\Services\Colaboradores\AltaImssService;
 use App\Services\Colaboradores\DomicilioService;
 use App\Services\Colaboradores\FiltroColaboradoresService;
@@ -352,6 +353,8 @@ class ExpedienteController extends Controller
             'siguientePasoSueldo' => $esPropio ? null : app(SiguientePasoService::class)->paraSueldo($colaborador, $usuario)?->toArray(),
             // Carta compromiso de documentos pendientes (la más reciente), con su PDF.
             'cartaCompromiso' => app(CartaCompromisoService::class)->paraExpediente($colaborador),
+            // Insignia «Certificado Mr. Lana» (formato RH-CC-R-001 firmado y certificado emitido).
+            'certificacionMrLana' => config('features.certificacion') ? app(CertificacionFormatoService::class)->resumenExpediente($colaborador) : null,
             // ⚠ Faltan datos contractuales (+ «Avisar al colaborador» para RH).
             'datosFaltantes' => app(DatosFaltantesService::class)->resumen($colaborador),
             // «Avisos / Comunicaciones»: generales + personales, con lectura.

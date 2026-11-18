@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileArchive, FileSignature } from '@lucide/vue';
+import { Award, FileArchive, FileSignature } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DescargaEnProgreso from '@/components/DescargaEnProgreso.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useDescargaArchivo } from '@/composables/useDescargaArchivo';
 import { usePermisos } from '@/composables/usePermisos';
+import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import {
     descargarZip,
@@ -67,6 +68,11 @@ const props = defineProps<{
         puesto_superior_id: number | null;
     }[];
     esCuentaPropia: boolean;
+    /** Formato RH-CC-R-001 firmado y certificado emitido (Capacitación → Certificación). */
+    certificacionMrLana?: {
+        certificado_en: string;
+        folio: string | null;
+    } | null;
     puedeRevisarDocumentos: boolean;
     puedeDescargarExpediente?: boolean;
     puedeVerExtraccion: boolean;
@@ -238,6 +244,14 @@ defineOptions({
         :centro="centro"
     >
         <template #acciones-encabezado>
+            <span
+                v-if="certificacionMrLana"
+                class="inline-flex items-center gap-1.5 rounded-full border border-oro/40 bg-oro/15 px-3 py-1 text-xs font-semibold text-bronce"
+                :title="`Certificado el ${formatearFecha(certificacionMrLana.certificado_en)}${certificacionMrLana.folio ? ` · folio ${certificacionMrLana.folio}` : ''}`"
+            >
+                <Award class="size-3.5" />
+                Certificado Mr. Lana
+            </span>
             <!-- ZIP con todo el expediente + INDICE.csv: descarga directa,
                  no visita Inertia. La regla real: EmployeeDocumentPolicy. -->
             <Button

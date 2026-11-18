@@ -714,6 +714,7 @@ export function useMainNavItems() {
                             'cursos.ver',
                             'asignaciones.ver',
                             'respuestas.ver',
+                            'certificacion.gestionar',
                         ) && {
                             title: 'Certificación Mr. Lana',
                             href: rutaCertificacion(),

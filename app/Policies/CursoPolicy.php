@@ -29,7 +29,7 @@ class CursoPolicy
      */
     public function certificacion(User $usuario): bool
     {
-        return $usuario->canAny(['cursos.ver', 'asignaciones.ver', 'respuestas.ver']);
+        return $usuario->canAny(['cursos.ver', 'asignaciones.ver', 'respuestas.ver', 'certificacion.gestionar']);
     }
 
     /**

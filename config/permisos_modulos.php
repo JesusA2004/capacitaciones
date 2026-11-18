@@ -139,6 +139,7 @@ return [
                 'reportes.globales' => 'Reportes globales de capacitación',
                 'reportes.sucursal' => 'Reportes de capacitación de su sucursal',
                 'reportes.exportar' => 'Exportar reportes de capacitación',
+                'certificacion.gestionar' => 'Certificación Mr. Lana: descargar formato, subir firmado y emitir certificado',
             ],
         ],
         'roles' => [
@@ -1028,6 +1029,7 @@ return [
         'headcount.editar' => 'Cambiar cuántas plazas autorizadas tiene cada sucursal por puesto.',
         'indicadores.ver' => 'Ver los indicadores de RH (rotación, plantilla, tiempos).',
         'cursos.ver' => 'Entrar a Cursos y aulas de Capacitación (constructor y aula de cada curso).',
+        'certificacion.gestionar' => 'En Capacitación → Certificación Mr. Lana: descarga el formato RH-CC-R-001 con el encabezado ya lleno (nombre, sucursal, fecha de ingreso), sube el formato firmado a pluma con su promedio y emite el certificado «Cuentas con tu Certificación Mr. Lana». Solo personas de su alcance; nunca la propia.',
         // Contratación y expediente.
         'contratos.ver' => 'Entra a Contratos, Personas en contratación y Contratos de ingreso: lista y estado, sin abrir el contrato.',
         'contratos.ver_documento' => 'Abre el PDF del contrato generado de otra persona en el visor.',
