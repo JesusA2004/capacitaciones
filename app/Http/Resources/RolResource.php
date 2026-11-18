@@ -27,6 +27,9 @@ class RolResource extends JsonResource
             'es_protegido' => $this->name === 'super_admin',
             // Rol del seeder: no se renombra ni se elimina; sus permisos sí.
             'es_del_sistema' => (bool) ($this->resource->getAttribute('es_del_sistema') ?? false),
+            // Borrado lógico: un rol desactivado no otorga permisos ni se asigna.
+            'activo' => $this->resource->getAttribute('desactivado_en') === null,
+            'desactivado_en' => $this->resource->getAttribute('desactivado_en'),
         ];
     }
 }

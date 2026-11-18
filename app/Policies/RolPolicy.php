@@ -40,14 +40,27 @@ class RolPolicy
     }
 
     /**
-     * Los roles del seeder no se eliminan: el código los reconoce por nombre
-     * y `people:sincronizar-permisos` los volvería a crear en el siguiente
-     * deploy. Solo los roles creados a mano.
+     * Borrado FÍSICO: exclusivo de super_admin. Los roles del seeder no se
+     * eliminan: el código los reconoce por nombre y `people:sincronizar-permisos`
+     * los volvería a crear en el siguiente deploy. Solo los creados a mano.
      */
     public function delete(User $user, Role $rol): bool
     {
-        return $user->can('roles.administrar')
-            && $rol->name !== 'super_admin'
+        return $user->hasRole('super_admin') && $this->esPersonalizado($rol);
+    }
+
+    /**
+     * Borrado LÓGICO (desactivar y reactivar): quien administra roles, solo
+     * en roles creados a mano.
+     */
+    public function desactivar(User $user, Role $rol): bool
+    {
+        return $user->can('roles.administrar') && $this->esPersonalizado($rol);
+    }
+
+    private function esPersonalizado(Role $rol): bool
+    {
+        return $rol->name !== 'super_admin'
             && ! array_key_exists((string) $rol->name, RolesYPermisosSeeder::permisosBasePorRol());
     }
 

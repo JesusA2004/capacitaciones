@@ -534,6 +534,7 @@ final class LlavesForaneasEsquema
         ['revisiones_division_historico', 'hecha_por', 'users', 'id', 'set_null'],
         ['role_has_permissions', 'permission_id', 'permissions', 'id', 'cascade'],
         ['role_has_permissions', 'role_id', 'roles', 'id', 'cascade'],
+        ['roles', 'desactivado_por', 'users', 'id', 'set_null'],
         ['rotacion_cargas', 'aplicado_por', 'users', 'id', 'restrict'],
         ['rotacion_cargas', 'subido_por', 'users', 'id', 'restrict'],
         ['rotacion_correcciones', 'usuario_id', 'users', 'id', 'set_null'],

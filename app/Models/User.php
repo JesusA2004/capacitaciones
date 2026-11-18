@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -263,6 +264,50 @@ class User extends Authenticatable
     }
 
     /**
+     * Roles DESACTIVADOS (borrado lógico en «Roles y permisos») no otorgan
+     * nada: la persona conserva la asignación, pero sus permisos no cuentan.
+     */
+    protected function hasPermissionViaRole(PermisoContrato $permission): bool
+    {
+        $activos = $this->rolesActivosIds();
+
+        return $activos !== [] && $permission->roles->contains(fn (Model $rol): bool => in_array((int) $rol->getKey(), $activos, true));
+    }
+
+    /**
+     * @return Collection<int, Permission>
+     */
+    public function getPermissionsViaRoles(): Collection
+    {
+        $permisos = [];
+
+        foreach ($this->loadMissing('roles', 'roles.permissions')->roles as $rol) {
+            if ($rol->getAttribute('desactivado_en') !== null) {
+                continue;
+            }
+
+            foreach ($rol->getRelationValue('permissions') ?? [] as $permiso) {
+                if ($permiso instanceof Permission) {
+                    $permisos[] = $permiso;
+                }
+            }
+        }
+
+        return collect($permisos)->sort()->values();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function rolesActivosIds(): array
+    {
+        return array_values(array_map(
+            fn ($id): int => (int) $id,
+            $this->loadMissing('roles')->roles->filter(fn (Model $rol): bool => $rol->getAttribute('desactivado_en') === null)->modelKeys(),
+        ));
+    }
+
+    /**
      * Permisos efectivos (directos + roles activos + concedidos − quitados).
      *
      * @return Collection<int, Permission>
@@ -313,7 +358,8 @@ class User extends Authenticatable
                 $q->orWhere(fn (Builder $uno) => $uno
                     ->where(fn (Builder $otorga) => $otorga
                         ->whereHas('permissions', fn (Builder $p) => $p->where('permissions.id', $id))
-                        ->when($roles !== [], fn (Builder $r) => $r->orWhereHas('roles', fn (Builder $rol) => $rol->whereIn('roles.id', $roles)))
+                        // Solo roles activos: uno desactivado no otorga nada.
+                        ->when($roles !== [], fn (Builder $r) => $r->orWhereHas('roles', fn (Builder $rol) => $rol->whereIn('roles.id', $roles)->whereNull('roles.desactivado_en')))
                         ->orWhereIn('users.id', AjustePermisoUsuario::query()->vigentes()->where('permiso', $nombre)->where('tipo', TipoAjustePermiso::Conceder->value)->select('user_id')))
                     ->whereNotIn('users.id', AjustePermisoUsuario::query()->vigentes()->where('permiso', $nombre)->where('tipo', TipoAjustePermiso::Revocar->value)->select('user_id')));
             }

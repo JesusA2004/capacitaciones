@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CheckCheck, Eraser, Info, KeyRound, Lock } from '@lucide/vue';
 import { computed } from 'vue';
+import AlcanceMiniMapa from '@/components/Administracion/Roles/AlcanceMiniMapa.vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Badge } from '@/components/ui/badge';
@@ -162,7 +163,10 @@ const accesoDifiere = computed(() =>
             v-if="niveles.length > 1"
             class="flex flex-wrap items-center gap-2 rounded-xl bg-crema/40 px-3 py-2"
         >
-            <span class="text-sm text-muted-foreground">Alcance de datos</span>
+            <span
+                class="inline-flex items-center gap-2 text-sm text-muted-foreground"
+                >Alcance de datos <AlcanceMiniMapa :nivel="nivel"
+            /></span>
             <SelectSimple
                 :model-value="nivel"
                 :opciones="opcionesDelNivel"

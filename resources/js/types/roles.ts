@@ -5,11 +5,7 @@
 
 /** «sucursal_corporativo» = su sucursal + todo Corporativo (no las demás). */
 export type NivelAlcance =
-    | 'todos'
-    | 'region'
-    | 'sucursal_corporativo'
-    | 'sucursal'
-    | 'equipo';
+    'todos' | 'region' | 'sucursal_corporativo' | 'sucursal' | 'equipo';
 
 export type RolItem = {
     id: number;
@@ -20,6 +16,9 @@ export type RolItem = {
     es_protegido: boolean;
     /** Rol del seeder: no se renombra ni se elimina. */
     es_del_sistema: boolean;
+    /** Borrado lógico: desactivado no otorga permisos ni se asigna. */
+    activo: boolean;
+    desactivado_en: string | null;
 };
 
 export type AccionPermiso = {

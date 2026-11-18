@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\NotificacionEventoRol;
+use App\Models\NotificacionEventoRolHistorial;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -9,8 +11,10 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Roles y sus permisos («Roles y permisos»). Cada cambio queda en la
@@ -19,7 +23,10 @@ use Spatie\Permission\Models\Role;
  */
 class RolPermisoService
 {
-    public function __construct(private readonly AuditoriaService $auditoria) {}
+    public function __construct(
+        private readonly AuditoriaService $auditoria,
+        private readonly PermissionRegistrar $registrar,
+    ) {}
 
     /**
      * @param  array<int, string>  $permisos
@@ -90,17 +97,110 @@ class RolPermisoService
         return $nuevo;
     }
 
-    public function eliminar(Role $rol, ?User $actor = null): void
+    /**
+     * Borrado LÓGICO (quien administra roles): el rol conserva sus permisos y
+     * sus usuarios, pero deja de otorgar permisos (App\Models\User ignora
+     * los roles desactivados) y no se ofrece al asignar. Se reactiva igual.
+     *
+     * @throws ValidationException
+     */
+    public function desactivar(Role $rol, User $actor, ?string $motivo = null): void
     {
+        $this->exigirNoProtegido($rol, 'desactivar');
+
+        if ($rol->getAttribute('desactivado_en') !== null) {
+            return;
+        }
+
+        $rol->forceFill(['desactivado_en' => now(), 'desactivado_por' => $actor->id])->save();
+        $this->registrar->forgetCachedPermissions();
+
+        $this->auditoria->registrar('rol_desactivado', $rol, $actor, [
+            'rol' => (string) $rol->name,
+            'motivo' => $motivo,
+            'usuarios' => $rol->users()->count(),
+        ]);
+    }
+
+    public function reactivar(Role $rol, User $actor): void
+    {
+        if ($rol->getAttribute('desactivado_en') === null) {
+            return;
+        }
+
+        $rol->forceFill(['desactivado_en' => null, 'desactivado_por' => null])->save();
+        $this->registrar->forgetCachedPermissions();
+
+        $this->auditoria->registrar('rol_reactivado', $rol, $actor, ['rol' => (string) $rol->name]);
+    }
+
+    /**
+     * Borrado FÍSICO (solo super_admin, RolPolicy::delete): el rol, sus
+     * permisos y su checklist de avisos desaparecen. Si alguien lo tiene, hay
+     * que decir a qué rol pasa: nadie se queda sin rol por accidente. Nunca
+     * borra usuarios ni expedientes. Todo en una transacción.
+     *
+     * @return int cuántas cuentas se pasaron a $destino
+     *
+     * @throws ValidationException
+     */
+    public function eliminarDefinitivamente(Role $rol, ?Role $destino, User $actor): int
+    {
+        $this->exigirNoProtegido($rol, 'eliminar');
+
+        $usuarios = User::query()->whereHas('roles', fn ($q) => $q->where('roles.id', $rol->id))->get();
+
+        if ($usuarios->isNotEmpty() && $destino === null) {
+            throw ValidationException::withMessages(['reasignar_a' => sprintf('«%s» lo tienen %d persona(s): elige a qué rol pasan antes de eliminarlo.', $rol->name, $usuarios->count())]);
+        }
+
+        if ($destino !== null && ($destino->is($rol) || $destino->getAttribute('desactivado_en') !== null)) {
+            throw ValidationException::withMessages(['reasignar_a' => 'Elige otro rol, activo, para pasar a esas personas.']);
+        }
+
         $nombre = (string) $rol->name;
         $permisos = $this->nombresPermisos($rol);
 
-        $rol->delete();
+        DB::transaction(function () use ($rol, $destino, $usuarios): void {
+            foreach ($usuarios as $usuario) {
+                if ($destino !== null && ! $usuario->hasRole($destino)) {
+                    $usuario->assignRole($destino);
+                }
+            }
+
+            // El motor local es MyISAM (sin llaves foráneas): se replica a
+            // mano el ON DELETE CASCADE de las migraciones.
+            NotificacionEventoRol::query()->where('role_id', $rol->id)->delete();
+            NotificacionEventoRolHistorial::query()->where('role_id', $rol->id)->delete();
+
+            // Spatie quita sus permisos y asignaciones al borrar (HasPermissions::bootHasPermissions).
+            $rol->delete();
+        });
+
+        $this->registrar->forgetCachedPermissions();
 
         $this->auditoria->registrar('rol_eliminado', null, $actor, [
             'rol' => $nombre,
             'quitados' => $permisos,
+            'reasignados_a' => $destino?->name,
+            'usuarios' => $usuarios->count(),
         ]);
+
+        return $usuarios->count();
+    }
+
+    /**
+     * super_admin y los roles del seeder: el código los reconoce por nombre
+     * (alcance, Mi espacio, bootstrap móvil, avisos), así que nunca se
+     * desactivan ni se eliminan.
+     *
+     * @throws ValidationException
+     */
+    private function exigirNoProtegido(Role $rol, string $accion): void
+    {
+        if ($rol->name === 'super_admin' || $this->esRolDelSistema($rol)) {
+            throw ValidationException::withMessages(['rol' => sprintf('«%s» es un rol del sistema: el código lo usa por su nombre y no se puede %s.', $rol->name, $accion)]);
+        }
     }
 
     /**
@@ -141,6 +241,7 @@ class RolPermisoService
         foreach ($roles as $rol) {
             $rol->setAttribute('permisos_nombres', $nombresPorRol->get($rol->id, collect()));
             $rol->setAttribute('es_del_sistema', array_key_exists((string) $rol->name, $delSistema));
+            $rol->setAttribute('activo', $rol->getAttribute('desactivado_en') === null);
         }
 
         return $roles;
@@ -159,7 +260,8 @@ class RolPermisoService
             return [];
         }
 
-        $roles = Role::query()->with('permissions:id,name')->orderBy('name')->get();
+        // Un rol desactivado no se ofrece a nadie (ni a super_admin).
+        $roles = Role::query()->with('permissions:id,name')->whereNull('desactivado_en')->orderBy('name')->get();
 
         if ($actor->hasRole('super_admin')) {
             return array_values($roles->map(fn (Role $rol): string => (string) $rol->name)->all());
@@ -189,7 +291,9 @@ class RolPermisoService
     public function puedeCambiarRoles(User $actor, ?User $objetivo, array $roles): bool
     {
         $actuales = $objetivo?->roles()->pluck('name')->map(fn ($rol): string => (string) $rol)->all() ?? [];
-        $cambios = array_merge(array_diff($roles, $actuales), array_diff($actuales, $roles));
+        // Quitar un rol desactivado nunca amplía nada: siempre se permite.
+        $desactivados = Role::query()->whereNotNull('desactivado_en')->pluck('name')->map(fn ($rol): string => (string) $rol)->all();
+        $cambios = array_merge(array_diff($roles, $actuales), array_diff(array_diff($actuales, $roles), $desactivados));
 
         return $cambios === [] || array_diff($cambios, $this->rolesAsignablesPor($actor)) === [];
     }

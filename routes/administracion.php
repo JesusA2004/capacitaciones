@@ -102,6 +102,9 @@ Route::middleware(['auth', 'verified'])
             Route::put('{rol}', [RolController::class, 'update'])->name('update');
             Route::delete('{rol}', [RolController::class, 'destroy'])->name('destroy');
             Route::post('{rol}/clonar', [RolController::class, 'clonar'])->name('clonar');
+            // Borrado lógico (quien administra roles); el físico (destroy) es solo super_admin.
+            Route::post('{rol}/desactivar', [RolController::class, 'desactivar'])->name('desactivar');
+            Route::post('{rol}/reactivar', [RolController::class, 'reactivar'])->name('reactivar');
             Route::put('{rol}/notificaciones', [RolNotificacionesController::class, 'update'])->name('notificaciones.update');
             Route::post('{rol}/notificaciones/restablecer', [RolNotificacionesController::class, 'restablecer'])->name('notificaciones.restablecer');
         });

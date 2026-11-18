@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
+    Ban,
+    ChartColumn,
     ChevronDown,
     Copy,
     GitCompareArrows,
@@ -8,21 +10,25 @@ import {
     Layers,
     Lock,
     Plus,
+    Power,
     RotateCcw,
     Save,
     Search,
     ShieldCheck,
+    Sparkles,
     Trash2,
     Users,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ClonarRolDialog from '@/components/Administracion/ClonarRolDialog.vue';
 import ChecklistNotificacionesRol from '@/components/Administracion/Roles/ChecklistNotificacionesRol.vue';
+import EliminarRolDialog from '@/components/Administracion/Roles/EliminarRolDialog.vue';
 import ModuloPermisosCard from '@/components/Administracion/Roles/ModuloPermisosCard.vue';
 import NuevoRolDialog from '@/components/Administracion/Roles/NuevoRolDialog.vue';
 import PendientesPorRol from '@/components/Administracion/Roles/PendientesPorRol.vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
 import ResumenRol from '@/components/Administracion/Roles/ResumenRol.vue';
+import ResumenVisualRol from '@/components/Administracion/Roles/ResumenVisualRol.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -32,6 +38,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAlertas } from '@/composables/useAlertas';
 import { etiquetaModulo, etiquetaPermiso } from '@/lib/permisos';
+import { iconoEtapa } from '@/lib/rolesIconos';
 import {
     accionesVisibles,
     coincide,
@@ -41,7 +48,8 @@ import {
     permisosDelModulo,
 } from '@/lib/rolesPermisos';
 import { dashboard } from '@/routes';
-import { destroy, update } from '@/routes/administracion/roles';
+import { index as indexEspeciales } from '@/routes/administracion/permisos-especiales';
+import { desactivar, reactivar, update } from '@/routes/administracion/roles';
 import type {
     CambioNotificacionRol,
     CatalogoPermisos,
@@ -65,6 +73,10 @@ const props = defineProps<{
     puedeAdministrarRoles: boolean;
     checklistNotificaciones: ChecklistNotificaciones | null;
     historialNotificaciones: Record<number, CambioNotificacionRol[]>;
+    /** Borrado físico de roles: solo super_admin (el backend lo exige). */
+    puedeEliminarRoles?: boolean;
+    /** Acceso a «Permisos especiales» por persona. */
+    puedePermisosEspeciales?: boolean;
 }>();
 
 defineOptions({
@@ -76,7 +88,7 @@ defineOptions({
     },
 });
 
-const { confirmarEliminacion, confirmarAccion, mostrarError } = useAlertas();
+const { confirmarAccion, mostrarError } = useAlertas();
 
 // ---------------------------------------------------------------- roles
 const busquedaRol = ref('');
@@ -347,23 +359,83 @@ async function guardar() {
     );
 }
 
-async function eliminar(objetivo: RolItem) {
-    if (!(await confirmarEliminacion(`el rol «${objetivo.nombre}»`))) {
+async function desactivarRol(objetivo: RolItem) {
+    const confirmado = await confirmarAccion(
+        `¿Desactivar «${objetivo.nombre}»?`,
+        `Deja de otorgar sus ${objetivo.permisos.length} permiso(s) a ${objetivo.usuarios_count} persona(s) y ya no se ofrece al asignar roles. No se borra nada: puedes reactivarlo cuando quieras.`,
+        'Desactivar',
+    );
+
+    if (!confirmado) {
         return;
     }
 
-    router.delete(destroy.url(objetivo.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            if (rolId.value === objetivo.id) {
-                rolId.value =
-                    props.roles.find((r) => r.id !== objetivo.id)?.id ?? null;
-                cargarBorrador();
-            }
+    router.post(
+        desactivar.url(objetivo.id),
+        {},
+        {
+            preserveScroll: true,
+            onError: (e) =>
+                mostrarError(
+                    Object.values(e)[0] ?? 'No fue posible desactivar el rol.',
+                ),
         },
-        onError: () => mostrarError('No fue posible eliminar el rol.'),
-    });
+    );
 }
+
+function reactivarRol(objetivo: RolItem) {
+    router.post(
+        reactivar.url(objetivo.id),
+        {},
+        {
+            preserveScroll: true,
+            onError: () => mostrarError('No fue posible reactivar el rol.'),
+        },
+    );
+}
+
+const dialogEliminar = ref(false);
+
+function alEliminar() {
+    rolId.value = props.roles.find((r) => r.id !== rolId.value)?.id ?? null;
+    cargarBorrador();
+}
+
+/** Módulos con acceso de un rol (barra de la lista de roles). */
+function coberturaDe(r: RolItem): number {
+    const permisos = new Set(r.permisos);
+
+    return props.catalogo.etapas
+        .flatMap((e) => e.modulos)
+        .filter((m) => moduloActivo(m, permisos)).length;
+}
+
+/** Lista de roles en grupos: del sistema, personalizados y desactivados. */
+const gruposRoles = computed(() =>
+    [
+        {
+            clave: 'sistema',
+            titulo: 'Roles del sistema',
+            roles: rolesFiltrados.value.filter(
+                (r) => r.activo && (r.es_del_sistema || r.es_protegido),
+            ),
+        },
+        {
+            clave: 'personalizados',
+            titulo: 'Personalizados',
+            roles: rolesFiltrados.value.filter(
+                (r) => r.activo && !r.es_del_sistema && !r.es_protegido,
+            ),
+        },
+        {
+            clave: 'desactivados',
+            titulo: 'Desactivados',
+            roles: rolesFiltrados.value.filter((r) => !r.activo),
+        },
+    ].filter((g) => g.roles.length > 0),
+);
+
+const verResumenVisual = ref(true);
 
 // --------------------------------------------------------------- filtros
 const vista = ref<'matriz' | 'resumen' | 'notificaciones' | 'pendientes'>(
@@ -512,6 +584,12 @@ const dialogClonar = ref(false);
             "
             :icono="ShieldCheck"
         >
+            <Button v-if="puedePermisosEspeciales" variant="outline" as-child>
+                <Link :href="indexEspeciales.url()">
+                    <Sparkles class="size-4" />
+                    Permisos especiales por persona
+                </Link>
+            </Button>
             <Button v-if="puedeAdministrarRoles" @click="dialogNuevo = true">
                 <Plus class="size-4" />
                 Nuevo rol
@@ -565,45 +643,88 @@ const dialogClonar = ref(false);
                     "
                 />
 
-                <ul
-                    class="hidden flex-col gap-1 overflow-y-auto rounded-2xl border border-border/60 bg-card p-2 shadow-sm lg:flex"
+                <div
+                    class="hidden flex-col gap-3 overflow-y-auto rounded-2xl border border-border/60 bg-card p-2 shadow-sm lg:flex"
                     data-tour="tabla"
                 >
-                    <li v-for="r in rolesFiltrados" :key="r.id">
-                        <button
-                            type="button"
-                            class="flex w-full presionable flex-col gap-0.5 rounded-xl px-3 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                            :aria-current="r.id === rolId ? 'true' : undefined"
-                            :class="
-                                r.id === rolId
-                                    ? 'bg-salvia text-foreground'
-                                    : 'hover:bg-muted/60'
-                            "
-                            @click="seleccionar(r.id)"
+                    <section
+                        v-for="grupo in gruposRoles"
+                        :key="grupo.clave"
+                        class="flex flex-col gap-1"
+                    >
+                        <h3
+                            class="px-3 pt-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
                         >
-                            <span
-                                class="flex items-center gap-2 text-sm font-medium"
-                            >
-                                <span class="truncate">{{ r.nombre }}</span>
-                                <Lock
-                                    v-if="r.es_protegido"
-                                    class="size-3.5 shrink-0 text-muted-foreground"
-                                />
-                            </span>
-                            <span class="text-xs text-muted-foreground"
-                                ><template v-if="puedeAdministrarRoles"
-                                    >{{ r.permisos.length }} permisos · </template
-                                >{{ r.usuarios_count }} usuario(s)</span
-                            >
-                        </button>
-                    </li>
-                    <li
+                            {{ grupo.titulo }} · {{ grupo.roles.length }}
+                        </h3>
+                        <ul class="flex flex-col gap-1">
+                            <li v-for="r in grupo.roles" :key="r.id">
+                                <button
+                                    type="button"
+                                    class="flex w-full presionable flex-col gap-1 rounded-xl px-3 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    :aria-current="
+                                        r.id === rolId ? 'true' : undefined
+                                    "
+                                    :class="[
+                                        r.id === rolId
+                                            ? 'bg-salvia text-foreground'
+                                            : 'hover:bg-muted/60',
+                                        r.activo ? '' : 'opacity-70',
+                                    ]"
+                                    @click="seleccionar(r.id)"
+                                >
+                                    <span
+                                        class="flex items-center gap-2 text-sm font-medium"
+                                    >
+                                        <span class="truncate capitalize">{{
+                                            r.nombre.replace(/_/g, ' ')
+                                        }}</span>
+                                        <Lock
+                                            v-if="r.es_protegido"
+                                            class="size-3.5 shrink-0 text-muted-foreground"
+                                        />
+                                        <Ban
+                                            v-if="!r.activo"
+                                            class="size-3.5 shrink-0 text-destructive"
+                                        />
+                                        <span
+                                            class="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-crema px-1.5 py-0.5 text-[11px] font-normal text-muted-foreground"
+                                            :title="`${r.usuarios_count} persona(s) con este rol`"
+                                            ><Users class="size-3" />{{
+                                                r.usuarios_count
+                                            }}</span
+                                        >
+                                    </span>
+                                    <template v-if="puedeAdministrarRoles">
+                                        <span
+                                            class="h-1 overflow-hidden rounded-full bg-muted"
+                                            aria-hidden="true"
+                                        >
+                                            <span
+                                                class="block h-full rounded-full bg-primary/50"
+                                                :style="{
+                                                    width: `${totalModulos === 0 ? 0 : (coberturaDe(r) / totalModulos) * 100}%`,
+                                                }"
+                                            />
+                                        </span>
+                                        <span
+                                            class="text-[11px] text-muted-foreground"
+                                            >{{ coberturaDe(r) }} de
+                                            {{ totalModulos }} módulos ·
+                                            {{ r.permisos.length }} permisos</span
+                                        >
+                                    </template>
+                                </button>
+                            </li>
+                        </ul>
+                    </section>
+                    <p
                         v-if="rolesFiltrados.length === 0"
                         class="px-3 py-4 text-center text-sm text-muted-foreground"
                     >
                         Ningún rol coincide.
-                    </li>
-                </ul>
+                    </p>
+                </div>
             </aside>
 
             <!-- Editor del rol -->
@@ -641,6 +762,9 @@ const dialogClonar = ref(false);
                                 <Badge v-else variant="outline"
                                     >Personalizado</Badge
                                 >
+                                <Badge v-if="!rol.activo" variant="destructive"
+                                    ><Ban /> Desactivado</Badge
+                                >
                             </div>
                             <p class="text-sm text-muted-foreground">
                                 {{ rol.usuarios_count }} usuario(s) ·
@@ -659,18 +783,52 @@ const dialogClonar = ref(false);
                                 <Copy class="size-4" />
                                 Clonar
                             </Button>
-                            <Button
+                            <template
                                 v-if="!rol.es_del_sistema && !rol.es_protegido"
-                                variant="outline-destructive"
-                                size="sm"
-                                @click="eliminar(rol)"
                             >
-                                <Trash2 class="size-4" />
-                                Eliminar
-                            </Button>
+                                <Button
+                                    v-if="rol.activo"
+                                    variant="outline"
+                                    size="sm"
+                                    @click="desactivarRol(rol)"
+                                >
+                                    <Power class="size-4" />
+                                    Desactivar
+                                </Button>
+                                <Button
+                                    v-else
+                                    variant="outline"
+                                    size="sm"
+                                    @click="reactivarRol(rol)"
+                                >
+                                    <Power class="size-4" />
+                                    Reactivar
+                                </Button>
+                                <Button
+                                    v-if="puedeEliminarRoles"
+                                    variant="outline-destructive"
+                                    size="sm"
+                                    @click="dialogEliminar = true"
+                                >
+                                    <Trash2 class="size-4" />
+                                    Eliminar definitivamente
+                                </Button>
+                            </template>
                         </div>
                     </div>
 
+                    <div
+                        v-if="!rol.activo"
+                        class="flex gap-2 rounded-xl bg-danger-soft p-3 text-sm"
+                    >
+                        <Ban class="mt-0.5 size-4 shrink-0 text-destructive" />
+                        <span
+                            >Rol desactivado: sus permisos se conservan pero
+                            no cuentan para nadie ({{ rol.usuarios_count }}
+                            persona(s) lo tienen) y no se ofrece al asignar
+                            roles. «Reactivar» lo devuelve tal cual.</span
+                        >
+                    </div>
                     <div
                         v-if="rol.es_protegido"
                         class="flex gap-2 rounded-xl bg-info-soft p-3 text-sm"
@@ -686,8 +844,9 @@ const dialogClonar = ref(false);
                         v-else-if="rol.es_del_sistema"
                         class="text-xs text-muted-foreground"
                     >
-                        Los roles del sistema no se renombran ni se eliminan;
-                        sus permisos sí se ajustan. Un deploy nunca vuelve a dar
+                        Los roles del sistema no se renombran, no se desactivan
+                        ni se eliminan (el código los usa por su nombre); sus
+                        permisos sí se ajustan. Un deploy nunca vuelve a dar
                         un permiso que aquí se quitó.
                     </p>
 
@@ -834,6 +993,31 @@ const dialogClonar = ref(false);
 
                 <!-- Matriz -->
                 <template v-else>
+                    <section
+                        class="flex flex-col gap-2 rounded-2xl border border-border/60 bg-crema/30 p-3"
+                    >
+                        <button
+                            type="button"
+                            class="flex presionable items-center gap-2 rounded-lg text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                            :aria-expanded="verResumenVisual"
+                            @click="verResumenVisual = !verResumenVisual"
+                        >
+                            <ChartColumn class="size-4 text-primary" />
+                            Resumen visual de «{{ rol.nombre }}»
+                            <span class="font-normal text-muted-foreground"
+                                >· módulos por etapa, acciones y alcance</span
+                            >
+                            <ChevronDown
+                                class="ml-auto size-4 text-muted-foreground transition-transform"
+                                :class="verResumenVisual ? '' : '-rotate-90'"
+                            />
+                        </button>
+                        <ResumenVisualRol
+                            v-if="verResumenVisual"
+                            :catalogo="catalogo"
+                            :permisos="borrador"
+                        />
+                    </section>
                     <EmptyState
                         v-if="sinResultados"
                         :icono="Search"
@@ -854,8 +1038,15 @@ const dialogClonar = ref(false);
                         >
                             <span
                                 class="flex size-8 shrink-0 items-center justify-center rounded-full bg-crema text-sm font-semibold"
-                                >{{ etapa.numero ?? '·' }}</span
-                            >
+                                ><component
+                                    :is="iconoEtapa(etapa.clave)"
+                                    class="size-4"
+                                    :aria-label="
+                                        etapa.numero !== null
+                                            ? `Etapa ${etapa.numero}`
+                                            : undefined
+                                    "
+                            /></span>
                             <span class="flex-1">
                                 <span class="block font-semibold">{{
                                     etapa.etiqueta
@@ -1027,6 +1218,14 @@ const dialogClonar = ref(false);
         v-model:open="dialogNuevo"
         :roles="roles"
         @creado="seleccionarPorNombre"
+    />
+
+    <EliminarRolDialog
+        v-if="rol && dialogEliminar"
+        v-model:open="dialogEliminar"
+        :rol="rol"
+        :roles="roles"
+        @eliminado="alEliminar"
     />
 
     <ClonarRolDialog

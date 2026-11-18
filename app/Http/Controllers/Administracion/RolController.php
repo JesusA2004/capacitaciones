@@ -9,6 +9,7 @@ use App\Http\Requests\Administracion\UpdateRolRequest;
 use App\Http\Resources\RolResource;
 use App\Services\Notificaciones\PoliticaNotificacionRolService;
 use App\Services\Permisos\CatalogoPermisosService;
+use App\Services\Permisos\PermisosEspecialesService;
 use App\Services\RolPermisoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,6 +44,10 @@ class RolController extends Controller
             // acciones (config/permisos_modulos.php) + «Otros permisos».
             'catalogo' => $this->catalogo->paraPantalla(),
             'puedeAdministrarRoles' => $administra,
+            // Borrado físico de roles: exclusivo de super_admin (RolPolicy::delete).
+            'puedeEliminarRoles' => $usuario->hasRole('super_admin'),
+            // Permisos especiales por persona (acceso desde esta pantalla).
+            'puedePermisosEspeciales' => app(PermisosEspecialesService::class)->puedeAdministrar($usuario),
             // Checklist de avisos por rol (config/notificaciones_catalogo.php).
             'checklistNotificaciones' => $editaAvisos ? $this->politica->matrizParaPantalla(collect($roles)) : null,
             'historialNotificaciones' => $editaAvisos
@@ -65,13 +70,53 @@ class RolController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Rol actualizado correctamente.']);
     }
 
+    /**
+     * Borrado FÍSICO (solo super_admin): confirma escribiendo el nombre del
+     * rol y, si alguien lo tiene, a qué rol pasan esas personas.
+     */
     public function destroy(Request $request, Role $rol): RedirectResponse
     {
         $this->authorize('delete', $rol);
 
-        $this->rolPermisoService->eliminar($rol, $request->user());
+        $datos = $request->validate([
+            'confirmacion' => ['required', 'string', 'in:'.$rol->name],
+            'reasignar_a' => ['nullable', 'integer', 'exists:roles,id'],
+        ], [
+            'confirmacion.in' => sprintf('Escribe exactamente «%s» para confirmar.', $rol->name),
+            'confirmacion.required' => sprintf('Escribe «%s» para confirmar.', $rol->name),
+        ]);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Rol eliminado correctamente.']);
+        $destino = isset($datos['reasignar_a']) ? Role::query()->where('id', (int) $datos['reasignar_a'])->first() : null;
+        $movidos = $this->rolPermisoService->eliminarDefinitivamente($rol, $destino, $request->user());
+
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $movidos > 0 && $destino !== null
+                ? sprintf('Rol eliminado. %d persona(s) pasaron a «%s».', $movidos, $destino->name)
+                : 'Rol eliminado definitivamente.',
+        ]);
+    }
+
+    /**
+     * Borrado LÓGICO: deja de otorgar permisos y no se ofrece al asignar.
+     */
+    public function desactivar(Request $request, Role $rol): RedirectResponse
+    {
+        $this->authorize('desactivar', $rol);
+
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:255']]);
+        $this->rolPermisoService->desactivar($rol, $request->user(), $datos['motivo'] ?? null);
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('«%s» desactivado: ya no otorga permisos ni se puede asignar. Puedes reactivarlo cuando quieras.', $rol->name)]);
+    }
+
+    public function reactivar(Request $request, Role $rol): RedirectResponse
+    {
+        $this->authorize('desactivar', $rol);
+
+        $this->rolPermisoService->reactivar($rol, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('«%s» reactivado: vuelve a otorgar sus permisos.', $rol->name)]);
     }
 
     public function clonar(ClonarRolRequest $request, Role $rol): RedirectResponse
