@@ -18,6 +18,7 @@ import { computed, ref } from 'vue';
 import ModuloPermisosCard from '@/components/Administracion/Roles/ModuloPermisosCard.vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
 import ResumenRol from '@/components/Administracion/Roles/ResumenRol.vue';
+import ResumenVisualRol from '@/components/Administracion/Roles/ResumenVisualRol.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
@@ -587,6 +588,11 @@ const hoy = new Date().toISOString().slice(0, 10);
                     v-else-if="vista === 'resumen'"
                     class="rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
                 >
+                    <ResumenVisualRol
+                        class="mb-5"
+                        :catalogo="catalogo"
+                        :permisos="efectivos"
+                    />
                     <ResumenRol
                         :catalogo="catalogo"
                         :permisos="efectivos"
