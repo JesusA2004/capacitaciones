@@ -22,12 +22,12 @@ export type RolItem = {
     es_del_sistema: boolean;
 };
 
-    /** Paso del recorrido al que pertenece (p. ej. «Paso 4 · Socioeconómico»); null = sin agrupar. */
-    grupo?: string | null;
 export type AccionPermiso = {
     permiso: string;
     etiqueta: string;
     descripcion: string | null;
+    /** Paso del recorrido al que pertenece (p. ej. «Paso 4 · Socioeconómico»); null = sin agrupar. */
+    grupo?: string | null;
 };
 
 export type ModuloCatalogo = {

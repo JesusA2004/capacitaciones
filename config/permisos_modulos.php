@@ -644,32 +644,6 @@ return [
                 'candidatos.adjuntar' => 'Agregar archivos al mini expediente (CV y archivos de cualquier paso)',
                 'candidatos.cerrar_proceso' => 'Cerrar el proceso de un candidato (con motivo)',
                 'candidatos.aprobar' => 'Ver candidatos e intervenciones en el resumen de Inicio',
-            ],
-        ],
-        'agenda' => [
-            'etiqueta' => 'Agenda de entrevistas',
-            'grupo' => 'Reclutamiento',
-            'acceso' => 'agenda.ver',
-            'alcances' => ['todos' => 'agenda.ver_todos', 'region' => 'agenda.ver_region', 'sucursal' => 'agenda.ver_sucursal'],
-            'descripcion' => 'Citas de entrevista y estudio socioeconómico. El resultado además exige el permiso del paso en Candidatos.',
-            'acciones' => [
-                'agenda.agendar' => 'Agendar, reprogramar y cancelar',
-                'agenda.alta_candidato' => 'Alta rápida de candidato al agendar',
-                'agenda.registrar_resultado' => 'Registrar resultado o inasistencia',
-                'agenda.ver_datos_candidato' => 'Ver teléfono, domicilio y CV del candidato',
-                'agenda.exportar' => 'Exportar (Excel / PDF)',
-            ],
-        ],
-        'vacantes' => [
-            'etiqueta' => 'Vacantes',
-            'grupo' => 'Reclutamiento',
-            'acceso' => 'vacantes.ver',
-            'alcances' => ['todos' => 'vacantes.ver_todos', 'region' => 'vacantes.ver_region', 'sucursal' => 'vacantes.ver_sucursal'],
-            'acciones' => ['vacantes.exportar' => 'Exportar (Excel / PDF)', 'vacantes.crear' => 'Crear', 'vacantes.editar' => 'Editar', 'vacantes.cerrar' => 'Cerrar', 'vacantes.eliminar' => 'Eliminar'],
-        ],
-        'recibos' => [
-            'etiqueta' => 'Recibos de nómina',
-            'grupo' => 'Nómina',
                 'candidatos.revisar_perfil' => 'Perfil · Revisar y decidir (filtro inicial)',
                 'candidatos.consultar_entrevista' => 'Entrevista · Ver resultado',
                 'candidatos.aprobar_entrevista' => 'Entrevista · Registrar resultado (viable / no viable)',
@@ -699,6 +673,32 @@ return [
                 'Paso 6 · Autorización de RH' => ['ciclo.autorizar_rh'],
                 'Paso 7 · Contratación' => ['candidatos.contratar'],
                 'Rechazo de RH' => ['candidatos.solicitar_intervencion', 'candidatos.intervencion_decidir'],
+            ],
+        ],
+        'agenda' => [
+            'etiqueta' => 'Agenda de entrevistas',
+            'grupo' => 'Reclutamiento',
+            'acceso' => 'agenda.ver',
+            'alcances' => ['todos' => 'agenda.ver_todos', 'region' => 'agenda.ver_region', 'sucursal' => 'agenda.ver_sucursal'],
+            'descripcion' => 'Citas de entrevista y estudio socioeconómico. El resultado además exige el permiso del paso en Candidatos.',
+            'acciones' => [
+                'agenda.agendar' => 'Agendar, reprogramar y cancelar',
+                'agenda.alta_candidato' => 'Alta rápida de candidato al agendar',
+                'agenda.registrar_resultado' => 'Registrar resultado o inasistencia',
+                'agenda.ver_datos_candidato' => 'Ver teléfono, domicilio y CV del candidato',
+                'agenda.exportar' => 'Exportar (Excel / PDF)',
+            ],
+        ],
+        'vacantes' => [
+            'etiqueta' => 'Vacantes',
+            'grupo' => 'Reclutamiento',
+            'acceso' => 'vacantes.ver',
+            'alcances' => ['todos' => 'vacantes.ver_todos', 'region' => 'vacantes.ver_region', 'sucursal' => 'vacantes.ver_sucursal'],
+            'acciones' => ['vacantes.exportar' => 'Exportar (Excel / PDF)', 'vacantes.crear' => 'Crear', 'vacantes.editar' => 'Editar', 'vacantes.cerrar' => 'Cerrar', 'vacantes.eliminar' => 'Eliminar'],
+        ],
+        'recibos' => [
+            'etiqueta' => 'Recibos de nómina',
+            'grupo' => 'Nómina',
             'acceso' => 'nomina.recibos.ver',
             'alcances' => ['todos' => 'nomina.recibos.ver_todos', 'region' => 'nomina.recibos.ver_region', 'sucursal' => 'nomina.recibos.ver_sucursal', 'equipo' => 'nomina.recibos.ver_equipo'],
             'acciones' => [
@@ -978,6 +978,17 @@ return [
         'candidatos.cerrar_proceso' => ['candidatos.rechazar', 'candidatos.editar', 'candidatos.evaluar'],
         'candidatos.solicitar_intervencion' => 'candidatos.evaluar',
         'candidatos.adjuntar' => ['candidatos.editar', 'candidatos.evaluar'],
+        // Por paso y por acción (2026-11-18): Ver / Cargar / Revisar. Ver
+        // cada paso lo conserva quien hoy entra a Candidatos; enviar el link
+        // de psicométricas y cargar referencias se separaron del permiso
+        // que los cubría (registrar_psicometricas / validar_referencias, que
+        // se quedan con «cargar resultados» y «revisar y concluir»).
+        'candidatos.consultar_entrevista' => 'candidatos.ver',
+        'candidatos.consultar_psicometricas' => 'candidatos.ver',
+        'candidatos.consultar_socioeconomico' => 'candidatos.ver',
+        'candidatos.consultar_referencias' => 'candidatos.ver',
+        'candidatos.enviar_psicometricas' => 'candidatos.registrar_psicometricas',
+        'candidatos.registrar_referencias' => 'candidatos.validar_referencias',
         // Organización y Configuración.
         'organigrama.coberturas' => 'organigrama.editar',
         'organigrama.mover_personas' => 'organigrama.editar',
@@ -1006,17 +1017,6 @@ return [
         'causales_rotacion.crear' => 'finiquitos.causales_rotacion',
         'causales_rotacion.editar' => 'finiquitos.causales_rotacion',
         'causales_rotacion.activar' => 'finiquitos.causales_rotacion',
-        // Por paso y por acción (2026-11-18): Ver / Cargar / Revisar. Ver
-        // cada paso lo conserva quien hoy entra a Candidatos; enviar el link
-        // de psicométricas y cargar referencias se separaron del permiso
-        // que los cubría (registrar_psicometricas / validar_referencias, que
-        // se quedan con «cargar resultados» y «revisar y concluir»).
-        'candidatos.consultar_entrevista' => 'candidatos.ver',
-        'candidatos.consultar_psicometricas' => 'candidatos.ver',
-        'candidatos.consultar_socioeconomico' => 'candidatos.ver',
-        'candidatos.consultar_referencias' => 'candidatos.ver',
-        'candidatos.enviar_psicometricas' => 'candidatos.registrar_psicometricas',
-        'candidatos.registrar_referencias' => 'candidatos.validar_referencias',
         'causales_rotacion.ordenar' => 'finiquitos.causales_rotacion',
         'usuarios.restablecer_password' => 'usuarios.editar',
         'configuracion.notificaciones.editar' => 'configuracion.notificaciones',
