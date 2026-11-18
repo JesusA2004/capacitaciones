@@ -15,6 +15,7 @@ use App\Services\Expedientes\ExpedienteIncompletoService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Permisos\PermisoAccionService;
+use App\Services\Permisos\PermisosAppMovilService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\RhMobile\RhPendientesService;
 use App\Services\Tareas\TareaService;
@@ -102,6 +103,10 @@ class MobileBootstrapService
             'pendientes' => $this->tareas->conteos($usuario),
             // Modo completar expediente: bloqueado + motivos (aditivo).
             'expediente_incompleto' => app(ExpedienteIncompletoService::class)->estado($usuario),
+            // Permisos por botón de la app (aditivo): permiso => puede. Ya
+            // incluye rol + permisos especiales de la persona. Una app que no
+            // lo recibe se comporta como antes.
+            'permisos_app' => app(PermisosAppMovilService::class)->efectivos($usuario),
             'server' => [
                 'time' => now()->toIso8601String(),
                 'timezone' => config('app.mobile_timezone', 'America/Mexico_City'),

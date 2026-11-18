@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\EstadoFlujoDocumento;
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Api\V1\Concerns\RespondePaginado;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\DecisionRequest;
@@ -33,6 +34,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class CicloLaboralColaboradorController extends Controller
 {
+    use ExigePermisoApp;
     use RespondePaginado;
 
     public function __construct(
@@ -49,6 +51,7 @@ class CicloLaboralColaboradorController extends Controller
 
     public function expediente(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.expediente.ver');
         $colaborador = $this->colaborador($request);
 
         return response()->json(['data' => [
@@ -72,6 +75,8 @@ class CicloLaboralColaboradorController extends Controller
 
     public function documentosLaborales(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.documentos_laborales.ver');
+
         return $this->paginado(
             $this->documentos->delColaborador($this->colaborador($request), $request->string('estado')->toString() ?: null),
             fn (GeneratedDocument $d) => $this->documentos->aArray($d, false, $request->user()),
@@ -96,6 +101,7 @@ class CicloLaboralColaboradorController extends Controller
             'Este documento ya no está disponible.',
         );
         $this->authorize('ver', $documento);
+        $this->exigirPermisoApp('app.documentos_laborales.ver');
 
         return response()->json(['data' => $this->documentos->aArray($documento, false, $request->user())]);
     }
@@ -103,6 +109,7 @@ class CicloLaboralColaboradorController extends Controller
     public function descargarDocumento(GeneratedDocument $documento): StreamedResponse
     {
         $this->authorize('descargar', $documento);
+        $this->exigirPermisoAppSiEsPropio($documento->colaborador_id, 'app.documentos_laborales.descargar');
 
         return $this->motor->respuesta($documento);
     }
@@ -114,6 +121,7 @@ class CicloLaboralColaboradorController extends Controller
     public function verDocumento(Request $request, GeneratedDocument $documento): StreamedResponse
     {
         $this->authorize('ver', $documento);
+        $this->exigirPermisoAppSiEsPropio($documento->colaborador_id, 'app.documentos_laborales.ver');
         $respuesta = $this->motor->respuestaConsulta($documento);
         $this->flujo->registrarConsultaParaFirma($documento, $request->user());
 
@@ -124,6 +132,7 @@ class CicloLaboralColaboradorController extends Controller
     public function aperturaDocumento(Request $request, GeneratedDocument $documento): JsonResponse
     {
         $this->authorize('firmar', $documento);
+        $this->exigirPermisoApp('app.documentos_laborales.firmar');
         $this->flujo->registrarAperturaParaFirma($documento, $request->user());
 
         return response()->json(['data' => ['apertura_registrada' => true]]);
@@ -136,6 +145,7 @@ class CicloLaboralColaboradorController extends Controller
     public function firmarDocumento(DecisionRequest $request, GeneratedDocument $documento): JsonResponse
     {
         $this->authorize('firmar', $documento);
+        $this->exigirPermisoApp('app.documentos_laborales.firmar');
         $request->validate(['acepto' => ['accepted']], ['acepto.accepted' => 'Confirma que leíste y aceptas el documento.']);
 
         $documento = $this->flujo->firmarDigitalmente($documento, $request->user(), $request->validated('comentario'));
@@ -145,6 +155,7 @@ class CicloLaboralColaboradorController extends Controller
 
     public function contratos(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.documentos_laborales.ver');
         $colaborador = $this->colaborador($request);
 
         // El contrato se entrega impreso y firmado: sin autoservicio la lista
@@ -185,6 +196,7 @@ class CicloLaboralColaboradorController extends Controller
     {
         // El recibo se entrega impreso (config('features.recibos_colaborador')).
         abort_unless((bool) config('features.recibos_colaborador'), 404, 'Tu recibo de nómina te lo entrega Recursos Humanos impreso.');
+        $this->exigirPermisoApp('app.recibos.ver');
 
         return $this->paginado(
             $this->recibos->delColaborador($this->colaborador($request), $request->integer('per_page', 20)),
@@ -195,6 +207,7 @@ class CicloLaboralColaboradorController extends Controller
     public function recibo(Request $request, ReciboNomina $recibo): JsonResponse
     {
         $this->authorize('ver', $recibo);
+        $this->exigirPermisoAppSiEsPropio($recibo->colaborador_id, 'app.recibos.ver');
 
         return response()->json(['data' => $this->recibos->aArray($recibo, true, $request->user())]);
     }
@@ -202,12 +215,14 @@ class CicloLaboralColaboradorController extends Controller
     public function reciboPdf(Request $request, ReciboNomina $recibo): StreamedResponse
     {
         $this->authorize('descargar', $recibo);
+        $this->exigirPermisoAppSiEsPropio($recibo->colaborador_id, 'app.recibos.ver');
 
         return $this->recibos->respuestaPdf($recibo, $request->user());
     }
 
     public function prestamos(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.prestamos.ver');
         $colaborador = $this->colaborador($request);
 
         return response()->json(['data' => $colaborador->prestamos()->get()->map(fn (Prestamo $p) => $this->prestamos->aArray($p))->values()]);
@@ -216,18 +231,34 @@ class CicloLaboralColaboradorController extends Controller
     public function prestamo(Prestamo $prestamo): JsonResponse
     {
         $this->authorize('ver', $prestamo);
+        $this->exigirPermisoAppSiEsPropio($prestamo->colaborador_id, 'app.prestamos.ver');
 
         return response()->json(['data' => $this->prestamos->aArray($prestamo, true)]);
     }
 
     public function jerarquia(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.jerarquia.ver');
+
         return response()->json(['data' => $this->jerarquia->jerarquia($this->colaborador($request), $request->user())]);
     }
 
     public function alta(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.expediente.ver');
+
         return response()->json(['data' => $this->altas->checklist($this->colaborador($request), $request->user())]);
+    }
+
+    /**
+     * El permiso de la app aplica a lo PROPIO: quien consulta lo de otra
+     * persona por su alcance (RH) sigue con su Policy de siempre.
+     */
+    private function exigirPermisoAppSiEsPropio(?int $colaboradorId, string $permiso): void
+    {
+        if ($colaboradorId !== null && $colaboradorId === request()->user()?->colaborador_id) {
+            $this->exigirPermisoApp($permiso);
+        }
     }
 
     private function colaborador(Request $request): Colaborador

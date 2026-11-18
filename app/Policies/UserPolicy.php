@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Organigrama\AutoridadJerarquicaService;
+use App\Services\Permisos\PermisosEspecialesService;
 use App\Services\RolPermisoService;
 use Illuminate\Auth\Access\Response;
 
@@ -124,6 +125,28 @@ class UserPolicy
     public function asignarRoles(User $usuario): bool
     {
         return $usuario->can('usuarios.ver') && $usuario->can('usuarios.asignar_roles');
+    }
+
+    /**
+     * Ver la pantalla de permisos especiales de una cuenta (matriz, efectivos
+     * y bitácora): quien los administra, dentro de su alcance.
+     */
+    public function verPermisosEspeciales(User $usuario, User $objetivo): bool
+    {
+        return app(PermisosEspecialesService::class)->puedeAdministrar($usuario)
+            && ($usuario->is($objetivo) || $this->alcance->puedeVerUsuario($usuario, $objetivo));
+    }
+
+    /**
+     * Conceder o quitar permisos a UNA persona sin tocar su rol. Las reglas
+     * (no a sí mismo, no a super_admin, no a un rol superior, en su alcance)
+     * viven en PermisosEspecialesService::motivoNoGestionable().
+     */
+    public function gestionarPermisosEspeciales(User $usuario, User $objetivo): Response
+    {
+        $motivo = app(PermisosEspecialesService::class)->motivoNoGestionable($usuario, $objetivo);
+
+        return $motivo === null ? Response::allow() : Response::deny($motivo);
     }
 
     /**

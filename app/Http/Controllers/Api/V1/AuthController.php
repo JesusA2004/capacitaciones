@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Autenticacion\AutenticacionService;
 use App\Services\Expedientes\BloqueoDocumentosService;
 use App\Services\Incorporacion\RegistroAppService;
+use App\Services\Permisos\PermisosAppMovilService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -164,6 +165,8 @@ class AuthController extends Controller
             'carta_compromiso' => $this->bloqueo->cartaResumida($usuario),
             'roles' => $usuario->getRoleNames(),
             'permisos' => $usuario->getAllPermissions()->pluck('name'),
+            // Aditivo: permisos por botón de la app (permiso => puede).
+            'permisos_app' => app(PermisosAppMovilService::class)->efectivos($usuario),
         ]);
     }
 }

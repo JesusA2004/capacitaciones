@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\EstadoUsuario;
+use App\Enums\TipoAjustePermiso;
 use App\Models\Concerns\NombreSinApellidos;
 use App\Services\Autenticacion\NombreUsuarioService;
 use App\Support\NombrePersona;
@@ -19,9 +20,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Permission\Contracts\Permission as PermisoContrato;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -60,6 +64,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Colaborador|null $colaborador
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, AjustePermisoUsuario> $ajustesPermisosVigentes
  */
 #[Fillable([
     'colaborador_id', 'username', 'name', 'apellidos', 'email', 'password',
@@ -198,6 +203,121 @@ class User extends Authenticatable
     public function progresoLecciones(): HasMany
     {
         return $this->hasMany(ProgresoLeccion::class, 'user_id');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Permisos especiales por persona (PermisosEspecialesService): UN solo
+    // punto donde se aplican, encima de lo que dan sus roles. Spatie solo
+    // sabe «conceder»; aquí se hace cumplir también el «quitar» en todos sus
+    // caminos: can()/Gate (Spatie llama checkPermissionTo → hasPermissionTo),
+    // hasPermissionTo/hasAnyPermission directos, getAllPermissions() (menú
+    // web, app móvil) y User::permission() (a quién se avisa por permiso).
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Permisos especiales que cuentan hoy (sin vencer).
+     *
+     * @return HasMany<AjustePermisoUsuario, $this>
+     */
+    public function ajustesPermisosVigentes(): HasMany
+    {
+        return $this->hasMany(AjustePermisoUsuario::class, 'user_id')->vigentes();
+    }
+
+    /**
+     * Todos los permisos especiales, incluidos los ya vencidos (bitácora).
+     *
+     * @return HasMany<AjustePermisoUsuario, $this>
+     */
+    public function ajustesPermisos(): HasMany
+    {
+        return $this->hasMany(AjustePermisoUsuario::class, 'user_id');
+    }
+
+    public function ajustePermiso(string $permiso): ?TipoAjustePermiso
+    {
+        // Sin cuenta guardada no hay ajustes (evita una consulta).
+        if (! $this->exists) {
+            return null;
+        }
+
+        return $this->ajustesPermisosVigentes->firstWhere('permiso', $permiso)?->tipo;
+    }
+
+    /**
+     * Lo de Spatie (directo + roles activos) con los ajustes de la persona:
+     * un permiso QUITADO nunca cuenta; uno CONCEDIDO cuenta aunque su rol no
+     * lo tenga.
+     *
+     * @param  string|int|PermisoContrato|\BackedEnum  $permission
+     */
+    public function hasPermissionTo($permission, ?string $guardName = null): bool
+    {
+        $permiso = $this->filterPermission($permission, $guardName);
+
+        return match ($this->ajustePermiso((string) $permiso->getAttribute('name'))) {
+            TipoAjustePermiso::Revocar => false,
+            TipoAjustePermiso::Conceder => true,
+            null => $this->hasDirectPermission($permiso) || $this->hasPermissionViaRole($permiso),
+        };
+    }
+
+    /**
+     * Permisos efectivos (directos + roles activos + concedidos − quitados).
+     *
+     * @return Collection<int, Permission>
+     */
+    public function getAllPermissions(): Collection
+    {
+        /** @var Collection<int, Permission> $base */
+        $base = $this->permissions->merge($this->getPermissionsViaRoles());
+
+        if (! $this->exists || $this->ajustesPermisosVigentes->isEmpty()) {
+            return $base->sort()->values();
+        }
+
+        $quitados = $this->ajustesPermisosVigentes->where('tipo', TipoAjustePermiso::Revocar)->pluck('permiso')->all();
+        $concedidos = $this->ajustesPermisosVigentes->where('tipo', TipoAjustePermiso::Conceder)->pluck('permiso')->all();
+
+        return $base
+            ->merge(Permission::query()->whereIn('name', $concedidos)->where('guard_name', $this->getDefaultGuardName())->get())
+            ->unique('id')
+            ->reject(fn (Permission $permiso): bool => in_array($permiso->name, $quitados, true))
+            ->sort()
+            ->values();
+    }
+
+    /**
+     * Cuentas con CUALQUIERA de estos permisos, ya con los ajustes por
+     * persona aplicados: la usan los avisos y pendientes «a quien tenga el
+     * permiso X» (User::permission()).
+     *
+     * @param  Builder<static>  $query
+     * @param  string|int|array<int, mixed>|PermisoContrato|Collection<int, mixed>|\BackedEnum  $permissions
+     * @return Builder<static>
+     */
+    public function scopePermission(Builder $query, $permissions, bool $without = false): Builder
+    {
+        if ($without) {
+            return $query->whereNot(fn (Builder $q) => $this->scopePermission($q, $permissions));
+        }
+
+        $permisos = $this->convertToPermissionModels($permissions);
+
+        return $query->where(function (Builder $q) use ($permisos): void {
+            foreach ($permisos as $permiso) {
+                $id = $permiso->getKey();
+                $nombre = (string) $permiso->getAttribute('name');
+                $roles = $permiso->roles->modelKeys();
+
+                $q->orWhere(fn (Builder $uno) => $uno
+                    ->where(fn (Builder $otorga) => $otorga
+                        ->whereHas('permissions', fn (Builder $p) => $p->where('permissions.id', $id))
+                        ->when($roles !== [], fn (Builder $r) => $r->orWhereHas('roles', fn (Builder $rol) => $rol->whereIn('roles.id', $roles)))
+                        ->orWhereIn('users.id', AjustePermisoUsuario::query()->vigentes()->where('permiso', $nombre)->where('tipo', TipoAjustePermiso::Conceder->value)->select('user_id')))
+                    ->whereNotIn('users.id', AjustePermisoUsuario::query()->vigentes()->where('permiso', $nombre)->where('tipo', TipoAjustePermiso::Revocar->value)->select('user_id')));
+            }
+        });
     }
 
     public function getActivitylogOptions(): LogOptions

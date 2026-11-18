@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\EvaluacionInduccion;
@@ -28,6 +29,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  */
 class MiProcesoController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly CicloLaboralService $ciclo,
         private readonly OnboardingService $onboarding,
@@ -71,6 +74,7 @@ class MiProcesoController extends Controller
 
     public function evaluacion(Request $request, OnboardingAvance $avance): JsonResponse
     {
+        $this->exigirPermisoApp('app.induccion.contestar');
         $datos = $request->validate([
             'respuestas' => ['required', 'array'],
             'respuestas.*' => ['required', 'integer', 'min:0'],
@@ -91,6 +95,7 @@ class MiProcesoController extends Controller
 
     public function marcarContenidoVisto(Request $request, OnboardingAvance $avance): JsonResponse
     {
+        $this->exigirPermisoApp('app.induccion.ver');
         $this->onboarding->marcarContenidoVisto($avance, $request->user());
         $proceso = $avance->loadMissing('proceso')->proceso;
         $evaluacion = $this->evaluacionInduccion->habilitarPara($proceso);
@@ -106,6 +111,7 @@ class MiProcesoController extends Controller
      */
     public function presentacionInduccion(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.induccion.presentacion');
         // "pdf": el documento OFICIAL que la app muestra en su visor. Los
         // capítulos quedan solo para versiones anteriores de la app.
         $presentacion = $this->evaluacionInduccion->presentacion($request->user()) ?? ['titulo' => (string) config('induccion.titulo'), 'capitulos' => []];
@@ -118,6 +124,8 @@ class MiProcesoController extends Controller
      */
     public function pdfInduccion(Request $request): BinaryFileResponse
     {
+        $this->exigirAlgunPermisoApp(['app.induccion.ver', 'app.induccion.presentacion']);
+
         return $this->induccionPdf->respuesta($request->user());
     }
 
@@ -126,6 +134,7 @@ class MiProcesoController extends Controller
      */
     public function registrarPaginaInduccion(Request $request, OnboardingAvance $avance): JsonResponse
     {
+        $this->exigirPermisoApp('app.induccion.ver');
         $datos = $request->validate(['pagina' => ['required', 'integer', 'min:1']]);
         $this->induccionPdf->registrarPagina($avance, $request->user(), (int) $datos['pagina']);
 
@@ -137,6 +146,7 @@ class MiProcesoController extends Controller
      */
     public function terminarInduccion(Request $request, OnboardingAvance $avance): JsonResponse
     {
+        $this->exigirPermisoApp('app.induccion.ver');
         $this->induccionPdf->terminar($avance, $request->user());
         $proceso = $avance->loadMissing('proceso')->proceso;
         $evaluacion = $this->evaluacionInduccion->habilitarPara($proceso);
@@ -149,12 +159,15 @@ class MiProcesoController extends Controller
 
     public function contenidoInduccion(Request $request): JsonResponse
     {
+        $this->exigirAlgunPermisoApp(['app.induccion.ver', 'app.induccion.contestar']);
+
         // El de SU evaluación por presentar (su versión del formulario), o el vigente.
         return response()->json(['data' => $this->evaluacionInduccion->contenidoPublicoPara($request->user())]);
     }
 
     public function capitulosInduccion(Request $request, OnboardingAvance $avance): JsonResponse
     {
+        $this->exigirPermisoApp('app.induccion.ver');
         $avance->loadMissing('proceso');
 
         return response()->json(['data' => [
@@ -168,6 +181,7 @@ class MiProcesoController extends Controller
 
     public function registrarProgresoInduccion(Request $request, OnboardingAvance $avance): JsonResponse
     {
+        $this->exigirPermisoApp('app.induccion.ver');
         $datos = $request->validate(['capitulo' => ['required', 'string', 'max:80']]);
 
         $this->onboarding->registrarProgresoCapitulo($avance, $request->user(), $datos['capitulo']);
@@ -185,6 +199,8 @@ class MiProcesoController extends Controller
      */
     public function organigramaInduccion(string $vista): JsonResponse
     {
+        $this->exigirAlgunPermisoApp(['app.induccion.ver', 'app.induccion.presentacion']);
+
         // Institucional: ocupantes reales sin acotar por alcance, solo datos
         // organizacionales mínimos (mismo método que la web).
         $organigrama = $this->jerarquia->organigramaInstitucional($vista);
@@ -255,6 +271,7 @@ class MiProcesoController extends Controller
      */
     private function autorizarInduccion(User $usuario, OnboardingAvance $avance): void
     {
+        $this->exigirPermisoApp('app.induccion.ver');
         $avance->loadMissing('proceso', 'modulo');
 
         if ($usuario->colaborador_id === null || $usuario->colaborador_id !== $avance->proceso->colaborador_id) {
@@ -268,6 +285,7 @@ class MiProcesoController extends Controller
     public function presentarInduccion(Request $request, EvaluacionInduccion $evaluacion): JsonResponse
     {
         $this->authorize('presentar', $evaluacion);
+        $this->exigirPermisoApp('app.induccion.contestar');
         $datos = $request->validate([
             'respuestas' => ['required', 'array'],
             'respuestas.a' => ['required', 'array'],

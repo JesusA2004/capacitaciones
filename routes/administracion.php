@@ -12,6 +12,7 @@ use App\Http\Controllers\Administracion\JerarquiaPuestoController;
 use App\Http\Controllers\Administracion\MatrizComercialController;
 use App\Http\Controllers\Administracion\NotificacionSistemaController;
 use App\Http\Controllers\Administracion\OrganigramaAccionesController;
+use App\Http\Controllers\Administracion\PermisosEspecialesController;
 use App\Http\Controllers\Administracion\PlantillaPuestoController;
 use App\Http\Controllers\Administracion\PlazasAutorizadasController;
 use App\Http\Controllers\Administracion\PuestoController;
@@ -187,6 +188,9 @@ Route::middleware(['auth', 'verified'])
         // rh.expedientes.reactivar (Colaborador, con o sin cuenta).
         // Listado global de cuentas (index) además de la gestión contextual
         // desde la pestaña «Cuenta» del expediente — ver docs/ROLES_Y_NAVEGACION.md.
+        // Quién tiene permisos especiales hoy (acceso desde Roles y permisos).
+        Route::get('permisos-especiales', [PermisosEspecialesController::class, 'index'])->name('permisos-especiales.index');
+
         Route::prefix('usuarios')->name('usuarios.')->group(function () {
             Route::get('/', [UsuarioController::class, 'index'])->name('index');
             Route::post('/', [UsuarioController::class, 'store'])->name('store');
@@ -209,6 +213,11 @@ Route::middleware(['auth', 'verified'])
             // conservando los archivos del NAS — ver PurgaPersonaService.
             Route::get('{usuario}/purga', [UsuarioController::class, 'revisarPurga'])->name('purga.revisar')->withTrashed();
             Route::delete('{usuario}/purga', [UsuarioController::class, 'purgar'])->name('purga.eliminar')->withTrashed();
+            // Permisos especiales por persona (sin tocar su rol): matriz,
+            // bitácora y «quitar todos» — PermisosEspecialesService.
+            Route::get('{usuario}/permisos', [PermisosEspecialesController::class, 'show'])->name('permisos.show');
+            Route::put('{usuario}/permisos', [PermisosEspecialesController::class, 'update'])->name('permisos.update');
+            Route::delete('{usuario}/permisos', [PermisosEspecialesController::class, 'destroy'])->name('permisos.destroy');
         });
 
         // URL en español (app-versiones) tal como la pidió el encargo; nombre

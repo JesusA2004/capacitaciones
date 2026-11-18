@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\ResponderCorreccionRequest;
 use App\Models\SolicitudInterna;
@@ -16,6 +17,8 @@ use Illuminate\Http\Request;
  */
 class CorreccionController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(private readonly CorreccionesService $correcciones) {}
 
     /**
@@ -24,6 +27,8 @@ class CorreccionController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.solicitudes.ver');
+
         $resultado = $this->correcciones->deColaborador($request->user());
 
         return response()->json(['data' => $resultado['items'], 'meta' => ['conteo' => $resultado['conteo']]]);
@@ -43,6 +48,8 @@ class CorreccionController extends Controller
      */
     public function responder(ResponderCorreccionRequest $request, SolicitudInterna $solicitud): JsonResponse
     {
+        $this->exigirPermisoApp('app.solicitudes.responder_correccion');
+
         $datos = $request->validated();
         $solicitud = $this->correcciones->responder($solicitud, $request->user(), (string) $datos['mensaje'], (array) ($datos['datos'] ?? []));
 

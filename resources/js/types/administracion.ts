@@ -73,6 +73,14 @@ export type UsuarioItem = {
     /** Por fila (UserPolicy): nunca una cuenta de rol superior. */
     puede_editar: boolean;
     puede_restablecer_password: boolean;
+    /** Ajustes por persona vigentes (sin tocar su rol); null = ninguno. */
+    permisos_especiales?: {
+        concedidos: number;
+        quitados: number;
+        vence: string | null;
+    } | null;
+    /** Puede abrir «Permisos especiales» de esta cuenta. */
+    puede_ver_permisos?: boolean;
 };
 
 export type DepartamentoItem = {

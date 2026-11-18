@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\EstadoUsuario;
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Models\BirthdayGreeting;
 use App\Models\BirthdayWallMessage;
@@ -20,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class MuroCumpleanosController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly MuroCumpleanosService $muros,
         private readonly DocumentoStorageService $fotos,
@@ -68,6 +71,7 @@ class MuroCumpleanosController extends Controller
     {
         $usuario = $this->participante($request);
         abort_unless($greeting->muroPublicado(), 404);
+        $this->exigirPermisoApp('app.celebraciones.felicitar');
 
         $datos = $request->validate([
             'mensaje' => ['nullable', 'string', 'max:500'],
@@ -84,6 +88,11 @@ class MuroCumpleanosController extends Controller
         $usuario = $this->participante($request);
         abort_unless($mensaje->birthday_greeting_id === $greeting->id, 404);
         abort_unless($this->muros->puedeEliminar($usuario, $mensaje), 403);
+
+        // Borrar el PROPIO depende del permiso; la moderación de RH, no.
+        if ($mensaje->user_id === $usuario->id) {
+            $this->exigirPermisoApp('app.celebraciones.felicitar');
+        }
 
         $this->muros->eliminar($mensaje, $usuario);
 
@@ -119,6 +128,7 @@ class MuroCumpleanosController extends Controller
         /** @var User $usuario */
         $usuario = $request->user();
         abort_unless($usuario->colaborador?->estatus === EstadoUsuario::Activo, 403);
+        $this->exigirPermisoApp('app.celebraciones.ver');
 
         return $usuario;
     }

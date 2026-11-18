@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoSolicitudInterna;
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\DecisionRequest;
 use App\Models\Colaborador;
@@ -26,6 +27,8 @@ use Illuminate\Http\Request;
  */
 class EquipoController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly JerarquiaColaboradorService $jerarquia,
         private readonly AprobacionJerarquicaService $aprobaciones,
@@ -36,6 +39,7 @@ class EquipoController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.equipo.ver');
         $yo = $this->colaborador($request);
 
         return response()->json(['data' => $this->jerarquia->subordinadosDirectos($yo)->map(fn (Colaborador $c) => $this->jerarquia->resumenCon($c, $request->user()))->values()]);
@@ -43,6 +47,7 @@ class EquipoController extends Controller
 
     public function pendientes(Request $request): JsonResponse
     {
+        $this->exigirAlgunPermisoApp(['app.equipo.ver', 'app.equipo.visto_bueno']);
         $yo = $this->colaborador($request);
 
         // Solicitudes "Recibidas" donde a MÍ me toca el siguiente visto bueno
@@ -119,6 +124,7 @@ class EquipoController extends Controller
     public function vistoBueno(DecisionRequest $request, SolicitudInterna $solicitud): JsonResponse
     {
         abort_unless($this->aprobaciones->esAprobadorDe($request->user(), $solicitud), 403, 'Esta solicitud no la apruebas tú: la revisan sus responsables de aprobación.');
+        $this->exigirPermisoApp('app.equipo.visto_bueno');
         $request->validate(['aprobado' => ['required', 'boolean']]);
 
         $decision = $this->vistoBueno->registrar($solicitud, $request->user(), $request->boolean('aprobado'), $request->validated('comentario'));

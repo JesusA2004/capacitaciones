@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Models\BirthdayGreeting;
 use App\Models\BirthdayWallMessage;
@@ -22,6 +23,8 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class CelebracionController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly CelebracionService $celebraciones,
         private readonly MuroCumpleanosService $mensajes,
@@ -34,6 +37,12 @@ class CelebracionController extends Controller
     {
         $usuario = $request->user();
 
+        // Alimenta el Inicio: sin el permiso, lista vacía (no un error que
+        // tumbe la pantalla en una app instalada).
+        if (! $this->puedePermisoApp('app.celebraciones.ver')) {
+            return response()->json(['data' => []]);
+        }
+
         return response()->json([
             'data' => $this->celebraciones->activas($usuario)
                 ->filter(fn (BirthdayGreeting $c) => $usuario->can('view', $c))
@@ -45,6 +54,7 @@ class CelebracionController extends Controller
     public function show(Request $request, BirthdayGreeting $celebracion): JsonResponse
     {
         $this->authorize('view', $celebracion);
+        $this->exigirPermisoApp('app.celebraciones.ver');
 
         return response()->json(['data' => $this->celebraciones->aArray($celebracion, $request->user())]);
     }
@@ -56,6 +66,7 @@ class CelebracionController extends Controller
     public function mensajes(Request $request, BirthdayGreeting $celebracion): JsonResponse
     {
         $this->authorize('view', $celebracion);
+        $this->exigirPermisoApp('app.celebraciones.ver');
         $usuario = $request->user();
 
         $pagina = $this->mensajes->mensajesVisibles($celebracion, $usuario)
@@ -78,6 +89,7 @@ class CelebracionController extends Controller
     public function store(Request $request, BirthdayGreeting $celebracion): JsonResponse
     {
         $this->authorize('escribir', $celebracion);
+        $this->exigirPermisoApp('app.celebraciones.felicitar');
 
         $datos = $request->validate([
             'mensaje' => ['nullable', 'string', 'max:500'],
@@ -93,6 +105,7 @@ class CelebracionController extends Controller
     {
         abort_unless($mensaje->birthday_greeting_id === $celebracion->id, 404);
         abort_unless($mensaje->user_id === $request->user()->id, 403);
+        $this->exigirPermisoApp('app.celebraciones.felicitar');
 
         $datos = $request->validate(['mensaje' => ['required', 'string', 'max:500']]);
         $mensaje = $this->mensajes->actualizar($mensaje, $request->user(), $datos['mensaje']);
@@ -105,6 +118,11 @@ class CelebracionController extends Controller
         abort_unless($mensaje->birthday_greeting_id === $celebracion->id, 404);
         abort_unless($this->mensajes->puedeEliminar($request->user(), $mensaje), 403);
 
+        // Borrar la PROPIA depende del permiso; la moderación de RH, no.
+        if ($mensaje->user_id === $request->user()->id) {
+            $this->exigirPermisoApp('app.celebraciones.felicitar');
+        }
+
         $this->mensajes->eliminar($mensaje, $request->user());
 
         return response()->json(['message' => 'Felicitación eliminada.']);
@@ -113,6 +131,7 @@ class CelebracionController extends Controller
     public function tarjeta(Request $request, BirthdayGreeting $celebracion): HttpResponse
     {
         $this->authorize('view', $celebracion);
+        $this->exigirPermisoApp('app.celebraciones.ver');
         $celebracion = $this->celebraciones->tarjeta($celebracion);
 
         return $celebracion->esAniversario()
@@ -123,6 +142,7 @@ class CelebracionController extends Controller
     public function foto(Request $request, BirthdayGreeting $celebracion): HttpResponse
     {
         $this->authorize('view', $celebracion);
+        $this->exigirPermisoApp('app.celebraciones.ver');
         $ruta = $celebracion->colaborador->foto_path;
         abort_if($ruta === null, 404);
 
@@ -135,6 +155,7 @@ class CelebracionController extends Controller
     public function mensajeFoto(Request $request, BirthdayGreeting $celebracion, BirthdayWallMessage $mensaje): HttpResponse
     {
         $this->authorize('view', $celebracion);
+        $this->exigirPermisoApp('app.celebraciones.ver');
         abort_unless($mensaje->birthday_greeting_id === $celebracion->id, 404);
         abort_unless($mensaje->user_id === $request->user()->id || $this->mensajes->puedeVerTodos($request->user(), $celebracion), 404);
 
@@ -144,6 +165,7 @@ class CelebracionController extends Controller
     public function autorFoto(Request $request, BirthdayGreeting $celebracion, BirthdayWallMessage $mensaje): HttpResponse
     {
         $this->authorize('view', $celebracion);
+        $this->exigirPermisoApp('app.celebraciones.ver');
         abort_unless($mensaje->birthday_greeting_id === $celebracion->id, 404);
         abort_unless($mensaje->user_id === $request->user()->id || $this->mensajes->puedeVerTodos($request->user(), $celebracion), 404);
 

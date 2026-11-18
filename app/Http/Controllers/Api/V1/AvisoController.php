@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Models\Aviso;
 use App\Services\Avisos\AvisoService;
@@ -16,12 +17,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AvisoController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(private readonly AvisoService $avisos) {}
 
     public function index(Request $request): JsonResponse
     {
         $colaborador = $request->user()->colaborador;
         abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
+        $this->exigirPermisoApp('app.avisos.ver');
 
         $porPagina = min(50, max(1, $request->integer('per_page', 20)));
         $paginador = $this->avisos->paraColaborador($colaborador, $porPagina);
@@ -43,6 +47,7 @@ class AvisoController extends Controller
     public function show(Request $request, Aviso $aviso): JsonResponse
     {
         $this->exigirPuedeVer($request, $aviso);
+        $this->exigirPermisoApp('app.avisos.ver');
         $colaborador = $request->user()->colaborador;
         abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
 
@@ -63,6 +68,7 @@ class AvisoController extends Controller
     public function archivo(Request $request, Aviso $aviso): StreamedResponse
     {
         $this->exigirPuedeVer($request, $aviso);
+        $this->exigirPermisoApp('app.avisos.ver');
 
         return $this->avisos->archivo($aviso);
     }
@@ -73,6 +79,7 @@ class AvisoController extends Controller
     public function imagen(Request $request, Aviso $aviso): StreamedResponse
     {
         $this->exigirPuedeVer($request, $aviso);
+        $this->exigirPermisoApp('app.avisos.ver');
 
         return $this->avisos->imagen($aviso);
     }

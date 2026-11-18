@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\VistaPreviaCartaCompromisoRequest;
 use App\Http\Requests\CartasCompromiso\GenerarCartaCompromisoRequest;
@@ -20,6 +21,8 @@ use Illuminate\Http\Response;
  */
 class CartaCompromisoController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly CartaCompromisoService $cartas,
         private readonly BloqueoDocumentosService $bloqueo,
@@ -32,6 +35,7 @@ class CartaCompromisoController extends Controller
 
     public function pdf(Request $request): Response
     {
+        $this->exigirPermisoApp('app.carta_compromiso.ver');
         $carta = $this->cartas->ultima($this->colaboradorDe($request));
 
         abort_if($carta === null, 404, 'No tienes una carta compromiso.');
@@ -50,6 +54,7 @@ class CartaCompromisoController extends Controller
      */
     public function solicitar(GenerarCartaCompromisoRequest $request, SolicitudCartaCompromisoService $solicitudes): JsonResponse
     {
+        $this->exigirPermisoApp('app.carta_compromiso.solicitar');
         $carta = $solicitudes->solicitar($request->user(), $request->documentos());
 
         return response()->json([

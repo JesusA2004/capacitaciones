@@ -14,6 +14,11 @@ final class ReferenciasUsuario
 {
     /** @var list<array{0: string, 1: string, 2: 'cascade'|'set_null'|'restrict'}> */
     public const COLUMNAS = [
+        // Migración 2026-11-18: permisos especiales por persona y su bitácora.
+        ['permisos_usuario_ajustes', 'user_id', 'cascade'],
+        ['permisos_usuario_ajustes', 'otorgado_por', 'set_null'],
+        ['permisos_usuario_bitacora', 'user_id', 'cascade'],
+        ['permisos_usuario_bitacora', 'actor_id', 'set_null'],
         // Migraciones 2026-10-15/16: acuses de descriptivo, división de
         // históricos, firma física de finiquito y responsivas, rotación
         // cargada por Excel y sesiones de inducción presentadas por RH.

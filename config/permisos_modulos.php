@@ -194,7 +194,7 @@ return [
         ],
         'app_movil' => [
             'etiqueta' => 'App móvil',
-            'grupo' => 'Mi espacio',
+            'grupo' => 'App móvil',
             'etapa' => 'mi_espacio',
             'descripcion' => 'Uso básico de la app: datos iniciales, configuración y avisos push del propio dispositivo.',
             'acceso' => null,
@@ -206,6 +206,17 @@ return [
                 'dispositivos.push_token.revocar' => 'Quitar su dispositivo',
             ],
         ],
+        // Permisos por botón de la app (App\Support\CatalogoPermisosAppMovil):
+        // autoservicio que antes bastaba con la sesión. De inicio los tienen
+        // todos los roles (herencia de mobile.bootstrap.ver + migración
+        // 2026_11_18_600100_otorga_permisos_app_movil); la API los exige con
+        // PermisosAppMovilService y la app oculta el botón con `permisos_app`.
+        'app_movil_solicitudes' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_solicitudes'),
+        'app_movil_vacaciones' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_vacaciones'),
+        'app_movil_expediente' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_expediente'),
+        'app_movil_induccion' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_induccion'),
+        'app_movil_comunidad' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_comunidad'),
+        'app_movil_equipo' => \App\Support\CatalogoPermisosAppMovil::modulo('app_movil_equipo'),
         // --- Organización y Configuración (permisos por acción) ---
         // El acceso es el permiso que ya revisa el menú; cada acción nueva
         // se separó de él (ver 'herencia') y la exigen las Policies.
@@ -940,6 +951,8 @@ return [
     ],
 
     'herencia' => [
+        // App móvil por botón: lo tiene de inicio quien ya abría la app.
+        ...array_fill_keys(\App\Support\CatalogoPermisosAppMovil::permisos(), 'mobile.bootstrap.ver'),
         // Checklist de avisos por rol: quien hoy administra roles o notificaciones.
         'notificaciones_rol.editar' => ['roles.administrar', 'configuracion.notificaciones'],
         // Contratación y expediente (contratos, candidatos). ver_documento y

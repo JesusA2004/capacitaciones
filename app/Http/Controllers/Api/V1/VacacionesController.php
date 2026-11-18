@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\TipoSolicitudInterna;
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vacaciones\StoreSolicitudVacacionesRequest;
 use App\Services\Solicitudes\SolicitudesService;
@@ -21,6 +22,8 @@ use Illuminate\Validation\ValidationException;
  */
 class VacacionesController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly VacacionesService $vacaciones,
         private readonly SolicitudesService $solicitudes,
@@ -28,11 +31,15 @@ class VacacionesController extends Controller
 
     public function saldo(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.vacaciones.ver');
+
         return response()->json($this->vacaciones->saldo($request->user()));
     }
 
     public function solicitudes(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.vacaciones.ver');
+
         // Lee la fuente viva (`solicitudes_internas`, donde ahora se crean
         // TODAS las vacaciones vía el motor unificado), combinada con el
         // histórico legacy — nunca solo `solicitudes_vacaciones`, que ya no
@@ -44,6 +51,8 @@ class VacacionesController extends Controller
 
     public function storeSolicitud(StoreSolicitudVacacionesRequest $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.vacaciones.solicitar');
+
         $datos = $request->validated();
 
         try {

@@ -59,3 +59,4 @@ export * from './nineBox';
 export * from './evaluacionesTecnicas';
 export * from './fechasLaborales';
 export * from './cambioSucursal';
+export * from './permisosEspeciales';

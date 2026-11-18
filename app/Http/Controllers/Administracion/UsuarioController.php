@@ -17,6 +17,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Autenticacion\CredencialesService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Permisos\PermisosEspecialesService;
 use App\Services\RolPermisoService;
 use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
@@ -50,6 +51,7 @@ class UsuarioController extends Controller
         private readonly CredencialesService $credenciales,
         private readonly FotoColaboradorService $fotos,
         private readonly CuentaUsuarioService $cuentas,
+        private readonly PermisosEspecialesService $especiales,
     ) {}
 
     public function index(Request $request): Response
@@ -94,7 +96,11 @@ class UsuarioController extends Controller
             ->pluck('colaborador_id')
             ->all();
 
-        $usuarios->getCollection()->transform(function (User $u) use ($enBaja, $usuario) {
+        // Indicador «Permisos especiales» (ajustes por persona sin tocar su rol).
+        $especiales = $this->especiales->resumenPorUsuario(array_values(array_map('intval', $usuarios->getCollection()->pluck('id')->all())));
+        $administraEspeciales = $this->especiales->puedeAdministrar($usuario);
+
+        $usuarios->getCollection()->transform(function (User $u) use ($enBaja, $usuario, $especiales, $administraEspeciales) {
             $u->setAttribute('roles_nombres', $u->roles->pluck('name'));
             // Foto oficial de su colaborador (URL protegida) si está en el alcance de quien mira.
             $u->setAttribute('foto_url', $u->colaborador !== null ? $this->fotos->urlPara($u->colaborador, $usuario) : null);
@@ -106,6 +112,8 @@ class UsuarioController extends Controller
             // Por fila: una cuenta de rol superior no se edita ni se le cambia la contraseña.
             $u->setAttribute('puede_editar', $usuario->can('update', $u));
             $u->setAttribute('puede_restablecer_password', $u->colaborador_id !== null && $usuario->can('restablecerPassword', $u));
+            $u->setAttribute('permisos_especiales', $especiales[$u->id] ?? null);
+            $u->setAttribute('puede_ver_permisos', $administraEspeciales && $usuario->can('verPermisosEspeciales', $u));
 
             return $u;
         });
@@ -134,6 +142,7 @@ class UsuarioController extends Controller
                 'editar' => $usuario->can('usuarios.editar'),
                 'asignar_roles' => $usuario->can('asignarRoles', User::class),
                 'restablecer_password' => $usuario->can('usuarios.ver') && $usuario->can('usuarios.restablecer_password'),
+                'permisos_especiales' => $administraEspeciales,
             ],
             'estadisticas' => [
                 'total' => $total,

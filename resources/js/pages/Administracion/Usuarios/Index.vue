@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     CheckCircle2,
     KeyRound,
     Lock,
     Plus,
+    Sparkles,
     Trash2,
     Unlock,
     UserCheck,
@@ -44,11 +45,13 @@ import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
+import { index as indexEspeciales } from '@/routes/administracion/permisos-especiales';
 import {
     index,
     restablecerAcceso,
     revocarAcceso,
 } from '@/routes/administracion/usuarios';
+import { show as showPermisos } from '@/routes/administracion/usuarios/permisos';
 import type { UsuarioItem } from '@/types';
 import type { RespuestaPaginada } from '@/types';
 
@@ -73,8 +76,29 @@ const props = defineProps<{
         editar: boolean;
         asignar_roles: boolean;
         restablecer_password: boolean;
+        /** Permisos especiales por persona (sin tocar su rol). */
+        permisos_especiales?: boolean;
     };
 }>();
+
+function abrirPermisos(fila: UsuarioItem) {
+    router.visit(showPermisos.url(fila.id));
+}
+
+function textoEspeciales(fila: UsuarioItem): string {
+    const e = fila.permisos_especiales;
+
+    if (!e) {
+        return '';
+    }
+
+    return [
+        e.concedidos > 0 ? `+${e.concedidos}` : null,
+        e.quitados > 0 ? `−${e.quitados}` : null,
+    ]
+        .filter(Boolean)
+        .join(' ');
+}
 
 // ───── Eliminar definitivamente (super_admin) ─────
 const purgaAbierta = ref(false);
@@ -234,6 +258,16 @@ function restablecer(usuario: UsuarioItem) {
             :icono="UsersIcon"
         >
             <Button
+                v-if="permisosUsuarios?.permisos_especiales"
+                variant="outline"
+                as-child
+            >
+                <Link :href="indexEspeciales.url()">
+                    <Sparkles class="size-4" />
+                    Permisos especiales
+                </Link>
+            </Button>
+            <Button
                 v-if="permisosUsuarios?.crear ?? true"
                 @click="dialogCrearAbierto = true"
             >
@@ -341,6 +375,14 @@ function restablecer(usuario: UsuarioItem) {
                         class="text-xs text-muted-foreground"
                         >Sin roles</span
                     >
+                    <Badge
+                        v-if="fila.permisos_especiales"
+                        variant="warning"
+                        :title="`Permisos especiales sin tocar su rol: ${fila.permisos_especiales.concedidos} concedido(s), ${fila.permisos_especiales.quitados} quitado(s)`"
+                    >
+                        <Sparkles class="size-3" />
+                        Permisos especiales {{ textoEspeciales(fila) }}
+                    </Badge>
                 </div>
             </template>
             <template #celda-estado_cuenta="{ fila }">
@@ -402,6 +444,13 @@ function restablecer(usuario: UsuarioItem) {
                         @select="abrirEditarRoles(fila)"
                         >Editar cuenta</DropdownMenuItem
                     >
+                    <DropdownMenuItem
+                        v-if="fila.puede_ver_permisos"
+                        @select="abrirPermisos(fila)"
+                    >
+                        <Sparkles class="size-3.5" />
+                        Permisos especiales
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                         v-if="fila.puede_restablecer_password"
                         @select="abrirPassword(fila)"
@@ -474,6 +523,10 @@ function restablecer(usuario: UsuarioItem) {
                         <span v-if="fila.roles_nombres.length === 0"
                             >Sin roles</span
                         >
+                        <Badge v-if="fila.permisos_especiales" variant="warning"
+                            >Permisos especiales
+                            {{ textoEspeciales(fila) }}</Badge
+                        >
                     </span>
                     <template #acciones>
                         <CrudActionMenu>
@@ -481,6 +534,11 @@ function restablecer(usuario: UsuarioItem) {
                                 v-if="fila.puede_editar"
                                 @select="abrirEditarRoles(fila)"
                                 >Editar cuenta</DropdownMenuItem
+                            >
+                            <DropdownMenuItem
+                                v-if="fila.puede_ver_permisos"
+                                @select="abrirPermisos(fila)"
+                                >Permisos especiales</DropdownMenuItem
                             >
                             <DropdownMenuItem
                                 v-if="fila.puede_restablecer_password"

@@ -152,3 +152,10 @@ Schedule::command('seguimiento:sincronizar-reportes')
     ->hourlyAt(20)
     ->withoutOverlapping()
     ->onOneServer();
+
+// Permisos especiales por persona con vigencia: los vencidos ya no cuentan
+// (User los ignora); aquí se retiran, se anotan y se avisa a la persona.
+Schedule::command('people:vencer-permisos-especiales')
+    ->hourlyAt(5)
+    ->withoutOverlapping()
+    ->onOneServer();

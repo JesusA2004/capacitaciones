@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\TipoSolicitudInterna;
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Colaboradores\SubirFotoRequest;
 use App\Http\Requests\Solicitudes\StoreSolicitudAutoservicioRequest;
@@ -12,6 +14,7 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Notificaciones\NotificationFeedService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Support\CatalogoPermisosAppMovil;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -25,6 +28,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ColaboradorController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly ColaboradorPerfilService $perfil,
         private readonly SolicitudesService $solicitudes,
@@ -100,6 +105,12 @@ class ColaboradorController extends Controller
 
         abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
 
+        // La primera foto es parte del expediente (paso obligatorio): solo
+        // CAMBIARLA depende del permiso de la app.
+        if ($colaborador->foto_path !== null) {
+            $this->exigirPermisoApp('app.perfil.cambiar_foto');
+        }
+
         $resultado = $this->fotos->subirPropia($colaborador, $request->file('foto'), $usuario);
         $colaborador->refresh();
 
@@ -124,11 +135,15 @@ class ColaboradorController extends Controller
 
     public function vacaciones(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.vacaciones.ver');
+
         return response()->json($this->vacaciones->saldo($request->user()));
     }
 
     public function solicitudes(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.solicitudes.ver');
+
         $solicitudes = $this->solicitudes->paraColaborador($request->user());
 
         return response()->json([
@@ -143,6 +158,8 @@ class ColaboradorController extends Controller
 
     public function storeSolicitud(StoreSolicitudAutoservicioRequest $request): JsonResponse
     {
+        $this->exigirPermisoApp(CatalogoPermisosAppMovil::permisoParaCrear(TipoSolicitudInterna::from((string) $request->validated('tipo'))));
+
         $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
 
         return response()->json(new SolicitudInternaResource($solicitud), 201);

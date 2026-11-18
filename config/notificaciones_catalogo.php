@@ -773,6 +773,12 @@ return [
             'modulo' => 'cuenta',
             'audiencia' => 'personal',
         ],
+        'cuenta_permisos_especiales' => [
+            'etiqueta' => 'Alguien ajustó tus permisos especiales (o vencieron)',
+            'push_titulo' => 'Tus permisos cambiaron',
+            'modulo' => 'cuenta',
+            'audiencia' => 'personal',
+        ],
         'prueba_notificacion' => [
             'etiqueta' => 'Notificación de prueba',
             'modulo' => 'cuenta',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Models\AcuseDescriptivoPuesto;
 use App\Services\Onboarding\AcuseDescriptivoPuestoService;
@@ -16,6 +17,8 @@ use Illuminate\Http\Request;
  */
 class DescriptivoPuestoColaboradorController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(private readonly AcuseDescriptivoPuestoService $acuses) {}
 
     public function show(Request $request): JsonResponse
@@ -27,6 +30,7 @@ class DescriptivoPuestoColaboradorController extends Controller
 
     public function leido(Request $request, AcuseDescriptivoPuesto $acuse): JsonResponse
     {
+        $this->exigirPermisoApp('app.descriptivo_puesto.acusar');
         $acuse = $this->acuses->marcarLeido($acuse, $request->user());
 
         return response()->json(['data' => $this->acuses->aArray($acuse, true)]);
@@ -34,6 +38,7 @@ class DescriptivoPuestoColaboradorController extends Controller
 
     public function acusar(Request $request, AcuseDescriptivoPuesto $acuse): JsonResponse
     {
+        $this->exigirPermisoApp('app.descriptivo_puesto.acusar');
         $comentario = $request->input('comentario');
         // `conformidad` («Estoy de acuerdo con…») es opcional/aditivo: las
         // apps instaladas solo mandan `comentario`.

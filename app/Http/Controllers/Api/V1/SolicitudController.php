@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\TipoSolicitudInterna;
+use App\Http\Controllers\Api\V1\Concerns\ExigePermisoApp;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\StoreSolicitudAutoservicioRequest;
 use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Models\SolicitudInterna;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
+use App\Support\CatalogoPermisosAppMovil;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -21,6 +23,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class SolicitudController extends Controller
 {
+    use ExigePermisoApp;
+
     public function __construct(
         private readonly SolicitudesService $solicitudes,
         private readonly AprobacionOrganizacionalService $motor,
@@ -28,6 +32,8 @@ class SolicitudController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $this->exigirPermisoApp('app.solicitudes.ver');
+
         $solicitudes = $this->solicitudes->paraColaborador($request->user());
 
         return response()->json([
@@ -42,6 +48,8 @@ class SolicitudController extends Controller
 
     public function store(StoreSolicitudAutoservicioRequest $request): JsonResponse
     {
+        $this->exigirPermisoApp(CatalogoPermisosAppMovil::permisoParaCrear(TipoSolicitudInterna::from((string) $request->validated('tipo'))));
+
         $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
 
         return response()->json(new SolicitudInternaResource($solicitud), 201);
@@ -53,6 +61,7 @@ class SolicitudController extends Controller
     public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
     {
         $this->authorize('descargarFormato', $solicitud);
+        $this->exigirPermisoAppSiEsPropia($solicitud, 'app.solicitudes.descargar_formato');
 
         try {
             return $this->solicitudes->respuestaPermiso($solicitud);
@@ -66,6 +75,7 @@ class SolicitudController extends Controller
     public function show(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
         $this->authorize('view', $solicitud);
+        $this->exigirPermisoAppSiEsPropia($solicitud, 'app.solicitudes.ver');
 
         $solicitud->load(['documentos', 'historial']);
         app(SolicitudesService::class)->ocultarImportesDelHistorial($solicitud, $request->user());
@@ -82,6 +92,7 @@ class SolicitudController extends Controller
     public function cancelar(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
         $this->authorize('cancelar', $solicitud);
+        $this->exigirPermisoAppSiEsPropia($solicitud, 'app.solicitudes.cancelar');
 
         $solicitud = $this->solicitudes->cancelar($solicitud, $request->user());
 
@@ -107,7 +118,26 @@ class SolicitudController extends Controller
             $this->solicitudes->tiposConFormulario(autoservicio: true),
         );
 
+        // permitido_app (aditivo): ¿esta persona puede crear ese tipo desde
+        // la app? (CatalogoPermisosAppMovil). La app oculta los que no.
+        $tipos = array_map(function (array $tipo): array {
+            $enum = TipoSolicitudInterna::tryFrom((string) $tipo['clave']);
+
+            return [...$tipo, 'permitido_app' => $enum === null || $this->puedePermisoApp(CatalogoPermisosAppMovil::permisoParaCrear($enum))];
+        }, $tipos);
+
         return response()->json(['tipos' => $tipos, 'elegibilidad_prestamo' => $elegibilidad]);
+    }
+
+    /**
+     * El permiso de la app aplica a lo PROPIO: RH o un aprobador que abre o
+     * adjunta en una solicitud ajena sigue con su Policy de siempre.
+     */
+    private function exigirPermisoAppSiEsPropia(SolicitudInterna $solicitud, string $permiso): void
+    {
+        if ($solicitud->user_id === request()->user()?->id) {
+            $this->exigirPermisoApp($permiso);
+        }
     }
 
     /**
@@ -131,6 +161,7 @@ class SolicitudController extends Controller
         // dos reglas distintas por canal (P2-15). SolicitudInternaPolicy::view
         // ya resuelve «propia» vs. alcance de módulo.
         $this->authorize('view', $solicitud);
+        $this->exigirPermisoAppSiEsPropia($solicitud, 'app.solicitudes.adjuntar');
 
         $datos = $request->validate([
             'archivo' => [
