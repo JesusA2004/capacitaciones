@@ -348,9 +348,10 @@ const grupos = computed<Grupo[]>(() => {
             evento = {
                 clave,
                 titulo: [
-                    fila.regla === 'listas_asistencia'
-                        ? 'Lotes semanales de la sucursal'
-                        : (fila.colaborador.nombre ?? 'Sin persona'),
+                    fila.evento_titulo ??
+                        (fila.regla === 'listas_asistencia'
+                            ? 'Lotes semanales de la sucursal'
+                            : (fila.colaborador.nombre ?? 'Sin persona')),
                     fila.colaborador.numero_empleado
                         ? `No. ${fila.colaborador.numero_empleado}`
                         : null,
@@ -359,7 +360,9 @@ const grupos = computed<Grupo[]>(() => {
                     .filter(Boolean)
                     .join(' · '),
                 descripcion:
-                    esNomina || fila.regla === 'listas_asistencia'
+                    esNomina ||
+                    fila.regla === 'listas_asistencia' ||
+                    fila.evento_titulo
                         ? null
                         : fila.evento_descripcion,
                 filas: [],
@@ -1031,7 +1034,8 @@ const filtrosBuscables = computed<
                                 />
                                 <span class="min-w-0 flex-1 text-sm">
                                     {{
-                                        fila.regla === 'recibos_nomina'
+                                        fila.regla === 'recibos_nomina' &&
+                                        !fila.es_personalizado
                                             ? fila.evento_descripcion
                                             : fila.tipo_etiqueta
                                     }}

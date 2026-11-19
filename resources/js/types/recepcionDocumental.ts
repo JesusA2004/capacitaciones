@@ -53,6 +53,10 @@ export type RenglonRecepcion = {
     regla_orden: number;
     tipo_documento: string;
     tipo_etiqueta: string;
+    /** Agregado por RH en el catálogo (no lo calcula una regla del sistema). */
+    es_personalizado?: boolean;
+    /** Título del evento cuando no es de una persona («Documentos de la sucursal»). */
+    evento_titulo?: string | null;
     origen: { tipo: string; id: number };
     colaborador: {
         id: number | null;
@@ -167,11 +171,21 @@ export type DocumentoCatalogoRecepcion = {
     clave: string;
     etiqueta: string;
     elegido: boolean;
+    /** Copias que se esperan de este documento por evento (mínimo 1). */
+    copias: number;
 };
 
+export type ModoCalculoRecepcion =
+    | 'regla'
+    | 'fijo_mensual'
+    | 'por_sucursal'
+    | 'por_colaborador_activo'
+    | 'por_evento';
+
 /**
- * Entrada del catálogo configurable de «lo que recibo» (una por regla).
- * Nada queda «pendiente de definir»: solo existen reglas definidas.
+ * Entrada del catálogo configurable de «lo que recibo»: una por regla del
+ * sistema más las que RH agrega (cantidad fija, por sucursal, por
+ * colaborador activo o por evento).
  */
 export type EntradaCatalogoRecepcion = {
     id: number;
@@ -180,13 +194,88 @@ export type EntradaCatalogoRecepcion = {
     nombre: string;
     descripcion: string | null;
     evento: string;
+    es_personalizada: boolean;
+    modo_calculo: ModoCalculoRecepcion;
+    modo_etiqueta: string;
+    cantidad: number;
+    regla_base: string | null;
+    bloque: string;
+    bloque_etiqueta: string;
     activa: boolean;
     orden: number;
     documentos: DocumentoCatalogoRecepcion[];
     sucursal_ids: number[];
     empresa_ids: number[];
+    departamento_ids: number[];
+    renglones_usados: number;
+    puede_eliminar: boolean;
     actualizado_en: string | null;
     actualizado_por: string | null;
+};
+
+export type OpcionesCatalogoRecepcion = {
+    bloques: { value: string; label: string }[];
+    reglas_base: { value: string; label: string; descripcion: string }[];
+    modos: {
+        value: ModoCalculoRecepcion;
+        label: string;
+        descripcion: string;
+        alcance: boolean;
+        areas: boolean;
+    }[];
+};
+
+export type ConflictoRecepcion = {
+    renglon_id: number;
+    tipo: 'ya_no_se_espera' | 'cantidad_distinta' | 'no_aplica_manual';
+    sucursal: string;
+    documento: string;
+    persona: string | null;
+    estado: string;
+    mensaje: string;
+    periodo?: string;
+};
+
+/** Antes / después del «No. de papeles» de un corte abierto (simulación). */
+export type CorteSimuladoRecepcion = {
+    corte_id: number | null;
+    periodo: string;
+    etiqueta: string;
+    estado: string;
+    antes: number;
+    sin_cambio: number;
+    despues: number;
+    diferencia: number;
+    efecto_del_cambio: number;
+    sucursales: {
+        sucursal_id: number | null;
+        nombre: string;
+        antes: number;
+        sin_cambio: number;
+        despues: number;
+        diferencia: number;
+    }[];
+    conteo: {
+        nuevos: number;
+        ligados: number;
+        no_aplica: number;
+        reactivados: number;
+        actualizados: number;
+    };
+    conflictos: ConflictoRecepcion[];
+};
+
+export type SimulacionRecepcion = {
+    cortes: CorteSimuladoRecepcion[];
+    total: {
+        antes: number;
+        sin_cambio: number;
+        despues: number;
+        diferencia: number;
+    };
+    conflictos: number;
+    cerrados_intactos: number;
+    entrada: VistaPreviaRecepcion | null;
 };
 
 /** Cuánto se esperaría en un mes con una configuración (sin guardar). */
@@ -211,6 +300,19 @@ export type RecalculoCatalogoRecepcion = {
 export type RespuestaCatalogoRecepcion = {
     entradas: EntradaCatalogoRecepcion[];
     previas: Record<number, VistaPreviaRecepcion>;
+    opciones: OpcionesCatalogoRecepcion;
     recalculo: RecalculoCatalogoRecepcion | null;
+    cortes: {
+        periodo: string;
+        etiqueta: string;
+        antes: number;
+        despues: number;
+        nuevos: number;
+        no_aplica: number;
+        reactivados: number;
+        actualizados: number;
+        conflictos: number;
+    }[];
+    conflictos: ConflictoRecepcion[];
     entrada_id: number | null;
 };

@@ -28,4 +28,10 @@ class RecepcionDocumentalCatalogoPolicy
     {
         return $this->configurar($usuario);
     }
+
+    /** Borrar: solo entradas agregadas por RH (que nunca se usaron: lo valida el servicio). */
+    public function delete(User $usuario, RecepcionDocumentalCatalogo $entrada): bool
+    {
+        return $entrada->esPersonalizada() && $this->configurar($usuario);
+    }
 }

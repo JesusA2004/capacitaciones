@@ -71,6 +71,17 @@ final class EsperadoRecepcion
         );
     }
 
+    /** Copia con otra cantidad esperada (copias configuradas en el catálogo). */
+    public function conCantidad(int $cantidad): self
+    {
+        return new self(
+            $this->regla, $this->tipoDocumento, $this->tipoEtiqueta, $this->origen, $this->generatedDocumentId,
+            $this->colaboradorId, $this->sucursalId, $this->colaboradorNombre, $this->numeroEmpleado,
+            $this->puestoNombre, $this->sucursalNombre, $this->fechaEvento, $this->descripcion,
+            max(1, $cantidad), $this->documentoCatalogo,
+        );
+    }
+
     /** Llave de idempotencia (misma que el índice único rec_doc_renglon_unico). */
     public function clave(): string
     {

@@ -20,6 +20,13 @@ enum ReglaRecepcionDocumental: string
     case RecibosNomina = 'recibos_nomina';
     case ListasAsistencia = 'listas_asistencia';
 
+    /**
+     * Bloque «Otros documentos»: entradas que RH agrega en el catálogo
+     * (cantidad fija, por sucursal, por colaborador activo). No tiene clase
+     * propia: las calcula ReglaPersonalizada con lo configurado.
+     */
+    case Personalizada = 'personalizada';
+
     public function etiqueta(): string
     {
         return match ($this) {
@@ -31,6 +38,7 @@ enum ReglaRecepcionDocumental: string
             self::Prestamos => 'Préstamos',
             self::RecibosNomina => 'Nómina',
             self::ListasAsistencia => 'Listas de asistencia',
+            self::Personalizada => 'Otros documentos',
         };
     }
 
@@ -46,6 +54,7 @@ enum ReglaRecepcionDocumental: string
             self::Prestamos => 6,
             self::Bajas => 7,
             self::ListasAsistencia => 8,
+            self::Personalizada => 9,
         };
     }
 
@@ -61,6 +70,7 @@ enum ReglaRecepcionDocumental: string
             self::Prestamos => 'Cada préstamo autorizado en el mes que no se canceló.',
             self::RecibosNomina => 'Cada recibo de nómina emitido con fecha de pago en el mes.',
             self::ListasAsistencia => 'Un lote por sucursal y semana (lunes a domingo) con sus colaboradores activos.',
+            self::Personalizada => 'Lo que RH agregó en el catálogo: cantidad fija al mes, por sucursal o por colaborador activo.',
         };
     }
 
@@ -76,6 +86,7 @@ enum ReglaRecepcionDocumental: string
             self::Prestamos => sprintf('No se autorizaron préstamos durante %s.', $periodo),
             self::RecibosNomina => sprintf('No se emitieron recibos de nómina con pago en %s.', $periodo),
             self::ListasAsistencia => sprintf('No hubo colaboradores activos en sucursales durante las semanas de %s.', $periodo),
+            self::Personalizada => sprintf('Nada de lo agregado en el catálogo se espera en %s.', $periodo),
         };
     }
 }

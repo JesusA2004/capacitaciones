@@ -2,6 +2,7 @@
 
 namespace App\Services\RecepcionDocumental;
 
+use App\Enums\ReglaRecepcionDocumental;
 use App\Models\RecepcionDocumentalCatalogo;
 use App\Models\Sucursal;
 use App\Services\RecepcionDocumental\Reglas\ReglaRecepcion;
@@ -22,22 +23,52 @@ final class ReglaConfigurada
 
     public function activa(): bool
     {
-        return $this->entrada->activa && $this->entrada->claves() !== [];
+        return $this->entrada->activa && $this->documentos() !== [];
+    }
+
+    /** Bloque del corte donde caen sus renglones. */
+    public function bloque(): ReglaRecepcionDocumental
+    {
+        return $this->entrada->bloqueEfectivo();
     }
 
     /**
-     * Lo esperado en el periodo con la configuración de la entrada.
+     * Claves de documento que cuentan: las elegidas en una regla del
+     * sistema; en una entrada agregada, su propia clave.
+     *
+     * @return list<string>
+     */
+    public function documentos(): array
+    {
+        return $this->entrada->esPersonalizada() ? array_keys($this->regla->documentosPosibles()) : $this->entrada->claves();
+    }
+
+    /**
+     * Lo esperado en el periodo con la configuración de la entrada: solo
+     * los documentos elegidos (con sus copias), las sucursales / empresas
+     * elegidas. Una cantidad fija al mes no tiene sucursal: no se acota.
      *
      * @return list<EsperadoRecepcion>
      */
     public function esperados(PeriodoRecepcion $periodo): array
     {
-        return self::filtrar(
+        $acotar = $this->entrada->modo_calculo->admiteAlcance();
+        $filtrados = self::filtrar(
             $this->regla->esperados($periodo),
-            $this->entrada->claves(),
-            $this->entrada->sucursales(),
-            $this->entrada->empresas(),
+            $this->documentos(),
+            $acotar ? $this->entrada->sucursales() : [],
+            $acotar ? $this->entrada->empresas() : [],
         );
+
+        if ($this->entrada->esPersonalizada()) {
+            return $filtrados;
+        }
+
+        return array_map(function (EsperadoRecepcion $e): EsperadoRecepcion {
+            $copias = $this->entrada->copiasDe($e->documento());
+
+            return $copias > 1 ? $e->conCantidad(max(1, $e->cantidad) * $copias) : $e;
+        }, $filtrados);
     }
 
     /**

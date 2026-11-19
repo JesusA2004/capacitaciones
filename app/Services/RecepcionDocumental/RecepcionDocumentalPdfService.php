@@ -39,6 +39,7 @@ class RecepcionDocumentalPdfService
         private readonly DocumentoStorageService $almacen,
         private readonly AuditoriaService $auditoria,
         private readonly LogoPdfService $logos,
+        private readonly CatalogoReglasRecepcion $catalogo,
     ) {}
 
     public static function varianteValida(?string $variante): string
@@ -155,6 +156,9 @@ class RecepcionDocumentalPdfService
             $porSucursal[$r->sucursal_nombre ?? 'Sin sucursal'][] = $r;
         }
 
+        $orden = $this->servicio->ordenReglas();
+        $nombres = $this->catalogo->nombresDeBloque();
+
         foreach ($porSucursal as $sucursal => $filas) {
             $bloques = [];
 
@@ -167,16 +171,25 @@ class RecepcionDocumentalPdfService
                     $evento = sprintf('colaborador|%s', $r->colaborador_id ?? $r->colaborador_nombre ?? $r->id);
                 }
 
-                $bloques[$bloque]['etiqueta'] ??= mb_strtoupper($r->regla->etiqueta());
-                $bloques[$bloque]['orden'] ??= $r->regla->orden();
-                if ($r->regla === ReglaRecepcionDocumental::ListasAsistencia) {
-                    $bloques[$bloque]['eventos'][$evento]['titulo'] ??= 'Lotes semanales de la sucursal';
+                // Bloque con el nombre del catálogo (incluye «Otros documentos»,
+                // lo que RH agregó) y en el orden configurado.
+                $bloques[$bloque]['etiqueta'] ??= mb_strtoupper($nombres[$bloque] ?? $r->regla->etiqueta());
+                $bloques[$bloque]['orden'] ??= $orden[$bloque] ?? $r->regla->orden();
+                $titulo = RecepcionDocumentalService::tituloEvento($r);
+
+                if ($titulo !== null) {
+                    $bloques[$bloque]['eventos'][$evento]['titulo'] ??= $titulo;
                 }
 
                 $bloques[$bloque]['eventos'][$evento]['titulo'] ??= trim(sprintf('%s%s%s', $r->colaborador_nombre ?? 'Sin persona', $r->numero_empleado !== null ? sprintf(' (No. %s)', $r->numero_empleado) : '', $r->puesto_nombre !== null ? sprintf(' · %s', $r->puesto_nombre) : ''));
-                $bloques[$bloque]['eventos'][$evento]['descripcion'] ??= in_array($r->regla, [ReglaRecepcionDocumental::RecibosNomina, ReglaRecepcionDocumental::ListasAsistencia], true) ? null : $r->evento_descripcion;
+                $agregadoSinPersona = RecepcionDocumentalService::esPersonalizado($r) && $r->colaborador_nombre === null;
+                $bloques[$bloque]['eventos'][$evento]['descripcion'] ??= $agregadoSinPersona || in_array($r->regla, [ReglaRecepcionDocumental::RecibosNomina, ReglaRecepcionDocumental::ListasAsistencia], true) ? null : $r->evento_descripcion;
                 $bloques[$bloque]['eventos'][$evento]['documentos'][] = [
-                    'etiqueta' => $r->regla === ReglaRecepcionDocumental::RecibosNomina ? (string) $r->evento_descripcion : $r->tipo_etiqueta,
+                    'etiqueta' => match (true) {
+                        $r->regla === ReglaRecepcionDocumental::RecibosNomina && ! RecepcionDocumentalService::esPersonalizado($r) => (string) $r->evento_descripcion,
+                        $agregadoSinPersona && $r->evento_descripcion !== null => sprintf('%s — %s', $r->tipo_etiqueta, $r->evento_descripcion),
+                        default => $r->tipo_etiqueta,
+                    },
                     'cantidad' => $r->cantidad_esperada,
                     'marca' => $this->marca($r->estado),
                     'estado' => $r->estado->etiqueta(),

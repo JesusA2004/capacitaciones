@@ -4,15 +4,19 @@ namespace App\Services\RecepcionDocumental;
 
 use App\Enums\EstadoCorteRecepcion;
 use App\Enums\EstadoRecepcionDocumento;
+use App\Enums\ModoCalculoRecepcion;
 use App\Enums\ReglaRecepcionDocumental;
 use App\Models\GeneratedDocument;
+use App\Models\RecepcionDocumentalCatalogo;
 use App\Models\RecepcionDocumentalCorte;
 use App\Models\RecepcionDocumentalRenglon;
+use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\RecepcionDocumental\Reglas\ReglaListasAsistencia;
+use App\Services\RecepcionDocumental\Reglas\ReglaPersonalizada;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -122,6 +126,26 @@ class RecepcionDocumentalService
         $conteo = $this->materializador->materializar($corte, $actor);
 
         return ['corte' => $corte->refresh(), 'conteo' => $conteo];
+    }
+
+    /**
+     * Lo recibido que la última materialización ya no esperaba (o esperaba
+     * en otra cantidad): se conservó y se reporta.
+     *
+     * @return list<array{renglon_id: int, tipo: string, sucursal: string, documento: string, persona: string|null, estado: string, mensaje: string}>
+     */
+    public function ultimosConflictos(): array
+    {
+        return $this->materializador->ultimosConflictos();
+    }
+
+    /** «No. de papeles» del corte completo (sin alcance): esperados sin «No aplica». */
+    public function totalEsperado(RecepcionDocumentalCorte $corte): int
+    {
+        return (int) RecepcionDocumentalRenglon::query()
+            ->where('corte_id', $corte->id)
+            ->where('estado', '!=', EstadoRecepcionDocumento::NoAplica->value)
+            ->sum('cantidad_esperada');
     }
 
     /**
@@ -237,24 +261,41 @@ class RecepcionDocumentalService
         $reglas = [];
 
         $orden = $this->ordenReglas();
+        $entradas = $this->catalogo->entradas();
+        $nombres = $this->catalogo->nombresDeBloque($entradas);
 
-        foreach ($this->catalogo->entradas() as $configurada) {
-            $caso = $configurada->entrada->regla;
-            $activa = $configurada->activa();
+        // Un renglón por BLOQUE del corte (la regla): la entrada del sistema
+        // y lo que RH agregó en ese bloque cuentan juntos.
+        /** @var array<string, bool> $bloques bloque => alguna entrada encendida */
+        $bloques = [];
 
-            if (! $activa && ! isset($porRegla[$caso->value])) {
+        foreach ($entradas as $configurada) {
+            $valor = $configurada->bloque()->value;
+            $bloques[$valor] = ($bloques[$valor] ?? false) || $configurada->activa();
+        }
+
+        foreach (array_keys($porRegla) as $valor) {
+            $bloques[$valor] ??= false;
+        }
+
+        foreach ($bloques as $valor => $activa) {
+            $caso = ReglaRecepcionDocumental::tryFrom($valor);
+
+            if ($caso === null || (! $activa && ! isset($porRegla[$valor]))) {
                 continue;
             }
 
             $reglas[] = [
-                'regla' => $caso->value,
-                'etiqueta' => $configurada->entrada->nombre,
-                'orden' => $orden[$caso->value] ?? $caso->orden(),
+                'regla' => $valor,
+                'etiqueta' => $nombres[$valor] ?? $caso->etiqueta(),
+                'orden' => $orden[$valor] ?? $caso->orden(),
                 'activa' => $activa,
                 'sin_eventos' => $caso->sinEventos($periodo->etiqueta()),
-                'metricas' => $porRegla[$caso->value] ?? self::metricasVacias(),
+                'metricas' => $porRegla[$valor] ?? self::metricasVacias(),
             ];
         }
+
+        usort($reglas, fn (array $a, array $b): int => $a['orden'] <=> $b['orden']);
 
         return ['sucursales' => $sucursales, 'tipos' => $tipos, 'reglas' => $reglas];
     }
@@ -340,6 +381,9 @@ class RecepcionDocumentalService
             'regla_orden' => $this->ordenReglas()[$r->regla->value] ?? $r->regla->orden(),
             'tipo_documento' => $r->tipo_documento,
             'tipo_etiqueta' => $r->tipo_etiqueta,
+            // Agregado por RH en el catálogo (no lo calcula una regla del sistema).
+            'es_personalizado' => self::esPersonalizado($r),
+            'evento_titulo' => self::tituloEvento($r),
             'origen' => ['tipo' => class_basename($r->origen_type), 'id' => $r->origen_id],
             'colaborador' => [
                 'id' => $r->colaborador_id,
@@ -380,13 +424,61 @@ class RecepcionDocumentalService
      */
     private function integrantesDe(RecepcionDocumentalRenglon $r): ?array
     {
-        if ($r->regla !== ReglaRecepcionDocumental::ListasAsistencia || $r->sucursal_id === null) {
+        if ($r->sucursal_id === null) {
             return null;
         }
 
-        $clave = sprintf('%d|%s', $r->sucursal_id, $r->tipo_documento);
+        $clave = sprintf('%d|%s|%s', $r->sucursal_id, $r->tipo_documento, $r->fecha_evento?->toDateString());
+
+        if (self::esPersonalizado($r) && $r->origen_type === (new Sucursal)->getMorphClass() && $r->fecha_evento !== null) {
+            return $this->integrantesMemo[$clave] ??= $this->integrantesAgregada($r);
+        }
+
+        if ($r->regla !== ReglaRecepcionDocumental::ListasAsistencia || str_starts_with($r->tipo_documento, 'personalizado.')) {
+            return null;
+        }
 
         return $this->integrantesMemo[$clave] ??= $this->listas->integrantes($r->sucursal_id, $r->tipo_documento);
+    }
+
+    /**
+     * Entrada agregada «por colaborador activo»: quiénes cuentan en el mes.
+     *
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null}>|null
+     */
+    private function integrantesAgregada(RecepcionDocumentalRenglon $r): ?array
+    {
+        foreach ($this->catalogo->entradas() as $configurada) {
+            $entrada = $configurada->entrada;
+
+            if ($entrada->esDuenaDeTipo($r->tipo_documento) && $entrada->modo_calculo === ModoCalculoRecepcion::PorColaboradorActivo && $configurada->regla instanceof ReglaPersonalizada && $r->fecha_evento !== null && $r->sucursal_id !== null) {
+                return $configurada->regla->integrantes($r->sucursal_id, PeriodoRecepcion::de($r->fecha_evento->year, $r->fecha_evento->month));
+            }
+        }
+
+        return null;
+    }
+
+    public static function esPersonalizado(RecepcionDocumentalRenglon $r): bool
+    {
+        return str_starts_with($r->tipo_documento, 'personalizado.');
+    }
+
+    /**
+     * Título del evento cuando el renglón no es de una persona (para Show y PDF).
+     */
+    public static function tituloEvento(RecepcionDocumentalRenglon $r): ?string
+    {
+        if ($r->colaborador_nombre !== null) {
+            return null;
+        }
+
+        return match (true) {
+            $r->regla === ReglaRecepcionDocumental::ListasAsistencia => 'Lotes semanales de la sucursal',
+            $r->origen_type === (new RecepcionDocumentalCatalogo)->getMorphClass() => 'Generales del mes',
+            $r->origen_type === (new Sucursal)->getMorphClass() => 'Documentos de la sucursal',
+            default => null,
+        };
     }
 
     /** Renglón del corte dentro del alcance (404 si no lo ve). */

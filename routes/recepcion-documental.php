@@ -12,6 +12,10 @@ Route::middleware(['auth', 'verified'])->prefix('rh/recepcion-documental')->name
 
     // Catálogo configurable de «lo que recibo» (permiso recepcion_documental.configurar).
     Route::get('catalogo', [RecepcionDocumentalCatalogoController::class, 'index'])->name('catalogo.index');
+    Route::post('catalogo', [RecepcionDocumentalCatalogoController::class, 'store'])->name('catalogo.store')->middleware('throttle:30,1');
+    Route::post('catalogo/simular', [RecepcionDocumentalCatalogoController::class, 'simular'])->name('catalogo.simular')->middleware('throttle:120,1');
+    Route::post('catalogo/vista-previa', [RecepcionDocumentalCatalogoController::class, 'vistaPreviaNueva'])->name('catalogo.vista-previa-nueva')->middleware('throttle:120,1');
+    Route::delete('catalogo/{entrada}', [RecepcionDocumentalCatalogoController::class, 'destroy'])->name('catalogo.destroy')->whereNumber('entrada')->middleware('throttle:30,1');
     Route::post('catalogo/orden', [RecepcionDocumentalCatalogoController::class, 'reordenar'])->name('catalogo.reordenar')->middleware('throttle:60,1');
     Route::patch('catalogo/{entrada}', [RecepcionDocumentalCatalogoController::class, 'update'])->name('catalogo.update')->whereNumber('entrada')->middleware('throttle:60,1');
     Route::post('catalogo/{entrada}/vista-previa', [RecepcionDocumentalCatalogoController::class, 'vistaPrevia'])->name('catalogo.vista-previa')->whereNumber('entrada')->middleware('throttle:120,1');
