@@ -50,7 +50,11 @@ class BajaAlertasService
     public function alRegistrar(Baja $baja, User $actor): void
     {
         $this->seguro(function () use ($baja, $actor): void {
-            $this->eventos->confirmarAlActor($actor, new Aviso('baja_registrada', 'baja', 'Baja registrada', sprintf('La baja %s de %s quedó aplicada y sus accesos se suspendieron. Siguen sus documentos y el finiquito.', $baja->folio, $baja->nombre_colaborador), $baja, 'registrada'));
+            $programada = (bool) $baja->cierre?->esProgramadaPendiente();
+            $mensaje = $programada
+                ? sprintf('La baja %s de %s quedó programada para el %s: conserva su acceso hasta ese día. Ya puedes preparar sus documentos y el finiquito.', $baja->folio, $baja->nombre_colaborador, $baja->fecha_baja?->format('d/m/Y'))
+                : sprintf('La baja %s de %s quedó aplicada y sus accesos se suspendieron. Siguen sus documentos y el finiquito.', $baja->folio, $baja->nombre_colaborador);
+            $this->eventos->confirmarAlActor($actor, new Aviso('baja_registrada', 'baja', $programada ? 'Baja programada' : 'Baja registrada', $mensaje, $baja, 'registrada'));
         });
 
         $this->alertas($baja, $actor);

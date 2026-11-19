@@ -39,6 +39,10 @@ const props = withDefaults(
         etiquetaFecha?: string;
         /** Numera los bloques (2 y 3) como en la solicitud del gerente. */
         numerar?: boolean;
+        /** Baja programada: fecha mínima/máxima y ayuda propias. */
+        minFecha?: string | null;
+        maxFecha?: string | null;
+        ayudaFecha?: string | null;
     }>(),
     {
         errores: () => ({}),
@@ -47,6 +51,9 @@ const props = withDefaults(
         disabled: false,
         etiquetaFecha: 'Último día laborado',
         numerar: false,
+        minFecha: null,
+        maxFecha: null,
+        ayudaFecha: null,
     },
 );
 
@@ -266,11 +273,16 @@ const claseRadio = (activo: boolean) =>
                     id="baja-fecha"
                     v-model="modelo.fecha_baja"
                     :disabled="disabled"
-                    :min-value="fechaIngreso ?? undefined"
+                    :min-value="minFecha ?? fechaIngreso ?? undefined"
+                    :max-value="maxFecha ?? undefined"
                 />
                 <p class="text-xs text-[var(--mrl-texto-suave)]">
-                    No antes del ingreso ni más de
-                    {{ limites.dias_futuro_maximo }} días en el futuro.
+                    <template v-if="ayudaFecha">{{ ayudaFecha }}</template>
+                    <template v-else
+                        >No antes del ingreso ni más de
+                        {{ limites.dias_futuro_maximo }} días en el
+                        futuro.</template
+                    >
                 </p>
                 <InputError
                     :message="errores.fecha_baja ?? errores.fecha_efectiva"

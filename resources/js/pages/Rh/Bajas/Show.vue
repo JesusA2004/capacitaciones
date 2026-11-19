@@ -2,12 +2,16 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle,
+    BellRing,
+    CalendarClock,
     FolderOpen,
     History,
     Lock,
     Pencil,
     Undo2,
     UserMinus,
+    XCircle,
+    Zap,
 } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import DocumentosBaja from '@/components/bajas/DocumentosBaja.vue';
@@ -108,10 +112,36 @@ function cerrarBaja() {
     accionDirecta(rutasBajas.cerrar.url(props.baja.id));
 }
 
-// ── Diálogo de motivo (reabrir, no procede) ──
-type AccionMotivo = 'reabrir' | 'cancelar';
+// ── Diálogo de motivo (reabrir, no procede, baja programada) ──
+type AccionMotivo = 'reabrir' | 'cancelar' | 'reprogramar' | 'ejecutar';
 const accionMotivo = ref<AccionMotivo | null>(null);
-const formMotivo = useForm({ motivo: '' });
+const formMotivo = useForm({ motivo: '', fecha_baja: '' });
+
+// Baja programada que todavía no surte efecto (conserva su acceso).
+const programada = computed(() => props.baja.programada_pendiente);
+const textoCuenta = computed(() => {
+    const d = props.baja.dias_para_baja;
+
+    if (d === null) {
+        return '';
+    }
+
+    if (d <= 0) {
+        return 'Surte efecto hoy (el proceso diario de las 06:45 la ejecuta).';
+    }
+
+    return d === 1 ? 'Falta 1 día.' : `Faltan ${d} días.`;
+});
+const iso = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const masDias = (dias: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + dias);
+
+    return iso(d);
+};
+const minReprogramar = masDias(1);
+const maxReprogramar = masDias(props.baja.dias_programada_maximo ?? 90);
 const textosMotivo: Record<
     AccionMotivo,
     { titulo: string; boton: string; ayuda: string }
@@ -126,12 +156,31 @@ const textosMotivo: Record<
         boton: 'Marcar «No procede»',
         ayuda: 'La persona sigue laborando: se cancela el cierre laboral y se le devuelve el acceso. Nada se borra.',
     },
+    reprogramar: {
+        titulo: 'Cambiar la fecha de la baja programada',
+        boton: 'Cambiar fecha',
+        ayuda: 'Sistemas recibe un correo con la nueva fecha; el finiquito se recalcula (tus ajustes se conservan). Queda en la bitácora.',
+    },
+    ejecutar: {
+        titulo: 'Ejecutar la baja ahora',
+        boton: 'Ejecutar ahora',
+        ayuda: 'Sus accesos a PEOPLE se suspenden hoy y la baja se concluye; el último día pasa a ser hoy. Sistemas recibe el aviso de baja adelantada.',
+    },
 };
 
 function abrirMotivo(a: AccionMotivo) {
     formMotivo.reset();
     formMotivo.clearErrors();
+    formMotivo.fecha_baja =
+        a === 'reprogramar' ? (props.baja.fecha_baja ?? '') : '';
     accionMotivo.value = a;
+}
+
+const avisando = ref(false);
+
+function avisarColaborador() {
+    avisando.value = false;
+    accionDirecta(rutasBajas.avisarColaborador.url(props.baja.id));
 }
 
 function enviarMotivo() {
@@ -144,6 +193,8 @@ function enviarMotivo() {
     const url = {
         reabrir: rutasBajas.reabrir.url(props.baja.id),
         cancelar: rutasBajas.cancelar.url(props.baja.id),
+        reprogramar: rutasBajas.reprogramar.url(props.baja.id),
+        ejecutar: rutasBajas.ejecutarAhora.url(props.baja.id),
     }[a];
 
     formMotivo.post(url, {
@@ -256,8 +307,15 @@ const datos = computed(() => [
         valor: formatearFecha(props.baja.fecha_ingreso),
     },
     {
-        etiqueta: 'Último día laborado',
+        etiqueta: props.baja.programada_pendiente
+            ? 'Fecha programada'
+            : 'Último día laborado',
         valor: formatearFecha(props.baja.fecha_baja),
+    },
+    { etiqueta: 'Tipo de baja', valor: props.baja.modalidad_etiqueta },
+    {
+        etiqueta: 'Aviso al colaborador',
+        valor: props.baja.avisar_colaborador ? 'Sí' : 'No',
     },
     {
         etiqueta: 'Antigüedad',
@@ -354,6 +412,79 @@ const datos = computed(() => [
             >
         </div>
 
+        <section
+            v-if="programada"
+            class="grid gap-3 rounded-2xl border-2 border-primary/30 bg-salvia/40 p-4 sm:p-5"
+            aria-label="Baja programada"
+        >
+            <div class="flex flex-wrap items-start gap-3">
+                <CalendarClock class="mt-0.5 size-6 shrink-0 text-primary" />
+                <div class="grid min-w-0 flex-1 gap-1">
+                    <p class="text-lg font-semibold">
+                        Programada para el {{ formatearFecha(baja.fecha_baja) }}
+                    </p>
+                    <p class="text-sm">
+                        <strong>{{ textoCuenta }}</strong>
+                        Conserva su acceso a PEOPLE hasta ese día; ese día se
+                        suspende y la baja se concluye. Ya puedes generar el
+                        finiquito y los documentos de salida.
+                    </p>
+                    <p class="text-xs text-muted-foreground">
+                        Aviso al colaborador:
+                        {{ baja.avisar_colaborador ? 'enviado' : 'no' }} ·
+                        Sistemas ya recibió el aviso de baja anticipada.
+                    </p>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <Button
+                    v-if="puede('reprogramar')"
+                    size="sm"
+                    variant="outline"
+                    @click="abrirMotivo('reprogramar')"
+                    ><CalendarClock class="size-4" />Cambiar fecha</Button
+                >
+                <Button
+                    v-if="puede('ejecutar_ahora')"
+                    size="sm"
+                    variant="outline"
+                    @click="abrirMotivo('ejecutar')"
+                    ><Zap class="size-4" />Ejecutar ahora</Button
+                >
+                <Button
+                    v-if="puede('avisar_colaborador')"
+                    size="sm"
+                    variant="outline"
+                    :disabled="procesando"
+                    @click="avisando = true"
+                    ><BellRing class="size-4" />Avisar al colaborador</Button
+                >
+                <Button
+                    v-if="puede('cancelar')"
+                    size="sm"
+                    variant="ghost"
+                    class="text-destructive"
+                    @click="abrirMotivo('cancelar')"
+                    ><XCircle class="size-4" />Cancelar baja (no
+                    procede)</Button
+                >
+            </div>
+        </section>
+
+        <div
+            v-else-if="puede('avisar_colaborador')"
+            class="flex flex-wrap items-center gap-2 rounded-2xl bg-muted px-4 py-2 text-sm"
+        >
+            <span>No se le ha avisado a la persona de su baja.</span>
+            <Button
+                size="sm"
+                variant="outline"
+                :disabled="procesando"
+                @click="avisando = true"
+                ><BellRing class="size-4" />Avisar al colaborador</Button
+            >
+        </div>
+
         <SiguientePasoPanel :paso="siguientePaso" @dialogo="alSiguientePaso" />
 
         <div
@@ -431,7 +562,7 @@ const datos = computed(() => [
             ciclo laboral y aparecerá aquí.
         </p>
 
-        <div class="grid gap-5 xl:grid-cols-[3fr_2fr]">
+        <div class="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <div class="grid content-start gap-5">
                 <section
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
@@ -597,7 +728,10 @@ const datos = computed(() => [
                     </p>
                 </section>
 
-                <div v-if="puede('cancelar')" class="flex justify-end">
+                <div
+                    v-if="puede('cancelar') && !programada"
+                    class="flex justify-end"
+                >
                     <Button variant="ghost" @click="abrirMotivo('cancelar')"
                         >La baja no procede…</Button
                     >
@@ -667,6 +801,16 @@ const datos = computed(() => [
                 }}</DialogDescription>
             </DialogHeader>
             <form class="grid gap-3" @submit.prevent="enviarMotivo">
+                <template v-if="accionMotivo === 'reprogramar'">
+                    <Label for="baja-nueva-fecha">Nueva fecha</Label>
+                    <DatePicker
+                        id="baja-nueva-fecha"
+                        v-model="formMotivo.fecha_baja"
+                        :min-value="minReprogramar"
+                        :max-value="maxReprogramar"
+                    />
+                    <InputError :message="formMotivo.errors.fecha_baja" />
+                </template>
                 <Label for="baja-motivo">Motivo (obligatorio)</Label>
                 <Textarea
                     id="baja-motivo"
@@ -702,6 +846,15 @@ const datos = computed(() => [
         destructivo
         :cargando="procesando"
         @confirm="cerrarBaja"
+    />
+
+    <PeopleConfirmDialog
+        v-model:open="avisando"
+        titulo="¿Avisar a la persona de su baja?"
+        descripcion="Le llega un aviso en PEOPLE y por correo con la fecha de su baja (sin causal ni montos). Queda en la bitácora."
+        texto-confirmar="Avisar"
+        :cargando="procesando"
+        @confirm="avisarColaborador"
     />
 
     <Dialog v-model:open="causalAbierto">

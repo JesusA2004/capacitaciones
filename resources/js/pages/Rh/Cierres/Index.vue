@@ -69,6 +69,9 @@ type FilaCierre = {
     tipo_baja_etiqueta: string;
     causal_rotacion: string | null;
     fecha_efectiva: string;
+    /** Baja programada que aún no surte efecto (conserva su acceso). */
+    programada_pendiente?: boolean;
+    dias_para_baja?: number | null;
     estado: string;
     estado_etiqueta: string;
     solicitado_por: string | null;
@@ -361,6 +364,18 @@ function filtrarCierres() {
 
 watch(termino, useDebounceFn(filtrarCierres, 300));
 watch(estado, filtrarCierres);
+
+function textoProgramada(fila: FilaCierre): string {
+    const d = fila.dias_para_baja ?? null;
+
+    if (d === null) {
+        return 'Baja programada';
+    }
+
+    return d <= 0
+        ? 'Programada · hoy'
+        : `Programada · en ${d} ${d === 1 ? 'día' : 'días'}`;
+}
 
 function neto(fila: FilaCierre): string {
     return fila.finiquito ? formatoMoneda(Number(fila.finiquito.neto)) : '—';
@@ -688,6 +703,12 @@ function neto(fila: FilaCierre): string {
                                 </td>
                                 <td class="px-4 py-3 text-xs">
                                     {{ formatearFecha(c.fecha_efectiva) }}
+                                    <ChipEstado
+                                        v-if="c.programada_pendiente"
+                                        class="mt-1"
+                                        :etiqueta="textoProgramada(c)"
+                                        tono="oro"
+                                    />
                                 </td>
                                 <td class="px-4 py-3">
                                     <ChipEstado
@@ -769,6 +790,12 @@ function neto(fila: FilaCierre): string {
                             >
                             · {{ formatearFecha(c.fecha_efectiva) }}
                         </p>
+                        <ChipEstado
+                            v-if="c.programada_pendiente"
+                            class="mt-1 self-start"
+                            :etiqueta="textoProgramada(c)"
+                            tono="oro"
+                        />
                         <p v-if="puede_ver_finiquito" class="mt-1 mb-3 text-xs">
                             Finiquito:
                             <template v-if="c.finiquito">

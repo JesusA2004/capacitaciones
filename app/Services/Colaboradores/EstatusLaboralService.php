@@ -136,7 +136,9 @@ class EstatusLaboralService
                 'clave' => 'baja_programada',
                 'etiqueta' => sprintf('Baja el %s', $baja['fecha']->format('d/m/Y')),
                 'fecha_baja' => $baja['fecha']->toDateString(),
-                'mensaje' => sprintf('Baja registrada: su último día es el %s. Ese día queda inactivo; su acceso ya está suspendido.', $baja['fecha']->format('d/m/Y')),
+                'mensaje' => $baja['cierre'] !== null && $baja['cierre']->esProgramadaPendiente()
+                    ? sprintf('Baja programada para el %s: conserva su acceso hasta ese día; ese día se suspende y queda inactivo.', $baja['fecha']->format('d/m/Y'))
+                    : sprintf('Baja registrada: su último día es el %s. Ese día queda inactivo; su acceso ya está suspendido.', $baja['fecha']->format('d/m/Y')),
                 'folio' => $baja['folio'],
             ];
         }

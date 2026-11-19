@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\EntregaAvisoRescision;
 use App\Enums\EstatusBaja;
 use App\Enums\FormaSalida;
+use App\Enums\ModalidadBaja;
 use App\Enums\OrigenBaja;
 use App\Enums\Recontratable;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +79,18 @@ use Illuminate\Support\Carbon;
 class Baja extends Model
 {
     protected $table = 'bajas';
+
+    /**
+     * Solo en memoria, al REGISTRARLA: la baja se pidió programada (aún no
+     * tiene cierre que lo diga). Ver esProgramada().
+     */
+    public bool $registrandoProgramada = false;
+
+    /** Baja programada (inmediata = false): su fecha puede ir más allá de RN-10. */
+    public function esProgramada(): bool
+    {
+        return $this->registrandoProgramada || $this->cierre?->modalidad_baja === ModalidadBaja::Programada;
+    }
 
     protected $fillable = [
         'folio', 'colaborador_id', 'cierre_laboral_id', 'nombre_colaborador', 'numero_empleado', 'sucursal_id', 'puesto_id',

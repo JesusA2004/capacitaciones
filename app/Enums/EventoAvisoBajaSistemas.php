@@ -21,12 +21,20 @@ enum EventoAvisoBajaSistemas: string
      */
     case BajaCancelada = 'baja_cancelada';
 
+    /**
+     * Baja PROGRAMADA cuya fecha cambió (o se ejecutó antes, «ejecutar
+     * ahora»). Una fila por baja: cada cambio la vuelve a mandar con la
+     * fecha vigente (la auditoría guarda cada envío).
+     */
+    case BajaReprogramada = 'baja_reprogramada';
+
     public function etiqueta(): string
     {
         return match ($this) {
             self::AccesosBloqueados => 'Dar de baja accesos',
             self::BajaConcluida => 'Baja concluida',
             self::BajaCancelada => 'Baja cancelada',
+            self::BajaReprogramada => 'Cambio de fecha de baja',
         };
     }
 }

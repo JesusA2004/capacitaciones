@@ -9,10 +9,12 @@ use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoUsuario;
 use App\Enums\EstatusBaja;
 use App\Enums\FormaSalida;
+use App\Enums\ModalidadBaja;
 use App\Enums\Recontratable;
 use App\Models\Baja;
 use App\Models\BajaBitacora;
 use App\Models\CausalRotacion;
+use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
@@ -70,6 +72,9 @@ class BajaService
 
     public const PERMISO_CANCELAR = 'bajas.cancelar';
 
+    /** Baja programada: cambiar fecha, ejecutar ahora y avisar al colaborador. */
+    public const PERMISO_PROGRAMAR = 'bajas.programar';
+
     public const PERMISO_ADJUNTAR = 'bajas.documentos.adjuntar';
 
     public const PERMISO_PREVIA_FINIQUITO = 'bajas.finiquito.vista_previa';
@@ -107,12 +112,15 @@ class BajaService
         $colaborador = $this->colaboradorVigente($datos, $actor);
         $baja = $this->registro->preparar($colaborador, [], $actor);
         $this->aplicarCaptura($baja, $datos, $actor);
+        // Inmediata (por defecto) o programada (fecha > hoy, sin RN-10).
+        $opciones = $this->cierres->resolverModalidad($datos, $baja->fecha_baja?->toDateString(), 'fecha_baja');
+        $baja->registrandoProgramada = $opciones['modalidad'] === ModalidadBaja::Programada;
         $this->validarCaptura($baja);
         $baja->unsetRelation('causal');
         $this->reglas->exigirCompleta($baja);
         $this->exigirFormaPermitida($baja, $actor);
 
-        $baja = DB::transaction(function () use ($baja, $colaborador, $actor): Baja {
+        $baja = DB::transaction(function () use ($baja, $colaborador, $actor, $opciones): Baja {
             Colaborador::query()->lockForUpdate()->where('id', $colaborador->id)->first();
             $this->registro->exigirSinBajaAbierta($colaborador);
 
@@ -130,7 +138,11 @@ class BajaService
 
             // Cierre laboral aplicado: solicitud (folio del trámite), cierre
             // «Baja aplicada», acceso suspendido y documentos de la causa.
-            $cierre = $this->cierres->aplicarDesdeBaja($baja, $actor);
+            $cierre = $this->cierres->aplicarDesdeBaja($baja, $actor, $opciones);
+
+            if ($opciones['modalidad'] === ModalidadBaja::Programada) {
+                $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Programo, 'fecha_baja', null, $cierre->fecha_efectiva->format('d/m/Y'), $opciones['avisar'] ? 'Con aviso al colaborador.' : 'Sin aviso al colaborador.');
+            }
 
             $baja->forceFill([
                 'cierre_laboral_id' => $cierre->id,
@@ -296,6 +308,14 @@ class BajaService
         $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico]);
         $baja->loadMissing('causal');
 
+        // La fecha de una programada pendiente se cambia con «Cambiar fecha»
+        // (valida la regla de la programada y avisa a Sistemas).
+        $nuevaFecha = is_string($datos['fecha_baja'] ?? null) && $datos['fecha_baja'] !== '' ? Carbon::parse($datos['fecha_baja'])->toDateString() : null;
+
+        if ($nuevaFecha !== null && $baja->cierre?->esProgramadaPendiente() && $nuevaFecha !== $baja->fecha_baja?->toDateString()) {
+            throw ValidationException::withMessages(['fecha_baja' => 'Es una baja programada: cambia su fecha con «Cambiar fecha» (avisa a Sistemas) o usa «Ejecutar ahora».']);
+        }
+
         DB::transaction(function () use ($baja, $actor, $datos): void {
             $antes = $this->instantanea($baja);
             $this->aplicarCaptura($baja, array_diff_key($datos, array_flip(['forma_salida', 'causal_rotacion_id', 'colaborador_id'])), $actor);
@@ -438,6 +458,125 @@ class BajaService
     }
 
     /**
+     * Cambia la fecha de una baja PROGRAMADA que aún no surte efecto (nueva
+     * fecha > hoy, mismo límite que al programarla). Bitácora con motivo,
+     * fechas sincronizadas (cierre, solicitud, documentos), finiquito
+     * recalculado conservando los ajustes de RH, correo de actualización a
+     * Sistemas y aviso a la persona si se eligió.
+     */
+    public function reprogramar(Baja $baja, User $actor, string $fecha, string $motivo): Baja
+    {
+        $this->exigirPermiso($actor, self::PERMISO_PROGRAMAR);
+        $cierre = $this->exigirProgramadaPendiente($baja);
+        $motivo = $this->exigirMotivo($motivo);
+        $this->cierres->resolverModalidad(['modalidad_baja' => ModalidadBaja::Programada->value], $fecha, 'fecha_baja');
+        $nueva = Carbon::parse($fecha)->startOfDay();
+
+        if ($nueva->toDateString() === $baja->fecha_baja?->toDateString()) {
+            throw ValidationException::withMessages(['fecha_baja' => 'Esa ya es la fecha programada.']);
+        }
+
+        $anterior = $baja->fecha_baja?->format('d/m/Y');
+
+        DB::transaction(function () use ($baja, $actor, $nueva, $anterior, $motivo, $cierre): void {
+            $baja->fecha_baja = $nueva;
+            $this->registro->recalcularAntiguedad($baja);
+            $baja->save();
+            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Reprogramo, 'fecha_baja', $anterior, $nueva->format('d/m/Y'), $motivo);
+            $this->cierres->sincronizarDesdeBaja($cierre, $baja, $actor);
+        });
+
+        $this->recalcularFiniquitoSiAplica($baja, $actor);
+        $this->cierres->notificarReprogramacion($cierre->refresh(), $actor, false);
+
+        return $baja->refresh();
+    }
+
+    /**
+     * «Ejecutar ahora»: la baja PROGRAMADA surte efecto hoy (último día =
+     * hoy si era futuro): accesos suspendidos y baja concluida igual que una
+     * inmediata. Correo de actualización a Sistemas («baja adelantada») y
+     * aviso a la persona si se eligió.
+     */
+    public function ejecutarAhora(Baja $baja, User $actor, string $motivo): Baja
+    {
+        $this->exigirPermiso($actor, self::PERMISO_PROGRAMAR);
+        $cierre = $this->exigirProgramadaPendiente($baja);
+        $motivo = $this->exigirMotivo($motivo);
+        $hoy = FechaMexico::inicioDeHoy();
+
+        DB::transaction(function () use ($baja, $actor, $hoy, $motivo, $cierre): void {
+            if ($baja->fecha_baja === null || $baja->fecha_baja->isAfter($hoy)) {
+                $anterior = $baja->fecha_baja?->format('d/m/Y');
+                $baja->fecha_baja = $hoy->copy();
+                $this->registro->recalcularAntiguedad($baja);
+                $baja->save();
+                $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Reprogramo, 'fecha_baja', $anterior, $hoy->format('d/m/Y'), sprintf('Ejecutar ahora: %s', $motivo));
+                $this->cierres->sincronizarDesdeBaja($cierre, $baja, $actor);
+            }
+
+            if (! $this->cierres->ejecutarProgramada($cierre->refresh(), $actor, 'ejecutar_ahora')) {
+                throw ValidationException::withMessages(['estatus' => 'No se pudo ejecutar la baja programada: ya se había ejecutado o cancelado.']);
+            }
+        });
+
+        $this->recalcularFiniquitoSiAplica($baja, $actor);
+        $this->cierres->notificarReprogramacion($cierre->refresh(), $actor, true);
+
+        return $baja->refresh();
+    }
+
+    /**
+     * RH decide avisar a la persona después de registrar la baja (el
+     * interruptor estaba en «No»). Queda en la bitácora.
+     */
+    public function avisarColaborador(Baja $baja, User $actor): Baja
+    {
+        $this->exigirPermiso($actor, self::PERMISO_PROGRAMAR);
+        $cierre = $baja->cierre;
+
+        if ($cierre === null || $cierre->estado->esFinal() || ! $baja->estatus->esAbierta()) {
+            throw ValidationException::withMessages(['estatus' => 'Solo se avisa sobre una baja abierta.']);
+        }
+
+        if ($cierre->avisar_colaborador) {
+            throw ValidationException::withMessages(['estatus' => 'Ya se le avisó a la persona.']);
+        }
+
+        $this->cierres->avisarColaboradorAhora($cierre);
+        $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::AvisoColaborador, 'avisar_colaborador', 'No', 'Sí');
+
+        return $baja->refresh();
+    }
+
+    private function exigirProgramadaPendiente(Baja $baja): CierreLaboral
+    {
+        $cierre = $baja->cierre;
+
+        if (! $baja->estatus->esAbierta() || $cierre === null || ! $cierre->esProgramadaPendiente()) {
+            throw ValidationException::withMessages(['estatus' => 'Solo una baja programada que todavía no surte efecto puede cambiar de fecha o ejecutarse antes.']);
+        }
+
+        return $cierre;
+    }
+
+    /** El finiquito depende de la fecha: se recalcula conservando ajustes (nunca lanza). */
+    private function recalcularFiniquitoSiAplica(Baja $baja, User $actor): void
+    {
+        $cierre = $baja->cierre()->first();
+
+        if ($cierre === null || $this->cierres->finiquito($cierre) === null) {
+            return;
+        }
+
+        try {
+            $this->cierres->calcularFiniquito($cierre, $actor);
+        } catch (Throwable $e) {
+            Log::warning('BajaService: no se pudo recalcular el finiquito tras cambiar la fecha de la baja programada.', ['baja_id' => $baja->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Acciones que el usuario puede ejecutar sobre la baja (para la UI; el
      * backend vuelve a validar cada una).
      *
@@ -467,6 +606,16 @@ class BajaService
                     $acciones[] = $accion;
                 }
             }
+        }
+
+        // Baja programada que aún no surte efecto: cambiar fecha / ejecutar ahora.
+        if ($abiertaVigente && $usuario->can(self::PERMISO_PROGRAMAR) && $baja->cierre?->esProgramadaPendiente()) {
+            $acciones[] = 'reprogramar';
+            $acciones[] = 'ejecutar_ahora';
+        }
+
+        if ($abiertaVigente && $usuario->can(self::PERMISO_PROGRAMAR) && $baja->cierre !== null && ! $baja->cierre->avisar_colaborador && ! $baja->cierre->estado->esFinal()) {
+            $acciones[] = 'avisar_colaborador';
         }
 
         if ($baja->estatus === EstatusBaja::Cerrada && $usuario->can(self::PERMISO_REABRIR)) {
@@ -515,6 +664,7 @@ class BajaService
             'juridico_en' => $baja->juridico_en?->toDateTimeString(),
             'cerrado_en' => $baja->cerrado_en?->toDateTimeString(),
             'acceso_suspendido_en' => $baja->acceso_suspendido_en?->toDateTimeString(),
+            'dias_programada_maximo' => (int) config('bajas.reglas.dias_programada_maximo', 90),
             'solicitado_por' => $baja->solicitante !== null ? trim(sprintf('%s %s', $baja->solicitante->name, $baja->solicitante->apellidos)) : null,
             'cierre' => $baja->cierre !== null ? [
                 'id' => $baja->cierre->id,

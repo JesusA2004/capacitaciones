@@ -62,7 +62,7 @@ class BajaController extends Controller
     {
         $this->authorize('viewAny', Baja::class);
         $usuario = $request->user();
-        $filtros = $request->only(['estatus', 'sucursal_id', 'forma', 'busqueda', 'per_page']);
+        $filtros = $request->only(['estatus', 'sucursal_id', 'forma', 'busqueda', 'per_page', 'modalidad']);
 
         // Flujo sin Jurídico: todos entran a las bajas abiertas; Jurídico
         // consulta dentro de lo que BajaConsultaService le permite.
@@ -81,6 +81,7 @@ class BajaController extends Controller
                 'forma' => is_string($filtros['forma'] ?? null) ? $filtros['forma'] : null,
                 'busqueda' => (string) ($filtros['busqueda'] ?? ''),
                 'cubo' => is_string($request->query('cubo')) ? $request->query('cubo') : null,
+                'modalidad' => $request->query('modalidad') === 'programadas' ? 'programadas' : null,
             ],
             'estatus' => [
                 ['value' => 'abiertas', 'label' => 'Abiertas'],
@@ -154,7 +155,9 @@ class BajaController extends Controller
     {
         $this->authorize('create', Baja::class);
         $baja = $this->bajas->registrar($request->datos(), $request->user());
-        $mensaje = sprintf('Baja %s registrada: los accesos de %s se suspendieron y sus documentos quedaron generados.', $baja->folio, $baja->nombre_colaborador);
+        $mensaje = $baja->cierre?->esProgramadaPendiente()
+            ? sprintf('Baja %s programada para el %s: %s conserva su acceso hasta ese día. Ya puedes preparar su finiquito y documentos.', $baja->folio, $baja->fecha_baja?->format('d/m/Y'), $baja->nombre_colaborador)
+            : sprintf('Baja %s registrada: los accesos de %s se suspendieron y sus documentos quedaron generados.', $baja->folio, $baja->nombre_colaborador);
 
         if ($request->input('volver') === 'ciclo') {
             return back()->with('toast', ['type' => 'success', 'message' => $mensaje]);
@@ -263,6 +266,30 @@ class BajaController extends Controller
         return $this->ok('La baja quedó como «No procede».');
     }
 
+    public function reprogramar(MotivoBajaRequest $request, Baja $baja): RedirectResponse
+    {
+        $this->authorize('programar', $baja);
+        $baja = $this->bajas->reprogramar($baja, $request->user(), (string) $request->validated('fecha_baja'), $request->motivo());
+
+        return $this->ok(sprintf('Fecha cambiada: la baja queda programada para el %s. Se avisó a Sistemas.', $baja->fecha_baja?->format('d/m/Y')));
+    }
+
+    public function ejecutarAhora(MotivoBajaRequest $request, Baja $baja): RedirectResponse
+    {
+        $this->authorize('programar', $baja);
+        $this->bajas->ejecutarAhora($baja, $request->user(), $request->motivo());
+
+        return $this->ok('Baja ejecutada hoy: sus accesos se suspendieron. Se avisó a Sistemas.');
+    }
+
+    public function avisarColaborador(Request $request, Baja $baja): RedirectResponse
+    {
+        $this->authorize('programar', $baja);
+        $this->bajas->avisarColaborador($baja, $request->user());
+
+        return $this->ok('Se le avisó a la persona de su baja.');
+    }
+
     public function adjuntar(AdjuntarDocumentoBajaRequest $request, Baja $baja): RedirectResponse
     {
         $this->authorize('view', $baja);
@@ -332,6 +359,7 @@ class BajaController extends Controller
             'comentario_minimo' => (int) config('bajas.reglas.comentario_minimo', 20),
             'comentario_maximo' => (int) config('bajas.reglas.comentario_maximo', 500),
             'dias_futuro_maximo' => (int) config('bajas.reglas.dias_futuro_maximo', 15),
+            'dias_programada_maximo' => (int) config('bajas.reglas.dias_programada_maximo', 90),
             'dias_prescripcion' => (int) config('bajas.reglas.dias_prescripcion_rescision', 30),
             'dias_habiles_tribunal' => (int) config('bajas.reglas.dias_habiles_aviso_tribunal', 5),
             'max_kb' => (int) config('bajas.documentos.max_kb', 15360),

@@ -5,6 +5,7 @@ namespace App\Services\Notificaciones;
 use App\Enums\EstadoAvisoBajaSistemas;
 use App\Enums\EstadoCierreLaboral;
 use App\Enums\EventoAvisoBajaSistemas;
+use App\Enums\ModalidadBaja;
 use App\Enums\OrigenAvisoBajaSistemas;
 use App\Jobs\EnviarAvisoBajaSistemasJob;
 use App\Mail\BajaColaboradorSistemasMail;
@@ -103,6 +104,40 @@ class AvisoBajaSistemasService
         }
 
         return $conCierre ? null : $this->programar($colaborador->id, OrigenAvisoBajaSistemas::BajaDirecta, $movimientoId, EventoAvisoBajaSistemas::AccesosBloqueados, $actor);
+    }
+
+    /**
+     * Baja PROGRAMADA cuya fecha cambió, o que RH ejecutó antes («ejecutar
+     * ahora»): correo de actualización con la fecha vigente. Una fila por
+     * baja (clave única): cada cambio la reprograma y la vuelve a mandar;
+     * cada envío queda en la auditoría. Nunca lanza.
+     */
+    public function alReprogramar(CierreLaboral $cierre, ?User $actor = null): ?AvisoBajaSistemas
+    {
+        $aviso = $this->programar($cierre->colaborador_id, OrigenAvisoBajaSistemas::Cierre, $cierre->id, EventoAvisoBajaSistemas::BajaReprogramada, $actor);
+
+        if ($aviso === null || $aviso->wasRecentlyCreated) {
+            return $aviso;
+        }
+
+        try {
+            $mandar = $this->activo();
+            $aviso->update([
+                'estado' => $mandar ? EstadoAvisoBajaSistemas::Pendiente : EstadoAvisoBajaSistemas::SinEnviar,
+                'enviado_en' => null,
+                'atendido_en' => null,
+                'atendido_por' => null,
+                'solicitado_por' => $actor?->id,
+            ]);
+
+            if ($mandar) {
+                EnviarAvisoBajaSistemasJob::dispatch($aviso->id, $actor?->id);
+            }
+        } catch (Throwable $e) {
+            Log::warning('AvisoBajaSistemasService: no se pudo reprogramar el aviso de cambio de fecha.', ['aviso_id' => $aviso->id, 'error' => $e->getMessage()]);
+        }
+
+        return $aviso;
     }
 
     /** RH canceló el cierre («No procede»): la persona sigue laborando. Nunca lanza. */
@@ -301,7 +336,12 @@ class AvisoBajaSistemasService
         $datosBaja = [
             'Tipo de baja' => $baja['tipo'],
             'Fecha efectiva de baja' => FechaTexto::doble($baja['fecha_efectiva']),
+            'Modalidad' => $baja['programada'] ? 'Baja anticipada (programada): sigue laborando hasta esa fecha' : 'Inmediata',
         ];
+
+        if ($baja['programada'] && $baja['fecha_efectiva'] !== null && $aviso->evento !== EventoAvisoBajaSistemas::BajaCancelada) {
+            $datosBaja['Desactivar usuarios el'] = FechaTexto::larga($baja['fecha_efectiva']);
+        }
 
         if ($aviso->evento === EventoAvisoBajaSistemas::BajaConcluida) {
             $datosBaja['Finiquito entregado'] = FechaTexto::doble($baja['finiquito_en']);
@@ -362,6 +402,7 @@ class AvisoBajaSistemasService
             urlDetalle: route('sistemas.pendientes-baja.show', $aviso->id),
             urlBandeja: route('sistemas.pendientes-baja.index'),
             logoUrl: sprintf('%s/branding/MrLanaPeople_horizontal_color.png', rtrim((string) config('app.url'), '/')),
+            programada: $baja['programada'],
         );
     }
 
@@ -375,7 +416,7 @@ class AvisoBajaSistemasService
             $avisos = AvisoBajaSistemas::query()
                 ->where('origen_tipo', $origen->value)
                 ->where('origen_id', $origenId)
-                ->whereIn('evento', [EventoAvisoBajaSistemas::AccesosBloqueados->value, EventoAvisoBajaSistemas::BajaConcluida->value])
+                ->whereIn('evento', [EventoAvisoBajaSistemas::AccesosBloqueados->value, EventoAvisoBajaSistemas::BajaConcluida->value, EventoAvisoBajaSistemas::BajaReprogramada->value])
                 ->get();
 
             $yaRecibido = false;
@@ -413,7 +454,10 @@ class AvisoBajaSistemasService
     /**
      * Tipo y fechas de la baja según su origen (cierre laboral o baja directa).
      *
-     * @return array{tipo: string, fecha_efectiva: CarbonInterface|null, finiquito_en: CarbonInterface|null}
+     * programada = baja programada que todavía no surtía efecto (nunca se
+     * ejecutó): el correo dice «Baja anticipada».
+     *
+     * @return array{tipo: string, fecha_efectiva: CarbonInterface|null, finiquito_en: CarbonInterface|null, programada: bool}
      */
     private function contextoBaja(AvisoBajaSistemas $aviso, Colaborador $colaborador): array
     {
@@ -425,6 +469,7 @@ class AvisoBajaSistemasService
                     'tipo' => $cierre->tipo_baja->etiqueta(),
                     'fecha_efectiva' => $cierre->fecha_efectiva,
                     'finiquito_en' => $cierre->pago_confirmado_en,
+                    'programada' => $cierre->modalidad_baja === ModalidadBaja::Programada && $cierre->programada_aplicada_en === null,
                 ];
             }
         }
@@ -433,6 +478,7 @@ class AvisoBajaSistemasService
             'tipo' => OrigenAvisoBajaSistemas::BajaDirecta->etiqueta(),
             'fecha_efectiva' => $colaborador->fecha_baja,
             'finiquito_en' => null,
+            'programada' => false,
         ];
     }
 

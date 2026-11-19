@@ -25,6 +25,8 @@ class MotivoBajaRequest extends FormRequest
         return [
             'motivo' => [$esJuridico ? 'nullable' : 'required', 'string', $esJuridico ? 'max:1000' : 'min:5', 'max:1000'],
             'causal_rotacion_id' => [$this->routeIs('*.cambiar-causal') ? 'required' : 'nullable', 'integer'],
+            // Cambiar la fecha de una baja programada.
+            'fecha_baja' => [$this->routeIs('*.reprogramar') ? 'required' : 'nullable', 'date'],
         ];
     }
 
@@ -37,6 +39,7 @@ class MotivoBajaRequest extends FormRequest
             'motivo.required' => 'Escribe el motivo.',
             'motivo.min' => 'Escribe el motivo (al menos 5 caracteres).',
             'causal_rotacion_id.required' => 'Elige la causal correcta.',
+            'fecha_baja.required' => 'Elige la nueva fecha de la baja.',
         ];
     }
 

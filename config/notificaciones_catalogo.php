@@ -566,6 +566,12 @@ return [
             'modulo' => 'bajas',
             'audiencia' => 'personal',
         ],
+        'baja_aviso_colaborador' => [
+            'etiqueta' => 'Aviso a la persona sobre su propia baja (solo si RH lo eligió)',
+            'push_titulo' => 'Aviso sobre tu baja',
+            'modulo' => 'bajas',
+            'audiencia' => 'personal',
+        ],
         'baja_resuelta' => [
             'etiqueta' => 'La baja que registraste se cerró o no procedió',
             'push_titulo' => 'La baja que registraste se resolvió',

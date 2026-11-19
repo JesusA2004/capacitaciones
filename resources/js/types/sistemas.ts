@@ -60,7 +60,10 @@ export type TotalesPendientesAlta = {
 // (App\Services\Sistemas\PendientesBajaSistemasService::fila).
 
 export type EventoBajaSistemas =
-    'accesos_bloqueados' | 'baja_concluida' | 'baja_cancelada';
+    | 'accesos_bloqueados'
+    | 'baja_concluida'
+    | 'baja_cancelada'
+    | 'baja_reprogramada';
 
 export type EstadoCorreoBajaSistemas =
     'pendiente' | 'enviado' | 'fallido' | 'sin_enviar' | 'cancelado';

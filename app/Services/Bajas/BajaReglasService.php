@@ -114,6 +114,12 @@ class BajaReglasService
             return sprintf('El último día laborado no puede ser anterior a la fecha de ingreso (%s).', $baja->fecha_ingreso->format('d/m/Y'));
         }
 
+        // La baja PROGRAMADA tiene su propio límite (dias_programada_maximo,
+        // CierreLaboralService::resolverModalidad): RN-10 es de la inmediata.
+        if ($baja->esProgramada()) {
+            return null;
+        }
+
         $limite = FechaMexico::inicioDeHoy()->addDays((int) config('bajas.reglas.dias_futuro_maximo', 15));
 
         if ($baja->fecha_baja->gt($limite)) {

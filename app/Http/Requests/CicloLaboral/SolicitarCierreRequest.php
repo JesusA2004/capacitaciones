@@ -3,6 +3,7 @@
 namespace App\Http\Requests\CicloLaboral;
 
 use App\Enums\EntregaAvisoRescision;
+use App\Enums\ModalidadBaja;
 use App\Enums\Recontratable;
 use App\Enums\TipoBaja;
 use Illuminate\Foundation\Http\FormRequest;
@@ -40,6 +41,10 @@ class SolicitarCierreRequest extends FormRequest
             'fecha_conocimiento_falta' => ['nullable', 'date'],
             'entrega_aviso_rescision' => ['nullable', Rule::enum(EntregaAvisoRescision::class)],
             'fecha_entrega_aviso' => ['nullable', 'date'],
+            // Bajas inmediatas vs. programadas (opcionales: sin ellos =
+            // inmediata y sin avisar, como siempre; APK instaladas).
+            'modalidad_baja' => ['nullable', Rule::enum(ModalidadBaja::class)],
+            'avisar_colaborador' => ['nullable', 'boolean'],
         ];
     }
 

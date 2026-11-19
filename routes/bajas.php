@@ -51,6 +51,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('{baja}/cerrar', [BajaController::class, 'cerrar'])->name('cerrar');
         Route::post('{baja}/reabrir', [BajaController::class, 'reabrir'])->name('reabrir');
         Route::post('{baja}/cancelar', [BajaController::class, 'cancelar'])->name('cancelar');
+        // Baja programada: cambiar fecha, ejecutar ahora y avisar al colaborador (bajas.programar).
+        Route::post('{baja}/reprogramar', [BajaController::class, 'reprogramar'])->name('reprogramar');
+        Route::post('{baja}/ejecutar-ahora', [BajaController::class, 'ejecutarAhora'])->name('ejecutar-ahora');
+        Route::post('{baja}/avisar-colaborador', [BajaController::class, 'avisarColaborador'])->name('avisar-colaborador');
         Route::post('{baja}/documentos', [BajaController::class, 'adjuntar'])->name('documentos.store')->middleware('throttle:30,1');
         Route::get('{baja}/documentos/{documento}', [BajaController::class, 'verDocumento'])->name('documentos.ver');
         // Generar documento de salida (RV carta · NR convenio · RE aviso · OT constancia).

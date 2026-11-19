@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\EstadoCierreLaboral;
+use App\Enums\ModalidadBaja;
 use App\Enums\TipoBaja;
+use App\Support\FechaMexico;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -28,6 +30,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $causal_rotacion_original Tipo y causal anteriores al catálogo RV/NR/RE.
  * @property string $motivo
  * @property Carbon $fecha_efectiva
+ * @property ModalidadBaja $modalidad_baja Inmediata o programada (docs/BAJAS_Y_CAUSALES.md).
+ * @property bool $avisar_colaborador Si la persona recibe el aviso de su baja.
+ * @property Carbon|null $programada_aplicada_en Cuándo se ejecutó la baja programada (null = pendiente).
  * @property EstadoCierreLaboral $estado
  * @property Carbon|null $aviso_registrado_en
  * @property int|null $aviso_documento_id
@@ -96,6 +101,7 @@ class CierreLaboral extends Model
         'testigos', 'finiquito_a_disposicion', 'notificacion_electronica_en', 'notificacion_electronica_por',
         'notificacion_medios', 'evidencias', 'baja_imss_en', 'baja_asistencia_en', 'accesos_cancelados_en',
         'aviso_interno_en', 'consignacion_preventiva_en', 'consignacion_observaciones',
+        'modalidad_baja', 'avisar_colaborador', 'programada_aplicada_en',
     ];
 
     protected function casts(): array
@@ -132,7 +138,44 @@ class CierreLaboral extends Model
             'estatus_laboral_aplicado_en' => 'datetime',
             'aviso_interno_en' => 'datetime',
             'consignacion_preventiva_en' => 'datetime',
+            'modalidad_baja' => ModalidadBaja::class,
+            'avisar_colaborador' => 'boolean',
+            'programada_aplicada_en' => 'datetime',
         ];
+    }
+
+    /**
+     * Lo que web, API y listados muestran de la modalidad (aditivo para la
+     * API: campos nuevos, nunca se quitan los anteriores).
+     *
+     * @return array{modalidad_baja: string, modalidad_etiqueta: string, avisar_colaborador: bool, programada_pendiente: bool, programada_aplicada_en: string|null, dias_para_baja: int|null}
+     */
+    public function programacion(): array
+    {
+        $modalidad = $this->modalidad_baja ?? ModalidadBaja::Inmediata;
+        $pendiente = $this->esProgramadaPendiente();
+
+        return [
+            'modalidad_baja' => $modalidad->value,
+            'modalidad_etiqueta' => $modalidad->etiqueta(),
+            'avisar_colaborador' => (bool) $this->avisar_colaborador,
+            'programada_pendiente' => $pendiente,
+            'programada_aplicada_en' => $this->programada_aplicada_en?->toDateTimeString(),
+            // Días que faltan para que surta efecto (0 = hoy, lo ejecuta el comando).
+            'dias_para_baja' => $pendiente ? max(0, (int) FechaMexico::inicioDeHoy()->diffInDays($this->fecha_efectiva->copy()->startOfDay(), false)) : null,
+        ];
+    }
+
+    /**
+     * Baja programada que todavía no surte efecto: la persona conserva su
+     * acceso y el comando diario la ejecuta en su fecha.
+     */
+    public function esProgramadaPendiente(): bool
+    {
+        return $this->modalidad_baja === ModalidadBaja::Programada
+            && $this->programada_aplicada_en === null
+            && ! $this->estado->esFinal()
+            && $this->estado !== EstadoCierreLaboral::BajaEjecutada;
     }
 
     /**

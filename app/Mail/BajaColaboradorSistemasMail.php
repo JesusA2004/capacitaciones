@@ -38,14 +38,21 @@ class BajaColaboradorSistemasMail extends Mailable
         public readonly string $urlDetalle,
         public readonly string $urlBandeja,
         public readonly string $logoUrl,
+        // Baja PROGRAMADA que aún no surte efecto (registro, cambio de fecha
+        // o cancelación antes de su fecha): el correo dice «Baja anticipada».
+        public readonly bool $programada = false,
     ) {}
 
     public function envelope(): Envelope
     {
-        $asunto = match ($this->evento) {
-            EventoAvisoBajaSistemas::AccesosBloqueados => 'Baja en sistemas: dar de baja accesos',
-            EventoAvisoBajaSistemas::BajaConcluida => 'Baja concluida — finiquito entregado',
-            EventoAvisoBajaSistemas::BajaCancelada => 'Baja cancelada: reactivar accesos',
+        $asunto = match (true) {
+            $this->evento === EventoAvisoBajaSistemas::AccesosBloqueados && $this->programada => sprintf('Baja anticipada — programada para el %s: desactivar accesos ese día', $this->fechaBajaLarga),
+            $this->evento === EventoAvisoBajaSistemas::AccesosBloqueados => 'Baja en sistemas: dar de baja accesos',
+            $this->evento === EventoAvisoBajaSistemas::BajaConcluida => 'Baja concluida — finiquito entregado',
+            $this->evento === EventoAvisoBajaSistemas::BajaCancelada && $this->programada => 'Baja programada cancelada: no desactivar accesos',
+            $this->evento === EventoAvisoBajaSistemas::BajaCancelada => 'Baja cancelada: reactivar accesos',
+            $this->programada => sprintf('Cambio de fecha — baja anticipada, ahora programada para el %s', $this->fechaBajaLarga),
+            default => sprintf('Baja adelantada: dar de baja accesos hoy (%s)', $this->fechaBajaLarga),
         };
 
         return new Envelope(
@@ -70,12 +77,21 @@ class BajaColaboradorSistemasMail extends Mailable
 
     public function etiquetaEvento(): string
     {
-        return mb_strtoupper(sprintf('Baja en sistemas · %s', $this->evento->etiqueta()));
+        return mb_strtoupper(sprintf('Baja en sistemas · %s%s', $this->evento->etiqueta(), $this->programada ? ' · Baja anticipada' : ''));
     }
 
     public function instruccion(): string
     {
+        if ($this->programada) {
+            return match ($this->evento) {
+                EventoAvisoBajaSistemas::BajaCancelada => sprintf('La baja anticipada que estaba programada para el %s se canceló: la persona sigue laborando. No des de baja sus usuarios (si ya lo hiciste, reactívalos).', $this->fechaBajaLarga),
+                EventoAvisoBajaSistemas::BajaReprogramada => sprintf('Cambió la fecha de la baja anticipada de esta persona: ahora es el %s. Ese día PEOPLE suspende su acceso; ese mismo día da de baja sus usuarios en las demás plataformas (no antes) y márcalo como atendido en PEOPLE.', $this->fechaBajaLarga),
+                default => sprintf('Baja anticipada: la baja de esta persona está programada para el %s. Hasta ese día sigue laborando y conserva sus accesos. Ese día PEOPLE suspende su acceso; ese mismo día da de baja sus usuarios en las demás plataformas (no antes) y márcalo como atendido en PEOPLE.', $this->fechaBajaLarga),
+            };
+        }
+
         return match ($this->evento) {
+            EventoAvisoBajaSistemas::BajaReprogramada => sprintf('La baja que estaba programada se adelantó y quedó aplicada hoy (%s): PEOPLE ya suspendió su acceso. Da de baja sus usuarios en los demás sistemas y márcalo como atendido en PEOPLE.', $this->fechaBajaLarga),
             EventoAvisoBajaSistemas::AccesosBloqueados => 'Se aplicó la baja de esta persona (su acceso a PEOPLE se indica abajo). Da de baja sus usuarios en los demás sistemas y márcalo como atendido en PEOPLE.',
             EventoAvisoBajaSistemas::BajaConcluida => sprintf(
                 'RH registró la entrega del finiquito%s y la baja quedó concluida. Confirma que no le quede ningún usuario activo en los demás sistemas.',
@@ -87,6 +103,10 @@ class BajaColaboradorSistemasMail extends Mailable
 
     public function tituloLista(): string
     {
-        return $this->evento === EventoAvisoBajaSistemas::BajaConcluida ? 'Confirmar desactivado' : 'Por desactivar';
+        return match (true) {
+            $this->evento === EventoAvisoBajaSistemas::BajaConcluida => 'Confirmar desactivado',
+            $this->programada => sprintf('Por desactivar el %s', $this->fechaBajaLarga),
+            default => 'Por desactivar',
+        };
     }
 }

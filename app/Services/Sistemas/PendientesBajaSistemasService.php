@@ -237,7 +237,11 @@ class PendientesBajaSistemasService
                 'por' => $aviso->atendidoPor->name ?? 'Usuario eliminado',
                 'notas' => $aviso->notas_atencion,
             ] : null,
-            'accion' => $aviso->evento === EventoAvisoBajaSistemas::BajaCancelada ? 'Marcar como reactivado' : 'Marcar como dado de baja',
+            'accion' => match ($aviso->evento) {
+                EventoAvisoBajaSistemas::BajaCancelada => 'Marcar como reactivado',
+                EventoAvisoBajaSistemas::BajaReprogramada => 'Marcar como enterado',
+                default => 'Marcar como dado de baja',
+            },
             'secciones' => $secciones,
             'texto_copiar' => implode("\n", $lineas),
             'url_detalle' => route('sistemas.pendientes-baja.show', $aviso->id, false),

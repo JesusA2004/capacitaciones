@@ -34,12 +34,16 @@ enum AccionBitacoraBaja: string
     case ValidoPlazo = 'valido_plazo';
     case CorrigioDocumento = 'corrigio_documento';
     case CorrigioFiniquito = 'corrigio_finiquito';
+    case Programo = 'programo';
+    case Reprogramo = 'reprogramo';
+    case EjecutoProgramada = 'ejecuto_programada';
+    case AvisoColaborador = 'aviso_colaborador';
 
     public function etiqueta(): string
     {
         return match ($this) {
             self::Creo => 'Creó la baja',
-            self::Registro => 'Registró la baja (aplicada de inmediato)',
+            self::Registro => 'Registró la baja',
             self::Actualizo => 'Actualizó datos',
             self::Envio => 'Envió a RH (flujo anterior)',
             self::Valido => 'RH validó (flujo anterior)',
@@ -64,6 +68,10 @@ enum AccionBitacoraBaja: string
             self::ValidoPlazo => 'Validó el plazo del aviso de rescisión',
             self::CorrigioDocumento => 'Corrigió el documento de salida',
             self::CorrigioFiniquito => 'Corrigió importes del finiquito',
+            self::Programo => 'Programó la baja (conserva su acceso hasta la fecha)',
+            self::Reprogramo => 'Cambió la fecha de la baja programada',
+            self::EjecutoProgramada => 'Se ejecutó la baja programada (accesos suspendidos)',
+            self::AvisoColaborador => 'Avisó al colaborador de su baja',
         };
     }
 }

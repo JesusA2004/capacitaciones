@@ -10,6 +10,7 @@ import {
     Lock,
     Undo2,
     UserMinus,
+    CalendarClock,
 } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
 import { ref, watch } from 'vue';
@@ -66,6 +67,7 @@ const props = defineProps<{
         forma: string | null;
         busqueda: string;
         cubo: string | null;
+        modalidad?: string | null;
     };
     pestanas: PestanasBajas;
     seleccion: PanelDocumentoSalida | null;
@@ -95,6 +97,8 @@ const estatusElegido = ref(props.filtros.estatus);
 const sucursal = ref<number | null>(props.filtros.sucursal_id);
 const forma = ref(props.filtros.forma ?? '');
 const cubo = ref(props.filtros.cubo ?? '');
+// «Programadas»: bajas con fecha futura que aún conservan su acceso.
+const modalidad = ref(props.filtros.modalidad ?? '');
 
 function filtrar() {
     router.get(
@@ -106,13 +110,30 @@ function filtrar() {
             sucursal_id: sucursal.value ?? undefined,
             forma: forma.value || undefined,
             cubo: cubo.value || undefined,
+            modalidad: modalidad.value || undefined,
         },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }
 
 watch(termino, useDebounceFn(filtrar, 300));
-watch([estatusElegido, sucursal, forma, cubo], filtrar);
+watch([estatusElegido, sucursal, forma, cubo, modalidad], filtrar);
+
+function alternarProgramadas() {
+    modalidad.value = modalidad.value === 'programadas' ? '' : 'programadas';
+}
+
+function textoProgramada(b: FilaBaja): string {
+    const d = b.dias_para_baja;
+
+    if (d === null) {
+        return 'Programada';
+    }
+
+    return d <= 0
+        ? 'Programada · hoy'
+        : `Programada · en ${d} ${d === 1 ? 'día' : 'días'}`;
+}
 
 function seleccionar(b: FilaBaja) {
     router.get(
@@ -124,6 +145,7 @@ function seleccionar(b: FilaBaja) {
             sucursal_id: sucursal.value ?? undefined,
             forma: forma.value || undefined,
             cubo: cubo.value || undefined,
+            modalidad: modalidad.value || undefined,
             baja: b.id,
         },
         {
@@ -250,7 +272,7 @@ function avance(b: FilaBaja): string {
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             titulo="Bajas"
-            descripcion="Se registran y quedan aplicadas al momento. Aquí sigues sus documentos y el cierre."
+            descripcion="Inmediatas (accesos fuera al registrar) o programadas (con fecha). Aquí sigues sus documentos, finiquito y cierre."
             :icono="UserMinus"
         >
             <Button v-if="puede.solicitar" as-child>
@@ -262,12 +284,24 @@ function avance(b: FilaBaja): string {
 
         <PestanasBajasNav :pestanas="pestanas" actual="bajas" />
 
-        <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5">
+        <div
+            class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
+        >
+            <TarjetaMetrica
+                etiqueta="Programadas"
+                :valor="resumen.programadas ?? 0"
+                detalle="Aún con acceso"
+                :icono="CalendarClock"
+                tono="info"
+                clicable
+                :activa="modalidad === 'programadas'"
+                @click="alternarProgramadas"
+            />
             <TarjetaMetrica
                 v-for="m in metricas"
                 :key="m.campo"
                 :etiqueta="m.etiqueta"
-                :valor="resumen[m.campo]"
+                :valor="resumen[m.campo] ?? 0"
                 :detalle="m.detalle"
                 :icono="m.icono"
                 :tono="m.tono"
@@ -301,7 +335,7 @@ function avance(b: FilaBaja): string {
             :class="
                 cn(
                     'grid items-start gap-4',
-                    seleccion && 'xl:grid-cols-[3fr_2fr]',
+                    seleccion && 'xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
                 )
             "
         >
@@ -461,7 +495,12 @@ function avance(b: FilaBaja): string {
                                                     <span class="font-mono">{{
                                                         b.folio
                                                     }}</span>
-                                                    · Último día
+                                                    ·
+                                                    {{
+                                                        b.programada_pendiente
+                                                            ? 'Programada para el'
+                                                            : 'Último día'
+                                                    }}
                                                     {{
                                                         formatearFecha(
                                                             b.fecha_baja,
@@ -506,10 +545,18 @@ function avance(b: FilaBaja): string {
                                         />
                                     </td>
                                     <td class="px-3 py-2">
-                                        <ChipEstado
-                                            :etiqueta="etiquetaCubo(b)"
-                                            :tono="tonoCubo(b)"
-                                        />
+                                        <div class="flex flex-wrap gap-1">
+                                            <ChipEstado
+                                                v-if="b.programada_pendiente"
+                                                :etiqueta="textoProgramada(b)"
+                                                tono="info"
+                                                :icono="CalendarClock"
+                                            />
+                                            <ChipEstado
+                                                :etiqueta="etiquetaCubo(b)"
+                                                :tono="tonoCubo(b)"
+                                            />
+                                        </div>
                                     </td>
                                     <td class="px-3 py-2 text-xs">
                                         <span

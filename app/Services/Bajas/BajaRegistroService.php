@@ -196,6 +196,24 @@ class BajaRegistroService
         $this->bitacora($baja, $actor, AccionBitacoraBaja::Cancelo, 'estatus', $anterior, EstatusBaja::Cancelada->etiqueta(), $motivo);
     }
 
+    /**
+     * La baja PROGRAMADA surtió efecto (su fecha llegó o RH la ejecutó
+     * antes): el expediente de la baja registra la suspensión del acceso.
+     */
+    public function alEjecutarProgramada(CierreLaboral $cierre, ?User $actor, string $origen): void
+    {
+        $baja = Baja::query()->where('cierre_laboral_id', $cierre->id)->first();
+
+        if ($baja === null) {
+            return;
+        }
+
+        $baja->forceFill(['acceso_suspendido_en' => $baja->acceso_suspendido_en ?? $cierre->acceso_suspendido_en ?? now()])->save();
+        $this->bitacora($baja, $origen === 'comando' ? null : $actor, AccionBitacoraBaja::EjecutoProgramada, 'acceso', 'Con acceso', 'Suspendido', $origen === 'comando'
+            ? sprintf('Llegó la fecha programada (%s): accesos suspendidos y baja concluida.', $cierre->fecha_efectiva->format('d/m/Y'))
+            : 'RH ejecutó la baja programada antes de su fecha.');
+    }
+
     public static function fecha(?CarbonInterface $fecha): ?string
     {
         return $fecha?->toDateString();

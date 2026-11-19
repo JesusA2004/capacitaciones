@@ -81,6 +81,8 @@ export type LimitesBaja = {
     comentario_minimo: number;
     comentario_maximo: number;
     dias_futuro_maximo: number;
+    /** Baja programada: hasta N días adelante. */
+    dias_programada_maximo?: number;
     dias_prescripcion: number;
     dias_habiles_tribunal: number;
     max_kb: number;
@@ -99,8 +101,23 @@ export type CamposBaja = {
     fecha_entrega_aviso: string;
 };
 
+/** Inmediata o programada (enum ModalidadBaja de PHP). */
+export type ModalidadBaja = 'inmediata' | 'programada';
+
+/** Modalidad de la baja (CierreLaboral::programacion). */
+export type ProgramacionBaja = {
+    modalidad_baja: ModalidadBaja;
+    modalidad_etiqueta: string;
+    avisar_colaborador: boolean;
+    /** Programada que aún no surte efecto: conserva su acceso. */
+    programada_pendiente: boolean;
+    programada_aplicada_en: string | null;
+    /** Días que faltan para su fecha (0 = hoy). */
+    dias_para_baja: number | null;
+};
+
 /** Fila de la bandeja (BajaConsultaService::fila). */
-export type FilaBaja = {
+export type FilaBaja = ProgramacionBaja & {
     id: number;
     folio: string;
     colaborador: string;
@@ -268,6 +285,8 @@ export type ResumenBajas = {
     lista_para_cerrar: number;
     cerradas: number;
     no_procede: number;
+    /** Programadas que aún no surten efecto. */
+    programadas?: number;
 };
 
 /** Estado de un documento en la recopilación. */
@@ -320,6 +339,7 @@ export type BitacoraBaja = {
 /** Expediente de la baja (BajaService::detalle). */
 export type BajaDetalle = FilaBaja & {
     colaborador_id: number | null;
+    dias_programada_maximo: number;
     fecha_ingreso: string | null;
     antiguedad_dias: number | null;
     causal_rotacion_id: number | null;

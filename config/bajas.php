@@ -29,6 +29,9 @@ return [
         'dias_habiles_aviso_tribunal' => 5,
         // RN-10: la fecha de baja no puede ser mayor a N días en el futuro.
         'dias_futuro_maximo' => 15,
+        // Baja PROGRAMADA: fecha mayor a hoy y hasta N días adelante (la de
+        // RN-10 aplica a la inmediata). Ese día se suspenden sus accesos.
+        'dias_programada_maximo' => (int) env('BAJAS_DIAS_PROGRAMADA_MAXIMO', 90),
         // RN-12: rotación temprana = antigüedad menor a N días.
         'dias_rotacion_temprana' => 90,
         // Testigos mínimos para generar el aviso de rescisión.

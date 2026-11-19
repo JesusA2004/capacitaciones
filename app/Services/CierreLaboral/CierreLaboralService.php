@@ -9,6 +9,7 @@ use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\FormaPagoFiniquito;
 use App\Enums\FormaSalida;
+use App\Enums\ModalidadBaja;
 use App\Enums\PrioridadTarea;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoBaja;
@@ -28,6 +29,7 @@ use App\Models\User;
 use App\Services\Administracion\AccesoCuentaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Bajas\AvisoBajaColaboradorService;
 use App\Services\Bajas\BajaAlertasService;
 use App\Services\Bajas\BajaRegistroService;
 use App\Services\CicloLaboral\AprobacionService;
@@ -114,7 +116,41 @@ class CierreLaboralService
         private readonly FotoColaboradorService $fotos,
         private readonly AvisoBajaSistemasService $avisoBajaSistemas,
         private readonly EstatusLaboralService $estatusLaboral,
+        private readonly AvisoBajaColaboradorService $avisoColaborador,
     ) {}
+
+    /**
+     * Inmediata o programada + «Avisar al colaborador», validados contra la
+     * fecha (docs/BAJAS_Y_CAUSALES.md). Sin modalidad (APK instaladas,
+     * integraciones, pantallas anteriores) = inmediata con la regla de fecha
+     * de siempre (RN-10). Programada: fecha mayor a hoy y hasta
+     * `bajas.reglas.dias_programada_maximo` días. Sin «avisar» = no se le
+     * avisa a la persona (como hasta ahora).
+     *
+     * @param  array<string, mixed>  $datos  modalidad_baja?, avisar_colaborador?
+     * @return array{modalidad: ModalidadBaja, avisar: bool}
+     */
+    public function resolverModalidad(array $datos, ?string $fecha, string $campoFecha = 'fecha_efectiva'): array
+    {
+        $modalidad = ModalidadBaja::tryFrom((string) ($datos['modalidad_baja'] ?? '')) ?? ModalidadBaja::Inmediata;
+        $avisar = filter_var($datos['avisar_colaborador'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if ($modalidad === ModalidadBaja::Programada) {
+            $maximo = (int) config('bajas.reglas.dias_programada_maximo', 90);
+            $dia = $fecha !== null && $fecha !== '' ? Carbon::parse($fecha)->startOfDay() : null;
+            $limite = FechaMexico::inicioDeHoy()->addDays($maximo);
+
+            if ($dia === null || ! $dia->isAfter(FechaMexico::inicioDeHoy())) {
+                throw ValidationException::withMessages([$campoFecha => 'Una baja programada necesita una fecha posterior a hoy. Si se va hoy o ya se fue, elige «Baja inmediata».']);
+            }
+
+            if ($dia->gt($limite)) {
+                throw ValidationException::withMessages([$campoFecha => sprintf('Una baja programada puede ser hasta %d días adelante (hasta el %s).', $maximo, $limite->format('d/m/Y'))]);
+            }
+        }
+
+        return ['modalidad' => $modalidad, 'avisar' => $avisar];
+    }
 
     /**
      * Baja iniciada por el jefe directo (cadena de mando del organigrama) o
@@ -179,7 +215,9 @@ class CierreLaboralService
             default => 'gerente',
         };
 
-        return $this->aplicar($colaborador, $tipoBaja, $causal, $motivo, (string) $datos['fecha_efectiva'], isset($datos['observaciones']) ? (string) $datos['observaciones'] : null, $actor, $aplicadaPor, null, $datos);
+        $opciones = $this->resolverModalidad($datos, (string) $datos['fecha_efectiva']);
+
+        return $this->aplicar($colaborador, $tipoBaja, $causal, $motivo, (string) $datos['fecha_efectiva'], isset($datos['observaciones']) ? (string) $datos['observaciones'] : null, $actor, $aplicadaPor, null, $datos, $opciones);
     }
 
     /**
@@ -189,7 +227,10 @@ class CierreLaboralService
      * autorización (permiso + alcance) y las reglas RN-01…RN-10 ya las
      * validó BajaService.
      */
-    public function aplicarDesdeBaja(Baja $baja, User $actor): CierreLaboral
+    /**
+     * @param  array{modalidad?: ModalidadBaja, avisar?: bool}  $opciones  Ya validadas (resolverModalidad).
+     */
+    public function aplicarDesdeBaja(Baja $baja, User $actor, array $opciones = []): CierreLaboral
     {
         $colaborador = $baja->colaborador;
         $forma = $baja->forma_salida;
@@ -204,17 +245,27 @@ class CierreLaboralService
 
         $aplicadaPor = $actor->can(self::PERMISO_GESTIONAR) ? 'Recursos Humanos' : 'gerente';
 
-        return $this->aplicar($colaborador, $forma->tipoBaja(), $causal, $motivo !== '' ? $motivo : ($causal->nombre ?? $forma->etiqueta()), $baja->fecha_baja->toDateString(), null, $actor, $aplicadaPor, $baja, []);
+        return $this->aplicar($colaborador, $forma->tipoBaja(), $causal, $motivo !== '' ? $motivo : ($causal->nombre ?? $forma->etiqueta()), $baja->fecha_baja->toDateString(), null, $actor, $aplicadaPor, $baja, [], $opciones);
     }
 
     /**
      * Núcleo común del atajo y de la baja enviada a RH.
      *
+     * Baja PROGRAMADA: misma solicitud, cierre, expediente, documentos y
+     * finiquito propuesto, pero SIN suspender accesos ni tocar el estatus:
+     * la persona sigue laborando hasta su fecha y ese día
+     * `cierres:revisar-fechas` la ejecuta (ejecutarProgramada).
+     *
      * @param  array<string, mixed>  $datos  Datos del atajo para el expediente de la baja (recontratable, rescisión…).
+     * @param  array{modalidad?: ModalidadBaja, avisar?: bool}  $opciones
      */
-    private function aplicar(Colaborador $colaborador, TipoBaja $tipoBaja, ?CausalRotacion $causal, string $motivo, string $fechaEfectiva, ?string $observaciones, User $actor, string $aplicadaPor, ?Baja $baja, array $datos): CierreLaboral
+    private function aplicar(Colaborador $colaborador, TipoBaja $tipoBaja, ?CausalRotacion $causal, string $motivo, string $fechaEfectiva, ?string $observaciones, User $actor, string $aplicadaPor, ?Baja $baja, array $datos, array $opciones = []): CierreLaboral
     {
-        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $causal, $motivo, $fechaEfectiva, $observaciones, $aplicadaPor, $baja, $datos): CierreLaboral {
+        $modalidad = $opciones['modalidad'] ?? ModalidadBaja::Inmediata;
+        $avisar = $opciones['avisar'] ?? false;
+        $programada = $modalidad === ModalidadBaja::Programada;
+
+        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $causal, $motivo, $fechaEfectiva, $observaciones, $aplicadaPor, $baja, $datos, $modalidad, $avisar, $programada): CierreLaboral {
             Colaborador::query()->lockForUpdate()->findOrFail($colaborador->id);
             $this->exigirSinCierreAbierto($colaborador);
 
@@ -232,14 +283,18 @@ class CierreLaboralService
 
             // Baja inmediata: sin preautorización ni autorización de RH.
             $cierre = $this->nuevoCierre($colaborador, $tipoBaja, $motivo, $fechaEfectiva, $actor, $solicitud->id, null, $observaciones, $causal?->id);
+            $cierre->forceFill(['modalidad_baja' => $modalidad, 'avisar_colaborador' => $avisar]);
             $cierre->save();
 
-            $this->solicitudes->marcarEnRevision($solicitud, $actor, sprintf('Baja aplicada por %s.', $aplicadaPor), desdeCierreLaboral: true);
+            $this->solicitudes->marcarEnRevision($solicitud, $actor, $programada
+                ? sprintf('Baja programada por %s para el %s.', $aplicadaPor, $cierre->fecha_efectiva->format('d/m/Y'))
+                : sprintf('Baja aplicada por %s.', $aplicadaPor), desdeCierreLaboral: true);
 
-            // Baja aplicada = accesos fuera desde ya (web y app).
+            // Baja inmediata = accesos fuera desde ya (web y app). La
+            // programada los conserva hasta su fecha (ejecutarProgramada).
             $cuenta = $colaborador->user;
 
-            if ($cuenta !== null && $cuenta->acceso_bloqueado_en === null) {
+            if (! $programada && $cuenta !== null && $cuenta->acceso_bloqueado_en === null) {
                 $this->acceso->revocar($cuenta, $actor, sprintf('%s %s', self::MOTIVO_SUSPENSION, $tipoBaja->etiqueta()));
                 $cierre->update(['acceso_suspendido_en' => now()]);
             }
@@ -251,7 +306,9 @@ class CierreLaboralService
             // Baja inmediata también en lo LABORAL (misma transacción):
             // inactivo, «Baja», fecha, procesos de origen cerrados y plaza
             // liberada. Con último día futuro queda programada (comando diario).
-            $this->estatusLaboral->aplicar($colaborador, $actor, $fechaEfectiva, $cierre, $motivo);
+            if (! $programada) {
+                $this->estatusLaboral->aplicar($colaborador, $actor, $fechaEfectiva, $cierre, $motivo);
+            }
 
             return $cierre;
         });
@@ -261,21 +318,31 @@ class CierreLaboralService
         // baja, nunca Sistemas ni Regional. Un fallo al notificar nunca deshace la baja.
         try {
             $base = sprintf(
-                '%s registró la baja de %s (%s%s) por %s',
+                $programada ? '%s programó la baja de %s (%s%s) por %s' : '%s registró la baja de %s (%s%s) por %s',
                 trim(sprintf('%s %s', $actor->name, $actor->apellidos)),
                 $colaborador->nombreCompleto(),
                 $colaborador->puesto->nombre ?? 'sin puesto',
                 $colaborador->sucursalPrincipal !== null ? ' · '.$colaborador->sucursalPrincipal->nombre : '',
                 mb_strtolower(FormaSalida::desdeTipoBaja($tipoBaja)->etiqueta()),
             );
-            $cierreTexto = sprintf(', último día %s. Sus accesos ya se suspendieron; RH puede rehabilitarlos desde Usuarios.', $cierre->fecha_efectiva->format('d/m/Y'));
+            $cierreTexto = $programada
+                ? sprintf(', programada para el %s. Conserva su acceso a PEOPLE hasta ese día; ese día se suspende y la baja se concluye.', $cierre->fecha_efectiva->format('d/m/Y'))
+                : sprintf(', último día %s. Sus accesos ya se suspendieron; RH puede rehabilitarlos desde Usuarios.', $cierre->fecha_efectiva->format('d/m/Y'));
             $conCausal = $causal !== null ? sprintf('%s · %s%s', $base, $causal->etiquetaConClave(), $cierreTexto) : $base.$cierreTexto;
+
+            // Sin «Avisar al colaborador», la persona no recibe este aviso
+            // aunque por su rol le tocara (RH, regional, Sistemas).
+            $excluir = [$actor->id];
+
+            if (! $avisar && $colaborador->user !== null) {
+                $excluir[] = $colaborador->user->id;
+            }
 
             $this->notificador->notificarEvento(
                 'cierre_baja_solicitada',
                 $colaborador,
-                ['solicitante' => $actor, 'excluir' => [$actor->id]],
-                sprintf('Baja registrada: %s', $colaborador->nombreCompleto()),
+                ['solicitante' => $actor, 'excluir' => $excluir],
+                sprintf($programada ? 'Baja programada: %s' : 'Baja registrada: %s', $colaborador->nombreCompleto()),
                 $base.$cierreTexto,
                 $cierre,
                 'ver_cierre',
@@ -286,8 +353,13 @@ class CierreLaboralService
             Log::warning('CierreLaboralService: no se pudo avisar la baja registrada.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
         }
 
-        // Correo a Sistemas «dar de baja accesos» (una vez por cierre; nunca lanza).
+        // Correo a Sistemas «dar de baja accesos» (una vez por cierre; nunca
+        // lanza). En la programada sale desde ya como «Baja anticipada,
+        // programada para el …»: Sistemas desactiva ese día.
         $this->avisoBajaSistemas->alAplicarBaja($cierre, $actor);
+
+        // Aviso a la persona solo si RH lo eligió (nunca lanza).
+        $this->avisoColaborador->alRegistrar($cierre);
 
         $this->auditoria->registrar('cierre_laboral_aplicado', $cierre, $actor, [
             'colaborador_id' => $colaborador->id,
@@ -295,6 +367,8 @@ class CierreLaboralService
             'causal_rotacion' => $causal?->nombre,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
             'aplicada_por' => $aplicadaPor,
+            'modalidad_baja' => $modalidad->value,
+            'avisar_colaborador' => $avisar,
         ]);
 
         // Documentos de la causa (la renuncia incluida): quedan generados en
@@ -939,7 +1013,9 @@ class CierreLaboralService
             // llegó se aplica; si ya estaba aplicada, se corrige la fecha.
             $cierre->refresh();
 
-            if ($cierre->estatus_laboral_aplicado_en === null) {
+            // Una programada que aún no surte efecto no se toca aquí: la
+            // ejecuta su fecha o «ejecutar ahora» (ejecutarProgramada).
+            if ($cierre->estatus_laboral_aplicado_en === null && ! $cierre->esProgramadaPendiente()) {
                 $this->estatusLaboral->aplicar($cierre->colaborador, $actor, $cierre->fecha_efectiva, $cierre, (string) $cierre->motivo);
             } elseif ($cierre->colaborador->fecha_baja?->toDateString() !== $cierre->fecha_efectiva->toDateString()) {
                 $cierre->colaborador->forceFill(['fecha_baja' => $cierre->fecha_efectiva->toDateString()])->save();
@@ -996,9 +1072,91 @@ class CierreLaboralService
         // Lo que aún no salía a Sistemas ya no sale; si ya lo recibió, se le
         // avisa que reactive (nunca lanza).
         $this->avisoBajaSistemas->alCancelarCierre($cierre, $actor);
+        $this->avisoColaborador->alCancelar($cierre);
         $this->sincronizarPendientes($cierre->refresh(), $actor);
 
         return $cierre;
+    }
+
+    /**
+     * Ejecuta una baja PROGRAMADA (su fecha llegó —`cierres:revisar-fechas`—
+     * o RH la adelantó con «ejecutar ahora»): exactamente lo que una
+     * inmediata hace al registrarse, en UNA transacción: acceso suspendido
+     * (cuenta, tokens Sanctum, dispositivos), estatus laboral (inactivo,
+     * «Baja», fecha, procesos de origen cerrados, plaza/vacante
+     * resincronizada por el observer) y la baja del módulo marcada.
+     * Idempotente: una programada ya ejecutada, cancelada o cerrada no hace
+     * nada (false). Nunca borra usuarios ni expedientes.
+     */
+    public function ejecutarProgramada(CierreLaboral $cierre, ?User $actor = null, string $origen = 'comando'): bool
+    {
+        $ejecutada = DB::transaction(function () use ($cierre, $actor, $origen): bool {
+            $actual = CierreLaboral::query()->lockForUpdate()->where('id', $cierre->id)->first();
+
+            if ($actual === null || ! $actual->esProgramadaPendiente() || $actual->fecha_efectiva->isAfter(FechaMexico::inicioDeHoy())) {
+                return false;
+            }
+
+            $actual->loadMissing('colaborador.user');
+            $colaborador = $actual->colaborador;
+            $quien = $actor ?? $actual->iniciadoPor;
+            $cuenta = $colaborador->user;
+
+            if ($cuenta !== null && $cuenta->acceso_bloqueado_en === null) {
+                $this->acceso->revocar($cuenta, $quien, sprintf('%s %s', self::MOTIVO_SUSPENSION, $actual->tipo_baja->etiqueta()));
+            }
+
+            $actual->forceFill([
+                'acceso_suspendido_en' => $actual->acceso_suspendido_en ?? now(),
+                'programada_aplicada_en' => now(),
+            ])->save();
+
+            if ($actual->estatus_laboral_aplicado_en === null) {
+                $this->estatusLaboral->aplicar($colaborador, $quien, $actual->fecha_efectiva, $actual, (string) $actual->motivo);
+            }
+
+            $this->bajas->alEjecutarProgramada($actual, $quien, $origen);
+
+            return true;
+        });
+
+        if (! $ejecutada) {
+            return false;
+        }
+
+        $this->auditoria->registrar('baja_programada_ejecutada', $cierre->refresh(), $actor, [
+            'colaborador_id' => $cierre->colaborador_id,
+            'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
+            'origen' => $origen,
+        ]);
+        Log::info('CierreLaboralService: baja programada ejecutada (accesos suspendidos).', ['cierre_id' => $cierre->id, 'origen' => $origen]);
+        $this->sincronizarPendientes($cierre, $actor);
+
+        return true;
+    }
+
+    /**
+     * Cambio de fecha (o «ejecutar ahora») de una baja programada ya
+     * guardado: correo de actualización a Sistemas y, si RH lo eligió, aviso
+     * a la persona. Nunca lanza.
+     */
+    public function notificarReprogramacion(CierreLaboral $cierre, ?User $actor, bool $ejecutadaAhora): void
+    {
+        $this->avisoBajaSistemas->alReprogramar($cierre, $actor);
+        $this->avisoColaborador->alReprogramar($cierre, $ejecutadaAhora);
+    }
+
+    /**
+     * «Avisar al colaborador» después de registrarla (RH cambió de opinión):
+     * enciende el interruptor y le manda el aviso de su baja. Nunca lanza.
+     */
+    public function avisarColaboradorAhora(CierreLaboral $cierre): void
+    {
+        if (! $cierre->avisar_colaborador) {
+            $cierre->forceFill(['avisar_colaborador' => true])->save();
+        }
+
+        $this->avisoColaborador->alRegistrar($cierre);
     }
 
     /**
@@ -1008,6 +1166,21 @@ class CierreLaboralService
     public function revisarFechasEfectivas(): int
     {
         $abiertos = 0;
+
+        // Bajas PROGRAMADAS cuya fecha llegó: accesos suspendidos y baja
+        // concluida igual que una inmediata (ejecutarProgramada, idempotente).
+        CierreLaboral::query()
+            ->where('modalidad_baja', ModalidadBaja::Programada->value)
+            ->whereNull('programada_aplicada_en')
+            ->whereNotIn('estado', [EstadoCierreLaboral::Cancelado->value, EstadoCierreLaboral::Rechazado->value, EstadoCierreLaboral::ExpedienteCerrado->value, EstadoCierreLaboral::BajaEjecutada->value])
+            ->whereDate('fecha_efectiva', '<=', FechaMexico::hoy())
+            ->each(function (CierreLaboral $cierre): void {
+                try {
+                    $this->ejecutarProgramada($cierre);
+                } catch (Throwable $e) {
+                    Log::warning('CierreLaboralService: no se pudo ejecutar una baja programada; se reintenta mañana.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
+                }
+            });
 
         // Bajas con último día futuro (programadas): ese día la persona queda
         // inactiva, con sus procesos de origen cerrados (EstatusLaboralService).
@@ -1156,6 +1329,7 @@ class CierreLaboralService
             'tipo_baja_etiqueta' => $cierre->tipo_baja->etiqueta(),
             'causal_rotacion' => $cierre->causalRotacion?->nombre,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
+            ...$cierre->programacion(),
             'estado' => $cierre->estado->value,
             'estado_etiqueta' => $cierre->estado->etiqueta(),
             'solicitado_por' => $cierre->iniciadoPor?->nombreCompleto(),
@@ -1367,6 +1541,7 @@ class CierreLaboralService
             ] : null,
             'motivo' => $cierre->motivo,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
+            ...$cierre->programacion(),
             'estado' => $cierre->estado->value,
             'estado_etiqueta' => $cierre->estado->etiqueta(),
             'solicitado_por' => $cierre->iniciadoPor?->nombreCompleto(),

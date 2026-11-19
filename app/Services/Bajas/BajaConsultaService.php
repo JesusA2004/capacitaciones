@@ -5,6 +5,7 @@ namespace App\Services\Bajas;
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstatusBaja;
 use App\Enums\FormaSalida;
+use App\Enums\ModalidadBaja;
 use App\Models\Baja;
 use App\Models\CausalRotacion;
 use App\Models\Colaborador;
@@ -144,6 +145,7 @@ class BajaConsultaService
             ->when(in_array($filtros['cubo'] ?? null, ['en_tramite', 'faltan_documentos', 'lista_para_cerrar'], true), fn (Builder $q) => $q->whereIn('bajas.id', $this->idsDelCubo($usuario, (string) $filtros['cubo'])))
             ->when($estatus === 'abiertas', fn (Builder $q) => $q->whereIn('estatus', EstatusBaja::valoresAbiertos()))
             ->when($estatus !== 'abiertas' && $estatus !== 'todas' && EstatusBaja::tryFrom($estatus) !== null, fn (Builder $q) => $q->where('estatus', $estatus))
+            ->when(($filtros['modalidad'] ?? null) === 'programadas', fn (Builder $q) => $q->whereHas('cierre', fn (Builder $c) => $c->where('modalidad_baja', ModalidadBaja::Programada->value)->whereNull('programada_aplicada_en')))
             ->when(is_numeric($filtros['sucursal_id'] ?? null), fn (Builder $q) => $q->where('sucursal_id', (int) $filtros['sucursal_id']))
             ->when(FormaSalida::tryFrom((string) ($filtros['forma'] ?? '')) !== null, fn (Builder $q) => $q->where('forma_salida', (string) $filtros['forma']))
             ->when($busqueda !== '', fn (Builder $q) => $q->where(fn (Builder $b) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($b
@@ -179,7 +181,7 @@ class BajaConsultaService
      * trámite» (integrando documentos), «Faltan documentos» (ya pasó el último
      * día) y «Listas para cerrar» (documentos completos).
      *
-     * @return array{en_tramite: int, faltan_documentos: int, lista_para_cerrar: int, cerradas: int, no_procede: int}
+     * @return array{en_tramite: int, faltan_documentos: int, lista_para_cerrar: int, cerradas: int, no_procede: int, programadas: int}
      */
     public function resumen(User $usuario): array
     {
@@ -199,6 +201,7 @@ class BajaConsultaService
             'lista_para_cerrar' => (int) ($cubos['lista_para_cerrar'] ?? 0),
             'cerradas' => (int) ($conteos[EstatusBaja::Cerrada->value] ?? 0),
             'no_procede' => (int) ($conteos[EstatusBaja::Cancelada->value] ?? 0),
+            'programadas' => $abiertas->filter(fn (Baja $b): bool => (bool) $b->cierre?->esProgramadaPendiente())->count(),
         ];
     }
 
@@ -241,6 +244,16 @@ class BajaConsultaService
                 : null,
             'finiquito' => $finiquito !== null ? ['id' => $finiquito->id, 'estado' => $finiquito->estado->value, 'etiqueta' => $this->etiquetaFiniquito($finiquito)] : null,
             'origen' => $baja->origen->value,
+            // Inmediata / programada (aditivo para la API): «Programada para
+            // el …» con días restantes mientras la persona conserva su acceso.
+            ...($baja->cierre !== null ? $baja->cierre->programacion() : [
+                'modalidad_baja' => ModalidadBaja::Inmediata->value,
+                'modalidad_etiqueta' => ModalidadBaja::Inmediata->etiqueta(),
+                'avisar_colaborador' => false,
+                'programada_pendiente' => false,
+                'programada_aplicada_en' => null,
+                'dias_para_baja' => null,
+            ]),
         ];
     }
 

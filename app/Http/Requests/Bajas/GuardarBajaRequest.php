@@ -4,6 +4,7 @@ namespace App\Http\Requests\Bajas;
 
 use App\Enums\EntregaAvisoRescision;
 use App\Enums\FormaSalida;
+use App\Enums\ModalidadBaja;
 use App\Enums\Recontratable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -37,6 +38,10 @@ class GuardarBajaRequest extends FormRequest
             'fecha_conocimiento_falta' => ['nullable', 'date'],
             'entrega_aviso_rescision' => ['nullable', Rule::enum(EntregaAvisoRescision::class)],
             'fecha_entrega_aviso' => ['nullable', 'date'],
+            // Inmediata (por defecto, compatible con la API anterior) o
+            // programada (fecha > hoy); «Avisar al colaborador» (por defecto no).
+            'modalidad_baja' => ['nullable', Rule::enum(ModalidadBaja::class)],
+            'avisar_colaborador' => ['nullable', 'boolean'],
             'enviar' => ['nullable', 'boolean'],
             'volver' => ['nullable', 'string', 'in:ciclo'],
         ];
@@ -53,6 +58,7 @@ class GuardarBajaRequest extends FormRequest
             'recontratable.enum' => 'Indica si es recontratable: Sí, No o Con reservas.',
             'entrega_aviso_rescision.enum' => 'Indica cómo se entregó el aviso: personalmente o si se negó a recibirlo.',
             'comentarios.max' => 'El comentario admite hasta :max caracteres.',
+            'modalidad_baja.enum' => 'Elige «Baja inmediata» o «Baja programada».',
         ];
     }
 

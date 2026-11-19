@@ -89,6 +89,12 @@ class BajaPolicy
         return $user->can(BajaService::PERMISO_CANCELAR) && $this->view($user, $baja);
     }
 
+    /** Baja programada: cambiar fecha, ejecutar ahora, avisar al colaborador. */
+    public function programar(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_PROGRAMAR) && $this->view($user, $baja);
+    }
+
     /** PDF del finiquito propuesto antes de registrar (montos: RH por defecto). */
     public function vistaPreviaFiniquito(User $user): bool
     {
