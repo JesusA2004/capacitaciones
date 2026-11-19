@@ -242,7 +242,7 @@ function enviarRetro(url: string) {
                 />
             </div>
             <div
-                class="grid grid-cols-2 gap-2.5 min-[1700px]:grid-cols-7 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4"
+                class="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] sm:gap-3"
             >
                 <TarjetaMetrica
                     v-for="f in filtros"
@@ -296,10 +296,12 @@ function enviarRetro(url: string) {
                     <div class="min-w-0 flex-1">
                         <Link
                             :href="cicloColaborador.url(fila.colaborador.id)"
-                            class="block truncate text-base font-semibold hover:underline"
+                            class="block text-base font-semibold break-words hover:underline"
                             >{{ fila.colaborador.nombre }}</Link
                         >
-                        <p class="truncate text-sm text-muted-foreground">
+                        <p
+                            class="line-clamp-2 text-sm break-words text-muted-foreground"
+                        >
                             {{
                                 [
                                     fila.colaborador.numero_empleado,
@@ -325,7 +327,7 @@ function enviarRetro(url: string) {
                         </div>
                     </div>
                     <div
-                        class="flex size-16 shrink-0 flex-col items-center justify-center rounded-2xl"
+                        class="flex size-14 shrink-0 flex-col items-center justify-center rounded-2xl sm:size-16"
                         :class="
                             puntaje(fila) === null
                                 ? 'bg-muted text-muted-foreground'
@@ -347,12 +349,16 @@ function enviarRetro(url: string) {
                     </div>
                 </div>
 
-                <dl class="grid grid-cols-3 gap-2 px-4 pb-4 text-center">
+                <dl
+                    class="grid grid-cols-3 gap-1.5 px-4 pb-4 text-center sm:gap-2"
+                >
                     <div class="rounded-xl bg-[var(--mrl-fondo)] p-2">
                         <dd class="text-lg font-bold tabular-nums">
                             {{ fila.intentos_count }}
                         </dd>
-                        <dt class="text-[11px] text-muted-foreground">
+                        <dt
+                            class="text-[11px] leading-tight break-words hyphens-auto text-muted-foreground"
+                        >
                             Intentos
                         </dt>
                     </div>
@@ -366,7 +372,9 @@ function enviarRetro(url: string) {
                                     : '—'
                             }}
                         </dd>
-                        <dt class="text-[11px] text-muted-foreground">
+                        <dt
+                            class="text-[11px] leading-tight break-words hyphens-auto text-muted-foreground"
+                        >
                             Límite reevaluación
                         </dt>
                     </div>
@@ -378,7 +386,9 @@ function enviarRetro(url: string) {
                                     : '—'
                             }}
                         </dd>
-                        <dt class="text-[11px] text-muted-foreground">
+                        <dt
+                            class="text-[11px] leading-tight break-words hyphens-auto text-muted-foreground"
+                        >
                             Retroalimentada
                         </dt>
                     </div>

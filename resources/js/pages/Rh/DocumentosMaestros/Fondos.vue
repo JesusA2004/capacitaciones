@@ -322,13 +322,30 @@ async function eliminar(f: FondoDocumento) {
             class="rounded-2xl border border-border/60 bg-card p-5"
         >
             <h2 class="mb-3 text-base font-semibold">Presets de diseño</h2>
-            <ul class="flex flex-col gap-2 text-sm">
-                <li v-for="p in presets" :key="p.id">
-                    <span class="font-medium">{{ p.nombre }}</span>
-                    <span class="text-muted-foreground">
-                        — {{ p.familias.length }} familia(s):
-                        {{ p.familias.join(', ') || 'ninguna' }}</span
-                    >
+            <ul class="flex flex-col divide-y divide-border/60 text-sm">
+                <li
+                    v-for="p in presets"
+                    :key="p.id"
+                    class="flex flex-col gap-1.5 py-2 first:pt-0 last:pb-0"
+                >
+                    <p>
+                        <span class="font-medium">{{ p.nombre }}</span>
+                        <span class="text-muted-foreground">
+                            · {{ p.familias.length }} familia(s)</span
+                        >
+                    </p>
+                    <ul v-if="p.familias.length" class="flex flex-wrap gap-1.5">
+                        <li
+                            v-for="familia in p.familias"
+                            :key="familia"
+                            class="max-w-full rounded-full bg-crema px-2.5 py-0.5 font-mono text-xs [overflow-wrap:anywhere] text-muted-foreground"
+                        >
+                            {{ familia }}
+                        </li>
+                    </ul>
+                    <p v-else class="text-xs text-muted-foreground">
+                        Sin familias asignadas.
+                    </p>
                 </li>
             </ul>
         </section>

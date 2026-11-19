@@ -593,7 +593,9 @@ const pasosIngreso = [
                         módulo para editarlo.
                     </p>
                 </div>
-                <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+                <div
+                    class="grid w-full gap-2 min-[25rem]:grid-cols-2 sm:flex sm:w-auto"
+                >
                     <Button
                         variant="outline"
                         @click="editarModulo(null, 'institucional')"
@@ -632,12 +634,12 @@ const pasosIngreso = [
                 </p>
                 <div
                     v-else
-                    class="grid entrada-escalonada gap-3 sm:grid-cols-2 xl:grid-cols-3"
+                    class="grid entrada-escalonada grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
                 >
                     <article
                         v-for="m in grupo.lista"
                         :key="m.id"
-                        class="flex tarjeta-interactiva flex-col rounded-2xl border border-border/60 bg-card shadow-sm"
+                        class="flex min-w-0 tarjeta-interactiva flex-col rounded-2xl border border-border/60 bg-card shadow-sm"
                         :class="m.activo ? '' : 'opacity-60'"
                     >
                         <button
@@ -669,7 +671,9 @@ const pasosIngreso = [
                                                 : (m.puesto ?? 'Al puesto')
                                         }}
                                     </p>
-                                    <p class="truncate font-semibold">
+                                    <p
+                                        class="line-clamp-2 font-semibold break-words"
+                                    >
                                         {{ m.titulo }}
                                     </p>
                                     <p
@@ -867,7 +871,10 @@ const pasosIngreso = [
                 Todavía no hay activos configurados. Agrega el primero con
                 «Activo».
             </p>
-            <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div
+                v-else
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+            >
                 <button
                     v-for="t in tiposActivo"
                     :key="t.id"

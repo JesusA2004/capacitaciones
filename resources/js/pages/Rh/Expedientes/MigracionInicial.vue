@@ -608,7 +608,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 <FileSpreadsheet
                     class="size-5 shrink-0 text-muted-foreground"
                 />
-                <span class="font-medium">{{
+                <span class="min-w-0 font-medium [overflow-wrap:anywhere]">{{
                     formExcel.roster
                         ? formExcel.roster.name
                         : 'Elegir DIRECTORIO_GERENCIAS_MRLANA.xlsx (puesto, correo y teléfono corporativos)'
@@ -1323,24 +1323,31 @@ function colorMatch(t: Fila['nas']['tipo']): string {
             class="rounded-2xl border border-border/60 bg-card p-5"
         >
             <h2 class="mb-3 text-base font-semibold">Ejecuciones anteriores</h2>
-            <ul class="flex flex-col gap-2 text-sm">
+            <ul class="flex flex-col divide-y divide-border/60 text-sm">
                 <li
                     v-for="h in historial"
                     :key="h.id"
-                    class="flex flex-wrap items-center justify-between gap-2"
+                    class="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
                 >
-                    <span>
-                        #{{ h.id }} · {{ h.archivo }} · {{ h.estado }} ·
-                        {{ h.usuario ?? '—' }} ·
-                        {{
-                            h.creada_en
-                                ? new Date(h.creada_en).toLocaleString('es-MX')
-                                : ''
-                        }}
-                    </span>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium [overflow-wrap:anywhere]">
+                            #{{ h.id }} · {{ h.archivo }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            {{ h.estado }} · {{ h.usuario ?? '—' }} ·
+                            {{
+                                h.creada_en
+                                    ? new Date(h.creada_en).toLocaleString(
+                                          'es-MX',
+                                      )
+                                    : ''
+                            }}
+                        </p>
+                    </div>
                     <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
+                        class="shrink-0"
                         @click="router.get(index.url(), { migracion: h.id })"
                         >Abrir</Button
                     >

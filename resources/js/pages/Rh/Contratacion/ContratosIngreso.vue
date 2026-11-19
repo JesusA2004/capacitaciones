@@ -151,8 +151,12 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
                 :key="fila.id"
                 class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
             >
-                <div class="flex items-start justify-between gap-3">
-                    <div class="flex min-w-0 items-center gap-3">
+                <div
+                    class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2"
+                >
+                    <div
+                        class="flex min-w-0 flex-1 basis-56 items-center gap-3"
+                    >
                         <ColaboradorAvatar
                             :nombre="fila.nombre"
                             :foto-url="fila.foto_url"
@@ -160,7 +164,9 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
                         />
                         <div class="min-w-0">
                             <p class="font-medium">{{ fila.nombre }}</p>
-                            <p class="truncate text-xs text-muted-foreground">
+                            <p
+                                class="text-xs break-words text-muted-foreground"
+                            >
                                 <template v-if="fila.numero_empleado"
                                     >#{{ fila.numero_empleado }} · </template
                                 >{{ fila.puesto ?? '—' }} ·

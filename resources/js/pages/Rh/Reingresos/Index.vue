@@ -197,18 +197,24 @@ function enviarDecision(reingreso: ReingresoFila) {
                                 >{{ r.numero_empleado }}</span
                             >
                         </p>
-                        <p class="text-xs text-muted-foreground">
+                        <p class="text-xs break-words text-muted-foreground">
                             {{ r.puesto ?? '—' }} · {{ r.sucursal ?? '—' }} ·
                             CURP
                             {{ r.curp ?? '—' }}
                         </p>
                         <p
                             v-if="r.dado_de_baja"
-                            class="mt-1 inline-flex flex-wrap items-center gap-1.5 rounded-xl bg-crema/70 px-2 py-0.5 text-xs text-bronce"
+                            class="mt-1 inline-flex max-w-full items-start gap-1.5 rounded-xl bg-crema/70 px-2 py-0.5 text-xs text-bronce"
                         >
-                            <CalendarX2 class="size-3.5" aria-hidden="true" />
-                            Baja {{ formatearFecha(r.fecha_baja) }} · causa:
-                            {{ r.causa_salida ?? 'sin registro' }}
+                            <CalendarX2
+                                class="mt-0.5 size-3.5 shrink-0"
+                                aria-hidden="true"
+                            />
+                            <span class="min-w-0"
+                                >Baja {{ formatearFecha(r.fecha_baja) }} ·
+                                causa:
+                                {{ r.causa_salida ?? 'sin registro' }}</span
+                            >
                         </p>
                         <p
                             v-else

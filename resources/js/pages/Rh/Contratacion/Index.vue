@@ -123,7 +123,7 @@ function fechaCorta(valor: string | null): string {
              documentos y contratos de ingreso). -->
         <div
             data-tour="encabezado"
-            class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
+            class="grid entrada-escalonada grid-cols-2 gap-3 xl:grid-cols-4"
         >
             <TarjetaMetrica
                 etiqueta="En contratación"
@@ -141,7 +141,7 @@ function fechaCorta(valor: string | null): string {
             />
             <Link
                 :href="validacionIndex.url()"
-                class="group col-span-2 flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm lg:col-span-1"
+                class="group col-span-2 flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm md:col-span-1"
             >
                 <span
                     class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-info-soft text-info"
@@ -161,7 +161,7 @@ function fechaCorta(valor: string | null): string {
             </Link>
             <Link
                 :href="contratosIngresoIndex.url()"
-                class="group col-span-2 flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm lg:col-span-1"
+                class="group col-span-2 flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm md:col-span-1"
             >
                 <span
                     class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-crema text-bronce"

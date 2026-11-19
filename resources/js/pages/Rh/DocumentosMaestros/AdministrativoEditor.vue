@@ -453,7 +453,7 @@ const claseSeccion =
 
                 <details :class="claseSeccion" open>
                     <summary>Página</summary>
-                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="grid gap-1.5">
                             <Label for="diseno-tamano">Tamaño</Label>
                             <SelectSimple
@@ -496,7 +496,7 @@ const claseSeccion =
 
                 <details :class="claseSeccion" open>
                     <summary>Encabezado</summary>
-                    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <label
                             class="flex items-center gap-2 text-sm sm:col-span-2"
                         >
@@ -655,7 +655,7 @@ const claseSeccion =
 
                 <details :class="claseSeccion">
                     <summary>Tablas</summary>
-                    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div class="grid gap-1.5">
                             <Label>Tamaño de fuente (pt)</Label>
                             <Input
@@ -736,7 +736,7 @@ const claseSeccion =
 
                 <details :class="claseSeccion">
                     <summary>Firmas</summary>
-                    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <label
                             class="flex items-center gap-2 text-sm sm:col-span-3"
                         >
@@ -813,7 +813,7 @@ const claseSeccion =
 
                 <details :class="claseSeccion">
                     <summary>Fondo y marca de agua</summary>
-                    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div class="sm:col-span-3">
                             <SelectorRecursoVisual
                                 v-model="diseno.background.asset_id"
@@ -873,7 +873,7 @@ const claseSeccion =
 
                 <details :class="claseSeccion">
                     <summary>Pie</summary>
-                    <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <label class="flex items-center gap-2 text-sm">
                             <Casilla
                                 v-model="diseno.footer.show"
@@ -918,11 +918,12 @@ const claseSeccion =
                 <details :class="claseSeccion">
                     <summary>Avanzado</summary>
                     <div class="mt-4 flex flex-col gap-5">
-                        <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
                                 <Label for="motor">Motor de PDF</Label>
                                 <SelectSimple
                                     id="motor"
+                                    class="min-w-0"
                                     v-model="motor"
                                     :opciones="opcionesMotor"
                                     :opcion-vacia="etiquetaMotorPredeterminado"
@@ -944,7 +945,7 @@ const claseSeccion =
                             <p class="mb-2 text-sm font-medium">
                                 Tipografía y párrafo
                             </p>
-                            <div class="grid gap-4 sm:grid-cols-3">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                                 <div class="grid gap-1.5">
                                     <Label>Fuente</Label>
                                     <SelectSimple
@@ -1039,7 +1040,7 @@ const claseSeccion =
 
                         <div>
                             <p class="mb-2 text-sm font-medium">Colores</p>
-                            <div class="grid gap-4 sm:grid-cols-4">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
                                 <div
                                     v-for="(etiqueta, clave) in {
                                         primary: 'Principal',
@@ -1071,7 +1072,7 @@ const claseSeccion =
                             <p class="mb-2 text-sm font-medium">
                                 Estilo de secciones
                             </p>
-                            <div class="grid gap-4 sm:grid-cols-3">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                                 <div class="grid gap-1.5">
                                     <Label
                                         >Espaciado entre secciones (mm)</Label

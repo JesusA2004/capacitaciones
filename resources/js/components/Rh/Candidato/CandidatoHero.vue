@@ -63,7 +63,7 @@ const responsable = computed(
             aria-hidden="true"
         />
 
-        <div class="relative flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div class="relative flex flex-col gap-5 xl:flex-row xl:items-start">
             <div class="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row">
                 <!-- Foto oficial del expediente si ya hay colaborador
                      vinculado; si no (o si falla), iniciales. -->
@@ -149,7 +149,9 @@ const responsable = computed(
                         </li>
                     </ul>
 
-                    <dl class="grid gap-2 sm:grid-cols-3">
+                    <dl
+                        class="grid grid-cols-[repeat(auto-fit,minmax(min(11rem,100%),1fr))] gap-2"
+                    >
                         <div
                             class="flex min-w-0 items-center gap-2.5 rounded-xl bg-salvia/70 px-3 py-2"
                         >
@@ -212,7 +214,7 @@ const responsable = computed(
             </div>
 
             <div
-                class="flex flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-64 lg:flex-col lg:flex-nowrap"
+                class="flex flex-col gap-2 sm:flex-row sm:flex-wrap xl:w-64 xl:shrink-0 xl:flex-col xl:flex-nowrap"
                 aria-label="Acciones y documentos clave"
             >
                 <Button

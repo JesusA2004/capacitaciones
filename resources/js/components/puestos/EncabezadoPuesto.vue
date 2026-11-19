@@ -19,14 +19,16 @@ defineProps<{
         <div
             class="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
         >
-            <div class="min-w-0">
+            <div class="min-w-0 lg:flex-1">
                 <p
                     v-if="etiqueta"
                     class="text-[11px] font-semibold tracking-[0.18em] text-[var(--mrl-dorado)] uppercase"
                 >
                     {{ etiqueta }}
                 </p>
-                <h1 class="mt-1 font-serif text-3xl leading-tight sm:text-4xl">
+                <h1
+                    class="mt-1 font-serif text-3xl leading-tight break-words sm:text-4xl"
+                >
                     {{ puesto.nombre }}
                 </h1>
                 <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
@@ -44,10 +46,10 @@ defineProps<{
             </div>
 
             <div
-                class="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end lg:flex-col lg:items-end"
+                class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end lg:max-w-[50%] lg:flex-col lg:items-end"
             >
                 <div
-                    class="flex flex-col gap-1 rounded-2xl bg-white/[0.07] px-4 py-3 text-sm"
+                    class="flex min-w-0 flex-col gap-1 rounded-2xl bg-white/[0.07] px-4 py-3 text-sm"
                 >
                     <p class="flex items-center gap-2">
                         <ChevronUp class="size-4 text-[var(--mrl-dorado)]" />
@@ -61,7 +63,7 @@ defineProps<{
                             class="mt-0.5 size-4 shrink-0 text-[var(--mrl-dorado)]"
                         />
                         <span class="text-white/60">Supervisa</span>
-                        <span class="font-medium">{{
+                        <span class="min-w-0 font-medium break-words">{{
                             puesto.supervisa.length
                                 ? puesto.supervisa.join(', ')
                                 : '—'

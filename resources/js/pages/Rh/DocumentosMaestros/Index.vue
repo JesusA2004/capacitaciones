@@ -508,7 +508,7 @@ async function crearFormato() {
         <ListaAnimada
             tag="ul"
             data-tour="documentos-maestros-lista"
-            class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+            class="grid grid-cols-1 gap-3 min-[1400px]:grid-cols-4 min-[2000px]:grid-cols-5 md:grid-cols-2 xl:grid-cols-3"
             :cantidad="filtradas.length"
         >
             <li

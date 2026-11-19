@@ -732,15 +732,12 @@ const esDecisionViable = computed(() =>
             </div>
         </section>
 
-        <div
-            class="min-w-0 aparece-escalonado rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 shadow-sm sm:p-4"
-            style="--i: 2"
-        >
+        <div class="min-w-0 aparece-escalonado" style="--i: 2">
             <CicloStepper data-tour="candidato-pasos" :pasos="ciclo.pasos" />
         </div>
 
         <!-- Lo que sigue y quién ya aprobó: visible sin desplazarse. -->
-        <div class="grid gap-5 lg:grid-cols-3">
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
             <div
                 class="min-w-0 aparece-escalonado lg:col-span-2 [&>section]:h-full"
                 style="--i: 3"

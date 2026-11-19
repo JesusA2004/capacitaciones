@@ -135,7 +135,7 @@ function guardar() {
 
         <section
             v-show="pestana === 'descriptivo'"
-            class="grid gap-6 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 sm:p-7"
+            class="grid min-w-0 grid-cols-1 gap-6 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 sm:p-7"
         >
             <label class="flex flex-col gap-2">
                 <span class="text-sm font-medium">Objetivo del puesto</span>
@@ -163,7 +163,7 @@ function guardar() {
 
         <section
             v-show="pestana === 'perfil'"
-            class="grid gap-6 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 sm:p-7"
+            class="grid min-w-0 grid-cols-1 gap-6 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 sm:p-7"
         >
             <div class="grid gap-4 sm:grid-cols-2">
                 <label class="flex flex-col gap-2">

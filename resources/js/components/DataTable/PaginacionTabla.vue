@@ -281,7 +281,7 @@ onMounted(() => {
                         v-for="(enlace, i) in paginas"
                         :key="i"
                         type="button"
-                        class="hidden min-w-9 rounded-lg px-2.5 py-1.5 text-sm transition-colors sm:inline-block"
+                        class="hidden min-w-9 rounded-lg px-2.5 py-1.5 text-sm transition-colors md:inline-block"
                         :class="[
                             enlace.active
                                 ? 'bg-[var(--mrl-petroleo)] text-white'
@@ -302,7 +302,7 @@ onMounted(() => {
                 </template>
                 <span
                     class="px-2 text-xs text-muted-foreground"
-                    :class="paginas.length ? 'sm:hidden' : ''"
+                    :class="paginas.length ? 'md:hidden' : ''"
                 >
                     {{ datos.current_page }} / {{ datos.last_page }}
                 </span>

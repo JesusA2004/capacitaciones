@@ -70,9 +70,11 @@ defineProps<{
                     </AvatarFallback>
                 </Avatar>
 
-                <div class="flex items-start gap-2 pr-12">
+                <div class="flex items-start gap-2 pr-[4.5rem]">
                     <div class="min-w-0 flex-1">
-                        <p class="truncate text-sm font-semibold">
+                        <p
+                            class="line-clamp-2 text-sm font-semibold break-words"
+                        >
                             {{ colaborador.nombre_completo }}
                         </p>
                         <p class="truncate text-xs text-muted-foreground">

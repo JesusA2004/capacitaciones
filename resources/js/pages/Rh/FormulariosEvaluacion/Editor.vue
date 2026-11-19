@@ -126,7 +126,8 @@ type Borrador = {
     descripcion: string;
     codigo: string;
     diseno: DisenoFormulario;
-    definicion: DefinicionInduccion | DefinicionPeriodoPrueba | DefinicionTecnica;
+    definicion:
+        DefinicionInduccion | DefinicionPeriodoPrueba | DefinicionTecnica;
 };
 
 function desdeProps(): Borrador {
@@ -138,9 +139,7 @@ function desdeProps(): Borrador {
         codigo: f.codigo,
         diseno: f.diseno,
         definicion: f.definicion as
-            | DefinicionInduccion
-            | DefinicionPeriodoPrueba
-            | DefinicionTecnica,
+            DefinicionInduccion | DefinicionPeriodoPrueba | DefinicionTecnica,
     };
 }
 
@@ -259,11 +258,11 @@ const porcentajeMinimo = computed(() =>
     esTecnica.value
         ? Math.min(100, Number(defTecnica.value.calificacion_aprobatoria) || 0)
         : totalPuntos.value
-        ? Math.min(
-              100,
-              Math.round((Number(minimo.value) / totalPuntos.value) * 100),
-          )
-        : 0,
+          ? Math.min(
+                100,
+                Math.round((Number(minimo.value) / totalPuntos.value) * 100),
+            )
+          : 0,
 );
 const problemas = computed(() => props.formulario.problemas);
 
@@ -533,7 +532,9 @@ const campoTitulo =
                     />
                 </span>
                 <span class="text-muted-foreground tabular-nums"
-                    >{{ esInduccion || esTecnica ? 'aprueba con' : 'renueva con' }}
+                    >{{
+                        esInduccion || esTecnica ? 'aprueba con' : 'renueva con'
+                    }}
                     <strong class="text-foreground">{{ minimo }}</strong></span
                 >
             </span>
@@ -576,15 +577,19 @@ const campoTitulo =
                 >
                     <div class="h-2.5 bg-[var(--acento)]" aria-hidden="true" />
                     <div class="flex flex-col gap-2 p-5">
-                        <input
+                        <!-- textarea de una línea que crece: un título largo se
+                             lee completo también en móvil (un input lo cortaba). -->
+                        <textarea
                             v-model="local.titulo"
+                            rows="1"
                             :class="[
                                 campoTitulo,
-                                'font-display text-2xl font-semibold',
+                                'field-sizing-content resize-none font-display text-xl font-semibold sm:text-2xl',
                             ]"
                             placeholder="Título del formulario"
                             :disabled="!editable"
                             aria-label="Título del formulario"
+                            @keydown.enter.prevent
                         />
                         <textarea
                             v-model="local.descripcion"
@@ -670,9 +675,9 @@ const campoTitulo =
                                 abiertas. Cada pregunta da sus propios puntos.
                             </li>
                             <li>
-                                El calendario del puesto decide cuándo se
-                                aplica («Seguimiento 15», «Seguimiento 30»…),
-                                quién la contesta y la calificación mínima real.
+                                El calendario del puesto decide cuándo se aplica
+                                («Seguimiento 15», «Seguimiento 30»…), quién la
+                                contesta y la calificación mínima real.
                             </li>
                             <li>
                                 Las respuestas correctas nunca se muestran a

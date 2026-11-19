@@ -68,34 +68,44 @@ const ESTADOS: Record<
 
         <SeccionesDocumentosMaestros actual="administrativos" />
 
-        <ul class="grid entrada-escalonada gap-4 md:grid-cols-2">
+        <ul
+            class="grid entrada-escalonada grid-cols-1 gap-4 min-[1800px]:grid-cols-3 md:grid-cols-2"
+        >
             <li
                 v-for="familia in familias"
                 :key="familia.familia"
-                class="group flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                class="group flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
-                <div class="flex items-start justify-between gap-3">
-                    <div class="flex items-start gap-3">
-                        <span
-                            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+                <div class="flex flex-col gap-2">
+                    <div
+                        class="flex flex-wrap items-start justify-between gap-x-3 gap-y-2"
+                    >
+                        <div
+                            class="flex min-w-0 flex-1 basis-48 items-center gap-3"
                         >
-                            <FileText class="size-5" />
-                        </span>
-                        <div>
-                            <p class="font-semibold">{{ familia.nombre }}</p>
-                            <p class="text-sm text-muted-foreground">
-                                {{ familia.descripcion }}
+                            <span
+                                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+                            >
+                                <FileText class="size-5" />
+                            </span>
+                            <p class="min-w-0 font-semibold break-words">
+                                {{ familia.nombre }}
                             </p>
                         </div>
+                        <span
+                            class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
+                            :class="ESTADOS[familia.estado].clase"
+                            >{{ ESTADOS[familia.estado].texto }}</span
+                        >
                     </div>
-                    <span
-                        class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
-                        :class="ESTADOS[familia.estado].clase"
-                        >{{ ESTADOS[familia.estado].texto }}</span
-                    >
+                    <p class="text-sm text-muted-foreground">
+                        {{ familia.descripcion }}
+                    </p>
                 </div>
 
-                <dl class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+                <dl
+                    class="grid grid-cols-[repeat(auto-fit,minmax(min(8rem,100%),1fr))] gap-3 text-sm"
+                >
                     <div>
                         <dt class="text-xs text-muted-foreground">
                             Versión activa
@@ -111,9 +121,11 @@ const ESTADOS: Record<
                     <div>
                         <dt class="text-xs text-muted-foreground">Motor</dt>
                         <dd>
-                            <Badge variant="outline">{{
-                                familia.motor_etiqueta
-                            }}</Badge>
+                            <Badge
+                                variant="outline"
+                                class="max-w-full whitespace-normal"
+                                >{{ familia.motor_etiqueta }}</Badge
+                            >
                         </dd>
                     </div>
                     <div>
