@@ -167,7 +167,7 @@ onBeforeUnmount(liberarPrevisualizacion);
             :icono="BellRing"
         />
 
-        <div class="grid gap-6 lg:grid-cols-5">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
             <!-- Escribir -->
             <Card
                 v-if="puedeEnviar"

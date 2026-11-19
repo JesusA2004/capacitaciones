@@ -461,7 +461,7 @@ const hexColor = (clave: string) =>
         </div>
 
         <div
-            class="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+            class="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
         >
             <div class="flex min-w-0 flex-col gap-4">
                 <section class="rounded-xl border border-border/70 bg-card p-4">
@@ -469,7 +469,7 @@ const hexColor = (clave: string) =>
                         1 · ¿De dónde salen los datos?
                     </h2>
                     <div
-                        class="grid gap-1 rounded-lg bg-muted/50 p-1 sm:auto-cols-fr sm:grid-flow-col"
+                        class="grid grid-cols-2 gap-1 rounded-lg bg-muted/50 p-1 sm:auto-cols-fr sm:grid-flow-col sm:grid-cols-none"
                         role="radiogroup"
                         aria-label="Fuente de datos"
                     >

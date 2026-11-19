@@ -54,14 +54,14 @@ function recargar(valor = Date.now()) {
         </div>
 
         <div
-            class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)] xl:gap-10"
+            class="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)] xl:gap-10"
         >
             <div class="flex min-w-0 flex-col gap-6">
                 <slot />
             </div>
 
             <aside
-                class="order-first flex flex-col gap-2 lg:sticky lg:top-4 lg:order-none"
+                class="order-first flex flex-col gap-2 xl:sticky xl:top-4 xl:order-none"
                 aria-label="Vista previa"
             >
                 <div class="flex items-center justify-between">

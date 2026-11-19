@@ -317,7 +317,7 @@ const vacio = computed(() => {
     <div class="pagina-ancha flex flex-col gap-6">
         <!-- Encabezado con el número que importa -->
         <section
-            class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--mrl-primary)] to-[var(--mrl-verde-profundo)] p-6 text-white shadow-lg sm:p-8"
+            class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--mrl-primary)] to-[var(--mrl-verde-profundo)] p-5 text-white shadow-lg sm:p-8"
         >
             <div
                 aria-hidden="true"
@@ -339,29 +339,29 @@ const vacio = computed(() => {
                 </div>
                 <div
                     data-tour="pendientes-conteos"
-                    class="grid grid-cols-3 gap-3"
+                    class="grid w-full grid-cols-3 gap-2 sm:w-auto sm:gap-3"
                 >
                     <button
                         type="button"
-                        class="rounded-2xl bg-white/10 px-4 py-3 text-left backdrop-blur transicion-ui hover:-translate-y-0.5 hover:bg-white/20"
+                        class="rounded-2xl bg-white/10 px-3 py-3 text-left backdrop-blur transicion-ui hover:-translate-y-0.5 hover:bg-white/20 sm:px-4"
                         @click="filtros.urgencia = ''"
                     >
                         <p
                             class="flex items-center gap-1.5 text-xs text-white/80"
                         >
-                            <Inbox class="size-3.5" /> Abiertos
+                            <Inbox class="hidden size-3.5 sm:block" /> Abiertos
                         </p>
                         <p class="text-2xl font-semibold tabular-nums">
                             {{ conteos.abiertas }}
                         </p>
                     </button>
                     <div
-                        class="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur"
+                        class="rounded-2xl bg-white/10 px-3 py-3 backdrop-blur sm:px-4"
                     >
                         <p
                             class="flex items-center gap-1.5 text-xs text-white/80"
                         >
-                            <Eye class="size-3.5" /> Sin ver
+                            <Eye class="hidden size-3.5 sm:block" /> Sin ver
                         </p>
                         <p class="text-2xl font-semibold tabular-nums">
                             {{ conteos.no_leidas }}
@@ -369,7 +369,7 @@ const vacio = computed(() => {
                     </div>
                     <button
                         type="button"
-                        class="rounded-2xl px-4 py-3 text-left backdrop-blur transicion-ui hover:-translate-y-0.5"
+                        class="rounded-2xl px-3 py-3 text-left backdrop-blur transicion-ui hover:-translate-y-0.5 sm:px-4"
                         :class="
                             conteos.vencidas
                                 ? 'bg-[var(--mrl-danger)]/80 hover:bg-[var(--mrl-danger)]'
@@ -380,7 +380,8 @@ const vacio = computed(() => {
                         <p
                             class="flex items-center gap-1.5 text-xs text-white/90"
                         >
-                            <AlarmClock class="size-3.5" /> Vencidos
+                            <AlarmClock class="hidden size-3.5 sm:block" />
+                            Vencidos
                         </p>
                         <p class="text-2xl font-semibold tabular-nums">
                             {{ conteos.vencidas }}
@@ -489,14 +490,14 @@ const vacio = computed(() => {
                 <!-- Chips por tipo de pendiente (abiertos) -->
                 <div
                     v-if="por_tipo.length > 1"
-                    class="flex flex-wrap gap-2"
+                    class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0"
                     aria-label="Filtrar por tipo de pendiente"
                 >
                     <button
                         v-for="g in por_tipo"
                         :key="g.clave"
                         type="button"
-                        class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transicion-ui"
+                        class="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap transicion-ui"
                         :class="
                             filtros.tipo === g.clave
                                 ? 'border-[var(--mrl-primary)] bg-salvia text-primary'

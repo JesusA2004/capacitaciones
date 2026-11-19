@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { cancelar, historial, index, pdf } from '@/routes/rh/incapacidades';
 import {
     show as verDocumento,
@@ -316,7 +317,7 @@ function enviarCancelacion() {
         <section
             v-for="cadena in cadenas"
             :key="cadena.id"
-            class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]"
+            class="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]"
         >
             <div
                 class="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-5 shadow-sm"
@@ -340,8 +341,11 @@ function enviarCancelacion() {
                     >
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[640px] text-sm">
+                <div class="tabla-scroll">
+                    <table
+                        v-tabla-tarjetas
+                        class="w-full min-w-[640px] text-sm"
+                    >
                         <thead>
                             <tr
                                 class="bg-crema/50 text-left text-xs tracking-wide text-muted-foreground uppercase"
@@ -367,13 +371,16 @@ function enviarCancelacion() {
                                 "
                             >
                                 <td class="px-3 py-2">
-                                    {{ fila.secuencia_etiqueta }}
-                                    <p
-                                        v-if="fila.motivo_cancelacion"
-                                        class="text-xs text-muted-foreground"
-                                    >
-                                        Cancelada: {{ fila.motivo_cancelacion }}
-                                    </p>
+                                    <div>
+                                        {{ fila.secuencia_etiqueta }}
+                                        <p
+                                            v-if="fila.motivo_cancelacion"
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            Cancelada:
+                                            {{ fila.motivo_cancelacion }}
+                                        </p>
+                                    </div>
                                 </td>
                                 <td class="px-3 py-2 whitespace-nowrap">
                                     {{ fila.serie_folio_imss }}
@@ -391,7 +398,7 @@ function enviarCancelacion() {
                                 </td>
                                 <td class="px-3 py-2">
                                     <div
-                                        class="flex flex-wrap items-center gap-1.5"
+                                        class="flex flex-wrap items-center justify-end gap-1.5 sm:justify-start"
                                     >
                                         <template
                                             v-if="

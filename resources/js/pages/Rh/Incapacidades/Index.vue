@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useFiltros } from '@/composables/useFiltros';
 import { formatearFecha } from '@/lib/fechas';
 import { opcionesDe } from '@/lib/opcionesSelect';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import {
     create,
     exportarExcel,
@@ -258,7 +259,9 @@ function confirmarDescarte() {
             </div>
         </div>
 
-        <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div
+            class="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]"
+        >
             <div class="flex min-w-0 flex-col gap-4">
                 <div
                     class="rounded-xl border border-border/60 bg-card p-3 shadow-sm"
@@ -355,8 +358,11 @@ function confirmarDescarte() {
                         descripcion="Ajusta el mes o los filtros para ver otras."
                     />
 
-                    <div v-else class="mt-3 overflow-x-auto">
-                        <table class="w-full min-w-[760px] text-[13px]">
+                    <div v-else class="mt-3 tabla-scroll">
+                        <table
+                            v-tabla-tarjetas
+                            class="w-full min-w-[760px] text-[13px]"
+                        >
                             <thead>
                                 <tr
                                     class="bg-crema/50 text-left text-xs tracking-wide text-muted-foreground uppercase"
@@ -383,39 +389,44 @@ function confirmarDescarte() {
                                     class="border-t border-border/60 hover:bg-muted/40"
                                 >
                                     <td class="px-2 py-2">
-                                        <ColaboradorAvatar
-                                            :nombre="fila.colaborador"
-                                            :foto-url="fila.foto_url"
-                                            tamano="xs"
-                                            class="float-left mt-0.5 mr-2"
-                                        />
-                                        <Link
-                                            :href="show.url(fila.id)"
-                                            class="enlace-animado font-semibold"
-                                        >
-                                            {{ fila.colaborador }}
-                                        </Link>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            {{
-                                                fila.sucursal ?? 'Sin sucursal'
-                                            }}
-                                        </p>
+                                        <div class="min-w-0">
+                                            <ColaboradorAvatar
+                                                :nombre="fila.colaborador"
+                                                :foto-url="fila.foto_url"
+                                                tamano="xs"
+                                                class="float-left mt-0.5 mr-2"
+                                            />
+                                            <Link
+                                                :href="show.url(fila.id)"
+                                                class="enlace-animado font-semibold"
+                                            >
+                                                {{ fila.colaborador }}
+                                            </Link>
+                                            <p
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    fila.sucursal ??
+                                                    'Sin sucursal'
+                                                }}
+                                            </p>
+                                        </div>
                                     </td>
                                     <td class="px-2 py-2">
-                                        <span
-                                            class="inline-block rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap"
-                                            :class="CLASE_TIPO[fila.tipo]"
-                                        >
-                                            {{ fila.tipo_etiqueta }}
-                                        </span>
-                                        <p
-                                            v-if="fila.subtipo_etiqueta"
-                                            class="mt-0.5 text-xs text-muted-foreground"
-                                        >
-                                            {{ fila.subtipo_etiqueta }}
-                                        </p>
+                                        <div>
+                                            <span
+                                                class="inline-block rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+                                                :class="CLASE_TIPO[fila.tipo]"
+                                            >
+                                                {{ fila.tipo_etiqueta }}
+                                            </span>
+                                            <p
+                                                v-if="fila.subtipo_etiqueta"
+                                                class="mt-0.5 text-xs text-muted-foreground"
+                                            >
+                                                {{ fila.subtipo_etiqueta }}
+                                            </p>
+                                        </div>
                                     </td>
                                     <td class="px-2 py-2">
                                         {{ fila.secuencia_etiqueta }}
@@ -446,7 +457,7 @@ function confirmarDescarte() {
                                     </td>
                                     <td class="px-2 py-2">
                                         <div
-                                            class="flex flex-col items-start gap-1"
+                                            class="flex flex-col items-end gap-1 sm:items-start"
                                         >
                                             <span
                                                 v-for="documento in fila.documentos_resumen"

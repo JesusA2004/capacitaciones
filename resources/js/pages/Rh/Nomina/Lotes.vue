@@ -202,43 +202,7 @@ function crear() {
             </template>
         </CrudPageHeader>
 
-        <!-- Flujo en tres pasos -->
-        <ol data-tour="nomina-pasos" class="grid gap-3 sm:grid-cols-3">
-            <li
-                v-for="(paso, i) in [
-                    {
-                        t: 'Preparar',
-                        d: 'Desde el sueldo de cada persona o importando el archivo de RH.',
-                        i: Layers,
-                    },
-                    {
-                        t: 'Revisar',
-                        d: 'PDF real de cada recibo, errores y advertencias antes de publicar.',
-                        i: CalendarRange,
-                    },
-                    {
-                        t: 'Emitir',
-                        d: 'Se congela el PDF oficial de cada recibo; RH los descarga, imprime y entrega.',
-                        i: Send,
-                    },
-                ]"
-                :key="paso.t"
-                class="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4"
-            >
-                <span
-                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-                >
-                    <component :is="paso.i" class="size-4" />
-                </span>
-                <div>
-                    <p class="text-sm font-semibold">
-                        {{ i + 1 }}. {{ paso.t }}
-                    </p>
-                    <p class="text-xs text-muted-foreground">{{ paso.d }}</p>
-                </div>
-            </li>
-        </ol>
-
+        <!-- Lo que importa primero: el estado de los lotes -->
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <MetricCard etiqueta="Lotes" :valor="lotes.total" :icono="Layers" />
             <MetricCard
@@ -260,6 +224,43 @@ function crear() {
             />
         </div>
 
+        <!-- Flujo en tres pasos (guía compacta) -->
+        <ol data-tour="nomina-pasos" class="grid gap-2 sm:grid-cols-3 sm:gap-3">
+            <li
+                v-for="(paso, i) in [
+                    {
+                        t: 'Preparar',
+                        d: 'Desde el sueldo de cada persona o importando el archivo de RH.',
+                        i: Layers,
+                    },
+                    {
+                        t: 'Revisar',
+                        d: 'PDF real de cada recibo, errores y advertencias antes de publicar.',
+                        i: CalendarRange,
+                    },
+                    {
+                        t: 'Emitir',
+                        d: 'Se congela el PDF oficial de cada recibo; RH los descarga, imprime y entrega.',
+                        i: Send,
+                    },
+                ]"
+                :key="paso.t"
+                class="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-3 sm:p-4"
+            >
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                >
+                    <component :is="paso.i" class="size-4" />
+                </span>
+                <div>
+                    <p class="text-sm font-semibold">
+                        {{ i + 1 }}. {{ paso.t }}
+                    </p>
+                    <p class="text-xs text-muted-foreground">{{ paso.d }}</p>
+                </div>
+            </li>
+        </ol>
+
         <EmptyState
             v-if="lotes.data.length === 0"
             :icono="ReceiptText"
@@ -276,7 +277,7 @@ function crear() {
                 v-for="lote in lotes.data"
                 :key="lote.id"
                 :href="show(lote.id)"
-                class="group flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                class="group flex tarjeta-interactiva flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">

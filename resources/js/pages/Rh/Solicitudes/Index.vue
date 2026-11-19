@@ -859,7 +859,7 @@ function confirmarMovimiento() {
             <div
                 v-for="columna in COLUMNAS"
                 :key="columna.estado"
-                class="flex min-w-[216px] flex-1 basis-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/30"
+                class="flex min-w-[min(17rem,82vw)] flex-1 basis-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/30 sm:min-w-[216px]"
             >
                 <div
                     class="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3"

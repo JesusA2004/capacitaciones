@@ -6,6 +6,7 @@ import {
     FileSpreadsheet,
     Info,
     RotateCcw,
+    SlidersHorizontal,
 } from '@lucide/vue';
 import { computed, reactive, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
@@ -68,6 +69,26 @@ const filtros = reactive<FiltrosReporteCampanas>({
     estados: [...props.filtros.estados],
     fases: [...props.filtros.fases],
 });
+
+/** En móvil/tableta los filtros secundarios se pliegan para que el reporte quede a la vista. */
+const masFiltros = ref(false);
+const filtrosSecundariosActivos = computed(
+    () =>
+        [
+            filtros.canales.length > 0,
+            filtros.estados.length > 0,
+            filtros.fases.length > 0,
+            filtros.empresa_id,
+            filtros.sucursal_id,
+            filtros.departamento_id,
+            filtros.puesto_id,
+            filtros.vacante_id,
+            filtros.responsable_id,
+        ].filter(Boolean).length,
+);
+const claseSecundario = computed(() =>
+    masFiltros.value ? 'grid gap-1.5' : 'grid gap-1.5 max-lg:hidden',
+);
 
 const errorRango = computed(() =>
     filtros.desde && filtros.hasta && filtros.hasta < filtros.desde
@@ -376,7 +397,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('campanas', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Canal / medio</Label>
                     <ComboboxMultiple
                         :items="opcionesCanales"
@@ -386,7 +407,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('canales', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Estado de la campaña</Label>
                     <ComboboxMultiple
                         :items="opcionesEstados"
@@ -396,7 +417,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('estados', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Fase del candidato</Label>
                     <ComboboxMultiple
                         :items="opcionesFases"
@@ -406,7 +427,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('fases', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Empresa</Label>
                     <Combobox
                         :items="opcionesEmpresas"
@@ -415,7 +436,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('empresa_id', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Sucursal</Label>
                     <Combobox
                         :items="opcionesSucursales"
@@ -424,7 +445,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('sucursal_id', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Departamento</Label>
                     <Combobox
                         :items="opcionesDepartamentos"
@@ -435,7 +456,7 @@ const abierta = ref<number | null>(null);
                         "
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Puesto</Label>
                     <Combobox
                         :items="opcionesPuestos"
@@ -444,7 +465,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('puesto_id', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Vacante</Label>
                     <Combobox
                         :items="opcionesVacantes"
@@ -453,7 +474,7 @@ const abierta = ref<number | null>(null);
                         @update:model-value="(v) => cambiar('vacante_id', v)"
                     />
                 </div>
-                <div class="grid gap-1.5">
+                <div :class="claseSecundario">
                     <Label>Responsable de RH</Label>
                     <Combobox
                         :items="opcionesResponsables"
@@ -465,6 +486,22 @@ const abierta = ref<number | null>(null);
                     />
                 </div>
             </div>
+
+            <Button
+                variant="outline"
+                size="sm"
+                class="self-start lg:hidden"
+                :aria-expanded="masFiltros"
+                @click="masFiltros = !masFiltros"
+            >
+                <SlidersHorizontal class="size-4" />
+                {{ masFiltros ? 'Menos filtros' : 'Más filtros' }}
+                <span
+                    v-if="filtrosSecundariosActivos"
+                    class="rounded-full bg-salvia px-1.5 text-xs font-semibold text-primary tabular-nums"
+                    >{{ filtrosSecundariosActivos }}</span
+                >
+            </Button>
 
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="text-xs text-muted-foreground">
@@ -529,7 +566,7 @@ const abierta = ref<number | null>(null);
                 />
             </div>
 
-            <div class="grid gap-4 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <section class="rounded-2xl border bg-card p-4 shadow-sm">
                     <h2 class="mb-3 text-sm font-semibold">
                         Embudo: ¿hasta dónde llegaron?

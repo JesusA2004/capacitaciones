@@ -322,7 +322,9 @@ async function cerrarActa() {
         />
 
         <template v-else-if="esCircunstanciada">
-            <div class="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <div
+                class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+            >
                 <section
                     class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                 >
@@ -468,7 +470,7 @@ async function cerrarActa() {
                 </div>
             </div>
 
-            <div class="grid gap-5 lg:grid-cols-2">
+            <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <section
                     class="flex flex-col gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                 >
@@ -524,7 +526,9 @@ async function cerrarActa() {
         </template>
 
         <template v-else>
-            <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div
+                class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+            >
                 <section
                     class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                 >
@@ -669,7 +673,7 @@ async function cerrarActa() {
                 </div>
             </div>
 
-            <div class="grid gap-5 lg:grid-cols-2">
+            <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
                 <section
                     class="flex flex-col gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                 >

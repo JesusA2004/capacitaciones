@@ -265,14 +265,9 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             <EstadoBadge :estado="solicitud.estado" />
         </CrudPageHeader>
 
-        <SiguientePasoPanel
-            v-if="siguientePaso"
-            compacto
-            titulo="Relacionado con esta persona"
-            :paso="siguientePaso"
-        />
-
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+        <div
+            class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:grid-rows-[auto_1fr] lg:items-start"
+        >
             <!-- Columna principal -->
             <div
                 class="flex min-w-0 flex-col gap-6 lg:col-span-8 xl:col-span-9"
@@ -307,7 +302,9 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                 <div
                     class="grid gap-4 rounded-2xl border border-border/60 bg-card p-5"
                 >
-                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div
+                        class="grid grid-cols-2 gap-x-4 gap-y-3 break-words sm:gap-4 xl:grid-cols-3"
+                    >
                         <div>
                             <p class="text-sm text-muted-foreground">Puesto</p>
                             <p class="text-base font-medium">
@@ -422,122 +419,11 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                         <p class="text-sm">{{ solicitud.observaciones }}</p>
                     </div>
                 </div>
-
-                <!-- Formato oficial del proceso (permiso / préstamo): lo decide
-                     el backend; se genera, imprime y firma aquí mismo. -->
-                <DocumentosProceso
-                    v-for="d in documentosProceso"
-                    :key="`${d.tipo}-${d.id}`"
-                    :tipo="d.tipo"
-                    :id="d.id"
-                />
-
-                <div class="rounded-2xl border border-border/60 bg-card p-5">
-                    <h3 class="mb-3 text-sm font-semibold">
-                        {{
-                            esBaja
-                                ? 'Evidencia / firma del gerente'
-                                : 'Documentos adjuntos'
-                        }}
-                    </h3>
-                    <ul
-                        v-if="solicitud.documentos?.length"
-                        class="mb-3 flex entrada-escalonada flex-col gap-2"
-                    >
-                        <li
-                            v-for="doc in solicitud.documentos"
-                            :key="doc.id"
-                            class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-sm"
-                        >
-                            <div class="min-w-0">
-                                <p class="break-words">
-                                    {{ doc.original_name }}
-                                </p>
-                                <p
-                                    v-if="doc.subido_por"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Subido por {{ doc.subido_por.name }}
-                                    {{ doc.subido_por.apellidos }}
-                                </p>
-                            </div>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                @click="previsualizarAdjunto(doc)"
-                            >
-                                <Eye class="size-3.5" />
-                                Previsualizar
-                            </Button>
-                        </li>
-                    </ul>
-                    <p v-else class="mb-3 text-sm text-muted-foreground">
-                        Sin documentos adjuntos.
-                    </p>
-
-                    <PeopleFileDropzone
-                        v-if="!esFinal && !bajaEnCierre"
-                        :model-value="archivosEvidencia"
-                        accept=".pdf,.jpg,.jpeg,.png,.webp"
-                        :loading="formEvidencia.processing"
-                        :label="
-                            esBaja
-                                ? 'Arrastra la evidencia aquí'
-                                : 'Arrastra el documento aquí'
-                        "
-                        @update:model-value="subirEvidencia"
-                    />
-                </div>
-
-                <FiniquitoPanel
-                    v-if="esBaja"
-                    :solicitud-id="solicitud.id"
-                    :finiquito="solicitud.finiquito_calculo ?? null"
-                    :desglose="finiquitoDesglose"
-                    :permisos="finiquitoPermisos"
-                    :gestion-url="finiquitoGestionUrl"
-                />
-
-                <div class="rounded-2xl border border-border/60 bg-card p-5">
-                    <h3 class="mb-3 text-sm font-semibold">Historial</h3>
-                    <ol
-                        class="relative flex entrada-escalonada flex-col gap-4 border-s border-border/60 ps-4"
-                    >
-                        <li
-                            v-for="evento in solicitud.historial"
-                            :key="evento.id"
-                            class="relative"
-                        >
-                            <span
-                                class="absolute -start-[21px] mt-1 size-2.5 rounded-full bg-[var(--brand-primary)]"
-                            />
-                            <p class="text-base font-medium">
-                                {{ evento.accion_etiqueta }}
-                                <span
-                                    v-if="evento.usuario"
-                                    class="font-normal text-muted-foreground"
-                                >
-                                    — {{ evento.usuario.name }}
-                                    {{ evento.usuario.apellidos }}
-                                </span>
-                            </p>
-                            <p
-                                v-if="evento.comentario"
-                                class="text-sm text-muted-foreground"
-                            >
-                                {{ evento.comentario }}
-                            </p>
-                            <p class="text-sm text-muted-foreground">
-                                {{ formatearFechaHora(evento.created_at) }}
-                            </p>
-                        </li>
-                    </ol>
-                </div>
             </div>
 
             <!-- Columna lateral: estado y acciones -->
             <div
-                class="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-span-4 xl:col-span-3"
+                class="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-span-4 lg:col-start-9 lg:row-span-2 lg:row-start-1 xl:col-span-3 xl:col-start-10"
             >
                 <BotonReabrir :reaperturas="reaperturas" />
 
@@ -720,6 +606,14 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     </p>
                 </div>
 
+                <!-- Accesos relacionados: secundarios, después de las acciones. -->
+                <SiguientePasoPanel
+                    v-if="siguientePaso"
+                    compacto
+                    titulo="Relacionado con esta persona"
+                    :paso="siguientePaso"
+                />
+
                 <!-- Solicitud de prueba o capturada por error: se elimina sin
                      avisar al colaborador (solicitudes.eliminar). -->
                 <Button
@@ -731,6 +625,122 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     <Trash2 class="size-4" />
                     Eliminar solicitud
                 </Button>
+            </div>
+
+            <!-- Documentos e historial: en móvil, después de las acciones. -->
+            <div
+                class="flex min-w-0 flex-col gap-6 lg:col-span-8 lg:col-start-1 lg:row-start-2 xl:col-span-9"
+            >
+                <!-- Formato oficial del proceso (permiso / préstamo): lo decide
+                     el backend; se genera, imprime y firma aquí mismo. -->
+                <DocumentosProceso
+                    v-for="d in documentosProceso"
+                    :key="`${d.tipo}-${d.id}`"
+                    :tipo="d.tipo"
+                    :id="d.id"
+                />
+
+                <div class="rounded-2xl border border-border/60 bg-card p-5">
+                    <h3 class="mb-3 text-sm font-semibold">
+                        {{
+                            esBaja
+                                ? 'Evidencia / firma del gerente'
+                                : 'Documentos adjuntos'
+                        }}
+                    </h3>
+                    <ul
+                        v-if="solicitud.documentos?.length"
+                        class="mb-3 flex entrada-escalonada flex-col gap-2"
+                    >
+                        <li
+                            v-for="doc in solicitud.documentos"
+                            :key="doc.id"
+                            class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-sm"
+                        >
+                            <div class="min-w-0">
+                                <p class="break-words">
+                                    {{ doc.original_name }}
+                                </p>
+                                <p
+                                    v-if="doc.subido_por"
+                                    class="text-xs text-muted-foreground"
+                                >
+                                    Subido por {{ doc.subido_por.name }}
+                                    {{ doc.subido_por.apellidos }}
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                @click="previsualizarAdjunto(doc)"
+                            >
+                                <Eye class="size-3.5" />
+                                Previsualizar
+                            </Button>
+                        </li>
+                    </ul>
+                    <p v-else class="mb-3 text-sm text-muted-foreground">
+                        Sin documentos adjuntos.
+                    </p>
+
+                    <PeopleFileDropzone
+                        v-if="!esFinal && !bajaEnCierre"
+                        :model-value="archivosEvidencia"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        :loading="formEvidencia.processing"
+                        :label="
+                            esBaja
+                                ? 'Arrastra la evidencia aquí'
+                                : 'Arrastra el documento aquí'
+                        "
+                        @update:model-value="subirEvidencia"
+                    />
+                </div>
+
+                <FiniquitoPanel
+                    v-if="esBaja"
+                    :solicitud-id="solicitud.id"
+                    :finiquito="solicitud.finiquito_calculo ?? null"
+                    :desglose="finiquitoDesglose"
+                    :permisos="finiquitoPermisos"
+                    :gestion-url="finiquitoGestionUrl"
+                />
+
+                <div class="rounded-2xl border border-border/60 bg-card p-5">
+                    <h3 class="mb-3 text-sm font-semibold">Historial</h3>
+                    <ol
+                        class="relative flex entrada-escalonada flex-col gap-4 border-s border-border/60 ps-4"
+                    >
+                        <li
+                            v-for="evento in solicitud.historial"
+                            :key="evento.id"
+                            class="relative"
+                        >
+                            <span
+                                class="absolute -start-[21px] mt-1 size-2.5 rounded-full bg-[var(--brand-primary)]"
+                            />
+                            <p class="text-base font-medium">
+                                {{ evento.accion_etiqueta }}
+                                <span
+                                    v-if="evento.usuario"
+                                    class="font-normal text-muted-foreground"
+                                >
+                                    — {{ evento.usuario.name }}
+                                    {{ evento.usuario.apellidos }}
+                                </span>
+                            </p>
+                            <p
+                                v-if="evento.comentario"
+                                class="text-sm text-muted-foreground"
+                            >
+                                {{ evento.comentario }}
+                            </p>
+                            <p class="text-sm text-muted-foreground">
+                                {{ formatearFechaHora(evento.created_at) }}
+                            </p>
+                        </li>
+                    </ol>
+                </div>
             </div>
         </div>
     </div>

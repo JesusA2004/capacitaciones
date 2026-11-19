@@ -606,7 +606,7 @@ function guardarEdicion() {
         <div
             v-else
             data-tour="nomina-revision"
-            class="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_1fr]"
+            class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]"
         >
             <ul
                 class="flex max-h-[75vh] flex-col gap-2 overflow-y-auto pr-1"

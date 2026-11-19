@@ -258,9 +258,9 @@ function eliminarConcepto(id: number) {
 
 <template>
     <div class="rounded-2xl border border-border/60 bg-card p-5">
-        <div class="mb-3 flex items-center justify-between gap-2">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 class="text-sm font-semibold">Finiquito</h3>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
                 <EstadoBadge v-if="finiquito" :estado="finiquito.estado" />
                 <Button v-if="gestionUrl" as-child size="sm" variant="outline">
                     <Link :href="gestionUrl">Abrir en Bajas → Finiquitos</Link>

@@ -297,7 +297,9 @@ function iconoGrupo(grupo: string): Component {
             </template>
         </CrudPageHeader>
 
-        <div class="grid items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <div
+            class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]"
+        >
             <!-- En móvil el catálogo es un selector: el reporte queda a la vista. -->
             <label class="grid gap-1 text-sm font-medium lg:hidden">
                 Reporte
@@ -652,7 +654,7 @@ function iconoGrupo(grupo: string): Component {
                 <div
                     :class="
                         ladoALado
-                            ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]'
+                            ? 'grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]'
                             : 'flex flex-col gap-6'
                     "
                 >

@@ -229,7 +229,7 @@ function enviar() {
         <EnlaceRegreso :regreso="regreso" />
     </div>
     <form
-        class="pagina-ancha grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]"
+        class="pagina-ancha grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]"
         @submit.prevent="enviar"
     >
         <div
@@ -401,10 +401,10 @@ function enviar() {
                 </div>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-4">
+            <div class="rejilla-auto items-start gap-3 [--rejilla-min:12rem]">
                 <div class="grid gap-1.5">
-                    <Label for="folio"
-                        >Serie y folio del certificado IMSS</Label
+                    <Label for="folio" title="Del certificado del IMSS"
+                        >Serie y folio IMSS</Label
                     >
                     <Input id="folio" v-model="form.serie_folio_imss" />
                     <p

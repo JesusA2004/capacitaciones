@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { pedirCorreccion } from '@/lib/correcciones';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index, lote } from '@/routes/rh/fechas-laborales';
 import type { FilaCapturaFechas, RespuestaPaginada } from '@/types';
@@ -256,9 +257,12 @@ function deshacer(f: FilaCapturaFechas): void {
         <!-- Filtros -->
         <section
             data-tour="fechas-laborales-filtros"
-            class="flex flex-col gap-3 rounded-3xl border border-border bg-gradient-to-br from-crema/60 via-card to-salvia/30 p-4 shadow-xs lg:flex-row lg:items-center"
+            class="flex flex-col gap-3 rounded-3xl border border-border bg-gradient-to-br from-crema/60 via-card to-salvia/30 p-4 shadow-xs lg:flex-row lg:flex-wrap lg:items-center"
         >
-            <div data-tour="fechas-laborales-buscar" class="min-w-0 flex-1">
+            <div
+                data-tour="fechas-laborales-buscar"
+                class="min-w-0 flex-1 lg:min-w-64"
+            >
                 <CrudSearchInput
                     v-model="busqueda"
                     placeholder="Buscar por nombre o número de empleado"
@@ -320,9 +324,9 @@ function deshacer(f: FilaCapturaFechas): void {
         <div
             v-else
             data-tour="fechas-laborales-tabla"
-            class="overflow-x-auto rounded-3xl border border-border bg-card shadow-xs"
+            class="tabla-scroll rounded-3xl border border-border bg-card p-2 shadow-xs sm:p-0"
         >
-            <table class="w-full min-w-[1100px] text-sm">
+            <table v-tabla-tarjetas class="w-full min-w-[1100px] text-sm">
                 <thead
                     class="bg-muted/40 text-left text-xs text-muted-foreground"
                 >
@@ -415,52 +419,58 @@ function deshacer(f: FilaCapturaFechas): void {
                             </div>
                         </td>
                         <td class="w-44 px-2 py-3">
-                            <DatePicker
-                                v-if="edicion[f.id]"
-                                v-model="edicion[f.id].fecha_ingreso"
-                                :anio-desde="1980"
-                                placeholder="Falta"
-                            />
+                            <div v-if="edicion[f.id]" class="min-w-0 flex-1">
+                                <DatePicker
+                                    v-model="edicion[f.id].fecha_ingreso"
+                                    :anio-desde="1980"
+                                    placeholder="Falta"
+                                />
+                            </div>
                         </td>
                         <td class="w-44 px-2 py-3">
-                            <DatePicker
-                                v-if="edicion[f.id]"
-                                v-model="edicion[f.id].periodo_prueba_inicio"
-                                :anio-desde="1980"
-                                limpiable
-                                :placeholder="
-                                    f.fecha_ingreso
-                                        ? `= ingreso (${formatearFecha(f.fecha_ingreso)})`
-                                        : 'Igual al ingreso'
-                                "
-                            />
+                            <div v-if="edicion[f.id]" class="min-w-0 flex-1">
+                                <DatePicker
+                                    v-model="
+                                        edicion[f.id].periodo_prueba_inicio
+                                    "
+                                    :anio-desde="1980"
+                                    limpiable
+                                    :placeholder="
+                                        f.fecha_ingreso
+                                            ? `= ingreso (${formatearFecha(f.fecha_ingreso)})`
+                                            : 'Igual al ingreso'
+                                    "
+                                />
+                            </div>
                         </td>
                         <td class="w-44 px-2 py-3">
-                            <DatePicker
-                                v-if="edicion[f.id]"
-                                v-model="edicion[f.id].fecha_induccion"
-                                :anio-desde="1980"
-                                limpiable
-                                :placeholder="
-                                    f.fecha_induccion_sistema
-                                        ? `PEOPLE: ${formatearFecha(f.fecha_induccion_sistema)}`
-                                        : 'Falta'
-                                "
-                            />
+                            <div v-if="edicion[f.id]" class="min-w-0 flex-1">
+                                <DatePicker
+                                    v-model="edicion[f.id].fecha_induccion"
+                                    :anio-desde="1980"
+                                    limpiable
+                                    :placeholder="
+                                        f.fecha_induccion_sistema
+                                            ? `PEOPLE: ${formatearFecha(f.fecha_induccion_sistema)}`
+                                            : 'Falta'
+                                    "
+                                />
+                            </div>
                         </td>
                         <td class="w-44 px-2 py-3">
-                            <DatePicker
-                                v-if="edicion[f.id]"
-                                v-model="edicion[f.id].fecha_alta_imss"
-                                :anio-desde="1980"
-                                limpiable
-                                placeholder="Falta"
-                            />
+                            <div v-if="edicion[f.id]" class="min-w-0 flex-1">
+                                <DatePicker
+                                    v-model="edicion[f.id].fecha_alta_imss"
+                                    :anio-desde="1980"
+                                    limpiable
+                                    placeholder="Falta"
+                                />
+                            </div>
                         </td>
                         <td class="w-56 px-2 py-3">
                             <div
                                 v-if="edicion[f.id]"
-                                class="flex items-center gap-1.5"
+                                class="flex min-w-0 flex-1 items-center gap-1.5"
                             >
                                 <Input
                                     :model-value="
