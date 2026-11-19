@@ -178,3 +178,34 @@ export function formatearTamano(bytes: number | null | undefined): string {
         ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
         : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
+
+const MIME_DE_EXTENSION: Record<string, string> = {
+    pdf: 'application/pdf',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+};
+
+/**
+ * `accept` para el `<input type="file">` en celulares: a las extensiones
+ * (".pdf,.jpg,.png") les suma su tipo MIME. Así Android ofrece la cámara
+ * además de la galería y los archivos, y el iPhone convierte la foto HEIC a
+ * JPG (formato que sí acepta el servidor). No fuerza `capture`: la galería
+ * y los PDF siguen disponibles. La validación sigue siendo por extensión.
+ */
+export function aceptarEnCelular(accept: string): string {
+    const partes = accept
+        .split(',')
+        .map((parte) => parte.trim())
+        .filter(Boolean);
+    const mimes = partes
+        .map((parte) =>
+            parte.startsWith('.')
+                ? MIME_DE_EXTENSION[parte.slice(1).toLowerCase()]
+                : undefined,
+        )
+        .filter((mime): mime is string => !!mime && !partes.includes(mime));
+
+    return [...partes, ...new Set(mimes)].join(',');
+}

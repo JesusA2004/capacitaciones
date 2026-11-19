@@ -74,17 +74,29 @@ function aBytes(base64Url: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * Registra public/sw.js (solo notificaciones, sin caché) y desregistra
- * cualquier otro Service Worker residual de otro proyecto servido antes en
- * el mismo host:puerto (el origen del aviso «Fetch event handler is
- * recognized as no-op» en localhost).
+ * Service Worker sin Web Push: iPhone/iPad en Safari (sin instalar) no
+ * tienen PushManager, pero sí necesitan el SW para la app instalable (PWA).
+ */
+function serviceWorkerSoportado(): boolean {
+    return (
+        typeof window !== 'undefined' &&
+        window.isSecureContext &&
+        'serviceWorker' in navigator
+    );
+}
+
+/**
+ * Registra public/sw.js (Web Push + app instalable con caché mínima, ver
+ * docs/PWA.md) para TODA persona, active o no las notificaciones, y
+ * desregistra cualquier otro Service Worker residual de otro proyecto
+ * servido antes en el mismo host:puerto.
  */
 export function registrarServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (registroSw) {
         return registroSw;
     }
 
-    if (!soportado()) {
+    if (!serviceWorkerSoportado()) {
         registroSw = Promise.resolve(null);
 
         return registroSw;

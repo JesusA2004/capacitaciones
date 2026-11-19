@@ -11,6 +11,7 @@ import {
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { aceptarEnCelular } from '@/lib/archivos';
 import { cn } from '@/lib/utils';
 
 /**
@@ -84,6 +85,9 @@ const textoAyuda = computed(
         props.hint ??
         `${extensionesAceptadas.value} · Máximo ${props.maxSizeMb} MB`,
 );
+
+/** Con los tipos MIME: cámara en Android y foto del iPhone en JPG. */
+const acceptInput = computed(() => aceptarEnCelular(props.accept));
 
 const mensajeError = computed(() => errorLocal.value ?? props.error ?? null);
 const bloqueado = computed(() => props.disabled || props.loading);
@@ -266,7 +270,7 @@ function esPdf(archivo: File): boolean {
             ref="inputRef"
             type="file"
             class="hidden"
-            :accept="accept"
+            :accept="acceptInput"
             :multiple="multiple"
             :disabled="bloqueado"
             @change="alSeleccionarInput"
@@ -299,12 +303,23 @@ function esPdf(archivo: File): boolean {
                     :alt="`Vista previa de ${archivoUnico.name}`"
                     class="max-h-80 w-full object-contain"
                 />
-                <iframe
-                    v-else-if="urlPrevia && esPdf(archivoUnico)"
-                    :src="urlPrevia"
-                    :title="`Vista previa de ${archivoUnico.name}`"
-                    class="h-80 w-full"
-                />
+                <template v-else-if="urlPrevia && esPdf(archivoUnico)">
+                    <iframe
+                        :src="urlPrevia"
+                        :title="`Vista previa de ${archivoUnico.name}`"
+                        class="h-80 w-full pointer-coarse:hidden"
+                    />
+                    <!-- Celular: el navegador no pinta PDF dentro de la página. -->
+                    <a
+                        :href="urlPrevia"
+                        target="_blank"
+                        rel="noopener"
+                        class="hidden flex-col items-center gap-1.5 p-6 text-sm font-medium text-primary underline-offset-4 hover:underline pointer-coarse:flex"
+                    >
+                        <FileText class="size-8" />
+                        Abrir PDF para revisarlo
+                    </a>
+                </template>
                 <div
                     v-else
                     class="flex flex-col items-center gap-1.5 p-6 text-muted-foreground"
@@ -335,6 +350,7 @@ function esPdf(archivo: File): boolean {
                         type="button"
                         variant="outline"
                         size="sm"
+                        class="pointer-coarse:h-10"
                         :disabled="bloqueado"
                         @click="abrirSelector"
                     >
@@ -345,7 +361,7 @@ function esPdf(archivo: File): boolean {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        class="text-destructive hover:text-destructive"
+                        class="text-destructive hover:text-destructive pointer-coarse:h-10"
                         :disabled="bloqueado"
                         @click="quitarArchivo(0)"
                     >
@@ -384,8 +400,15 @@ function esPdf(archivo: File): boolean {
             <Upload class="size-6 text-muted-foreground" />
             <p class="text-sm font-medium">
                 {{ label }}
-                <span class="font-normal text-muted-foreground">
+                <span
+                    class="font-normal text-muted-foreground pointer-coarse:hidden"
+                >
                     o haz clic para seleccionar</span
+                >
+                <span
+                    class="hidden font-normal text-muted-foreground pointer-coarse:inline"
+                >
+                    o toca para tomar una foto o elegir un archivo</span
                 >
             </p>
             <p :id="idAyuda" class="text-xs text-muted-foreground">
@@ -418,7 +441,7 @@ function esPdf(archivo: File): boolean {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    class="size-7 shrink-0"
+                    class="size-7 shrink-0 pointer-coarse:size-10"
                     :disabled="loading"
                     :aria-label="`Quitar ${archivo.name}`"
                     @click.stop="quitarArchivo(indice)"

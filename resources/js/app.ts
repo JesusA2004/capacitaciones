@@ -1,5 +1,6 @@
 import { createInertiaApp } from '@inertiajs/vue3';
 import { initializeTheme } from '@/composables/useAppearance';
+import { escucharInstalacion } from '@/composables/useInstalarApp';
 import { initializePersonalizacion } from '@/composables/usePersonalizacion';
 import { registrarServiceWorker } from '@/composables/useWebPush';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -70,8 +71,12 @@ initializeAccionesEnCurso();
 // Tablas atenuadas mientras se filtra o pagina.
 initializeActualizacionTablas();
 
-// Único Service Worker de PEOPLE: public/sw.js, SOLO para notificaciones de
-// escritorio (Web Push, sin caché ni handler fetch). Cualquier otro
+// Único Service Worker de PEOPLE: public/sw.js — notificaciones (Web Push)
+// y app instalable (PWA, caché mínima: ver docs/PWA.md). Cualquier otro
 // registrado en este origen es residuo de otro proyecto servido antes en el
 // mismo host:puerto y se desregistra (ver composables/useWebPush.ts).
 void registrarServiceWorker();
+
+// «Instalar app»: el navegador avisa una sola vez y muy pronto; se guarda
+// el aviso antes de montar Vue (ver composables/useInstalarApp.ts).
+escucharInstalacion();

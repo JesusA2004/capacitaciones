@@ -207,6 +207,7 @@ En producción, agrega la entrada de cron estándar de Laravel apuntando a `sche
 - `docs/SIGUIENTE_PASO.md` — panel «Siguiente paso»: mapa estado → acción por flujo y contexto en la URL.
 - `docs/ORGANIGRAMA.md` — estructura de puestos y matriz comercial (territorial), no confundir entre sí ni con headcount.
 - `docs/REPORTES.md` — módulo único de reportes y KPIs de rotación de personal del dashboard.
+- `docs/PWA.md` — PEOPLE como app instalable desde el navegador (manifiesto, Service Worker, qué revisar en Nginx).
 - `docs/VACACIONES.md`, `docs/SOLICITUDES_INTERNAS.md`, `docs/REPORTES_RH.md` — documentación previa a la unificación, conservada por referencia histórica.
 - `docs/ARQUITECTURA_SERVICES.md` — por qué la lógica vive en Services y cómo se comparte entre la web (Inertia) y la API móvil.
 - `docs/API_MOVIL.md` — API JSON versionada (`/api/v1`) para la futura app móvil de colaboradores: autenticación por token (Sanctum), endpoints, cómo probarla.

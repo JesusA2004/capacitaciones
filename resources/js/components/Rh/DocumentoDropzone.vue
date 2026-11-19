@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { useAlertas } from '@/composables/useAlertas';
+import { aceptarEnCelular } from '@/lib/archivos';
 import { store as subirDocumento } from '@/routes/rh/expedientes/documentos';
 
 const props = defineProps<{
@@ -32,6 +33,9 @@ const props = defineProps<{
 }>();
 
 const { mostrarExito, mostrarError } = useAlertas();
+
+/** Mismos formatos que valida el servidor; con MIME para la cámara del celular. */
+const ACEPTA = aceptarEnCelular('.pdf,.jpg,.jpeg,.png');
 
 const inputEl = ref<HTMLInputElement | null>(null);
 const arrastrando = ref(false);
@@ -194,7 +198,7 @@ function confirmarSubida() {
         <input
             ref="inputEl"
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
+            :accept="ACEPTA"
             class="hidden"
             @change="archivoSeleccionado"
         />
@@ -219,7 +223,7 @@ function confirmarSubida() {
             >
                 <button
                     type="button"
-                    class="absolute top-2 right-2 z-10 rounded-md bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+                    class="absolute top-2 right-2 z-10 rounded-md bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground pointer-coarse:p-2.5"
                     title="Quitar"
                     @click="cancelar"
                 >
@@ -232,12 +236,23 @@ function confirmarSubida() {
                     alt=""
                     class="max-h-[420px] w-full object-contain"
                 />
-                <iframe
-                    v-else-if="esPdfPendiente && previewUrl"
-                    :src="previewUrl"
-                    title="Vista previa del PDF"
-                    class="h-[420px] w-full"
-                />
+                <template v-else-if="esPdfPendiente && previewUrl">
+                    <iframe
+                        :src="previewUrl"
+                        title="Vista previa del PDF"
+                        class="h-[420px] w-full pointer-coarse:hidden"
+                    />
+                    <!-- Celular: el navegador no pinta PDF dentro de la página. -->
+                    <a
+                        :href="previewUrl"
+                        target="_blank"
+                        rel="noopener"
+                        class="hidden h-40 w-full flex-col items-center justify-center gap-2 text-sm font-medium text-primary pointer-coarse:flex"
+                    >
+                        <FileText class="size-10" />
+                        Abrir PDF para revisarlo
+                    </a>
+                </template>
                 <div
                     v-else
                     class="flex h-40 w-full flex-col items-center justify-center gap-2 text-muted-foreground"
@@ -254,7 +269,7 @@ function confirmarSubida() {
                 <input
                     ref="reversoEl"
                     type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
+                    :accept="ACEPTA"
                     class="hidden"
                     @change="reversoSeleccionado"
                 />
@@ -269,7 +284,7 @@ function confirmarSubida() {
                 >
                     <button
                         type="button"
-                        class="absolute top-2 right-2 z-10 rounded-md bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+                        class="absolute top-2 right-2 z-10 rounded-md bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground pointer-coarse:p-2.5"
                         title="Quitar reverso"
                         @click="quitarReverso"
                     >
@@ -285,7 +300,7 @@ function confirmarSubida() {
                         v-else-if="reversoUrl"
                         :src="reversoUrl"
                         title="Vista previa del reverso"
-                        class="h-[300px] w-full"
+                        class="h-[300px] w-full pointer-coarse:hidden"
                     />
                     <p class="truncate p-2 font-medium">{{ reverso.name }}</p>
                 </div>
@@ -293,7 +308,7 @@ function confirmarSubida() {
                     v-else
                     size="sm"
                     variant="outline"
-                    class="w-full"
+                    class="w-full pointer-coarse:h-10"
                     @click="reversoEl?.click()"
                 >
                     <FileUp class="size-3.5" />
@@ -331,7 +346,11 @@ function confirmarSubida() {
                 </span>
             </label>
 
-            <Button size="sm" class="w-full" @click="confirmarSubida">
+            <Button
+                size="sm"
+                class="w-full pointer-coarse:h-11"
+                @click="confirmarSubida"
+            >
                 <Upload class="size-3.5" />
                 Subir
             </Button>
@@ -340,7 +359,7 @@ function confirmarSubida() {
         <button
             v-else
             type="button"
-            class="flex w-full flex-col items-center gap-1 rounded-xl border-2 border-dashed p-3 text-center transition-colors"
+            class="flex w-full flex-col items-center gap-1 rounded-xl border-2 border-dashed p-3 text-center transition-colors pointer-coarse:py-4"
             :class="
                 arrastrando
                     ? 'border-primary bg-primary/5'
@@ -353,8 +372,14 @@ function confirmarSubida() {
         >
             <UploadCloud class="size-5 text-muted-foreground" />
             <span class="text-xs font-medium">{{ etiqueta }}</span>
-            <span class="text-[11px] text-muted-foreground"
+            <span
+                class="text-[11px] text-muted-foreground pointer-coarse:hidden"
                 >Arrastra un archivo o haz clic · PDF, JPG o PNG</span
+            >
+            <span
+                class="hidden text-xs text-muted-foreground pointer-coarse:inline"
+                >Toca para tomar una foto o elegir un archivo · PDF, JPG o
+                PNG</span
             >
         </button>
     </div>

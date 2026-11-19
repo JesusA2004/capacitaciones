@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es-MX" style="color-scheme: light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#fbf8f2">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Sin conexión — MR. LANA PEOPLE</title>
+    <!-- Página que muestra public/sw.js cuando no hay internet. Autocontenida
+         (sin CSS/JS externos) porque se sirve desde la caché del navegador. -->
+    <style>
+        :root { --fondo: #fbf8f2; --superficie: #fffdf9; --borde: #e7ded1; --texto: #303a38; --texto-2: #707874; --petroleo: #315b59; --oro: #c7a66b; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; min-height: 100%; background: var(--fondo); color: var(--texto); }
+        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; padding: 24px 16px; }
+        main { width: 100%; max-width: 420px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 24px; padding: 32px 24px; text-align: center; box-shadow: 0 10px 30px -18px rgba(49, 91, 89, .35); }
+        svg { display: block; margin: 0 auto 20px; }
+        h1 { font-size: 1.35rem; margin: 0 0 8px; color: var(--petroleo); }
+        p { margin: 0 0 20px; line-height: 1.5; color: var(--texto-2); }
+        button { appearance: none; border: 0; border-radius: 14px; background: var(--petroleo); color: #fffdf9; font: inherit; font-weight: 600; min-height: 48px; padding: 0 28px; width: 100%; cursor: pointer; }
+        button:focus-visible { outline: 3px solid var(--oro); outline-offset: 2px; }
+        small { display: block; margin-top: 16px; color: var(--texto-2); }
+    </style>
+</head>
+<body>
+    <main>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="88" height="88" aria-hidden="true"><defs><linearGradient id="glia" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#754711"/><stop offset=".55" stop-color="#AF8B51"/><stop offset="1" stop-color="#C9A86C"/></linearGradient><linearGradient id="gdia" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#AF8B51"/><stop offset=".6" stop-color="#D8BE8B"/><stop offset="1" stop-color="#E9D6B0"/></linearGradient><linearGradient id="bgia" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2F5937"/><stop offset=".55" stop-color="#225C54"/><stop offset="1" stop-color="#0D3E43"/></linearGradient></defs><rect width="128" height="128" rx="28" fill="url(#bgia)"/><rect x="3" y="3" width="122" height="122" rx="25" fill="none" stroke="url(#gdia)" stroke-width="1.2" opacity=".55"/><g transform="translate(14,16) scale(0.84)"><circle cx="34" cy="44" r="9" fill="#9CC2B0"/><path d="M17,80 C19,59 25,56 34,56 C43,56 49,59 51,80 Z" fill="#9CC2B0"/><circle cx="86" cy="44" r="9" fill="#9CC2B0"/><path d="M69,80 C71,59 77,56 86,56 C95,56 101,59 103,80 Z" fill="#9CC2B0"/><circle cx="60" cy="32" r="12" fill="url(#gdia)"/><path d="M38,80 C40,50 48,47 60,47 C72,47 80,50 82,80 Z" fill="url(#gdia)"/><path d="M14,88 Q60,98 106,88" fill="none" stroke="url(#gdia)" stroke-width="2.4" stroke-linecap="round"/></g></svg>
+        <h1>Sin conexión a internet</h1>
+        <p>No pudimos abrir PEOPLE porque tu equipo no tiene conexión. Revisa tus datos móviles o tu Wi-Fi e inténtalo de nuevo.</p>
+        <button type="button" onclick="location.reload()">Reintentar</button>
+        <small>Se volverá a cargar sola en cuanto regrese la conexión.</small>
+    </main>
+    <script>
+        window.addEventListener('online', function () { location.reload(); });
+    </script>
+</body>
+</html>

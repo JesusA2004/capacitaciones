@@ -26,7 +26,8 @@
         @php($descripcionSitio = 'MR. LANA PEOPLE: portal de Recursos Humanos de Mr. Lana — expediente digital, solicitudes, vacaciones, recibos de nómina y la app móvil para colaboradores.')
         <meta name="description" content="{{ $descripcionSitio }}">
         <meta name="robots" content="{{ $conSesion ? 'noindex, nofollow' : 'index, follow' }}">
-        <meta name="theme-color" content="#0D3E43">
+        {{-- Barra del navegador/app instalada: crema dentro (tema claro); el login conserva su tono oscuro. --}}
+        <meta name="theme-color" content="{{ $conSesion ? '#fbf8f2' : '#0D3E43' }}">
         <link rel="canonical" href="{{ url()->current() }}">
         <meta property="og:type" content="website">
         <meta property="og:site_name" content="MR. LANA PEOPLE">
@@ -42,7 +43,16 @@
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="apple-touch-icon" href="/branding/apple-touch-icon-pwa.png">
+
+        {{-- App instalable (PWA): Android/Chrome/Edge usan el manifiesto; iPhone/iPad,
+             «Compartir › Agregar a inicio» con estas etiquetas. Ver docs/PWA.md. --}}
+        <link rel="manifest" href="/manifest.webmanifest">
+        <meta name="application-name" content="PEOPLE">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-title" content="PEOPLE">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
         @fonts
 
