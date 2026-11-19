@@ -102,7 +102,7 @@ function guardar() {
         </div>
 
         <ul
-            class="grid max-h-[28rem] gap-1 overflow-y-auto rounded-xl border border-border/60 p-2 sm:grid-cols-2"
+            class="grid max-h-[28rem] grid-cols-1 gap-1 overflow-y-auto rounded-xl border border-border/60 p-2 sm:grid-cols-2"
         >
             <li v-for="sucursal in visibles" :key="sucursal.id">
                 <label

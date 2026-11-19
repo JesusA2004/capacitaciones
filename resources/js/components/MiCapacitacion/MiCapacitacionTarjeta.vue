@@ -20,7 +20,7 @@ defineProps<{ resumen: ResumenMiCapacitacionPortal }>();
 
 <template>
     <section
-        class="relative entrada-suave overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-salvia via-card to-menta p-5 shadow-sm sm:p-6"
+        class="relative entrada-suave overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-salvia via-card to-menta p-4 shadow-sm sm:p-6"
         aria-labelledby="titulo-mi-capacitacion"
     >
         <span
@@ -28,7 +28,7 @@ defineProps<{ resumen: ResumenMiCapacitacionPortal }>();
             aria-hidden="true"
         />
         <div
-            class="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"
+            class="relative flex flex-col gap-3 sm:gap-5 lg:flex-row lg:items-center lg:justify-between"
         >
             <div class="flex items-center gap-4">
                 <AnilloProgreso
@@ -95,7 +95,7 @@ defineProps<{ resumen: ResumenMiCapacitacionPortal }>();
                         class="size-4 shrink-0 icono-avanza text-primary"
                     />
                 </Link>
-                <div class="flex gap-2">
+                <div class="flex justify-end gap-2">
                     <Link
                         v-if="resumen.pendientes > 0"
                         :href="misPendientes()"
@@ -108,6 +108,7 @@ defineProps<{ resumen: ResumenMiCapacitacionPortal }>();
                         class="flex presionable items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-primary transicion-ui hover:bg-card/70"
                     >
                         Ver todo
+                        <ArrowRight class="size-4 icono-avanza" />
                     </Link>
                 </div>
             </div>

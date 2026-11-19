@@ -151,27 +151,18 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
             <EstadoBadge :estado="solicitud.estado" />
         </CrudPageHeader>
 
-        <div class="grid gap-6 lg:grid-cols-12 lg:items-start">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
             <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
-                <!-- Quién aprueba y en qué paso va (mismo flujo que ve RH). -->
-                <FlujoAprobacion
-                    v-if="flujo"
-                    :flujo="flujo"
-                    :solicitud-id="solicitud.id"
-                />
-                <PermisoAutorizacionCard
-                    v-if="permiso"
-                    :permiso="permiso"
-                    :pdf-url="permisoPdf.url(solicitud.id)"
-                />
                 <!-- Progreso -->
                 <div
                     v-if="!esTerminalAtipico"
-                    class="rounded-2xl border border-border/60 bg-card p-5"
+                    class="rounded-2xl border border-border/60 bg-card p-4 sm:p-5"
                 >
-                    <ol class="flex items-center gap-2">
+                    <ol class="flex items-center gap-1.5 sm:gap-2">
                         <template v-for="(paso, indice) in PASOS" :key="paso">
-                            <li class="flex flex-1 items-center gap-2">
+                            <li
+                                class="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2"
+                            >
                                 <span
                                     :class="
                                         cn(
@@ -191,7 +182,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                                 <span
                                     :class="
                                         cn(
-                                            'text-xs font-medium',
+                                            'text-xs leading-tight font-medium',
                                             indice <= pasoActualIndice
                                                 ? 'text-foreground'
                                                 : 'text-muted-foreground',
@@ -203,7 +194,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                             </li>
                             <li
                                 v-if="indice < PASOS.length - 1"
-                                class="h-px flex-1 bg-border"
+                                class="h-px w-3 shrink-0 bg-border sm:w-auto sm:flex-1"
                             />
                         </template>
                     </ol>
@@ -244,6 +235,17 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                         </p>
                     </div>
                 </div>
+                <!-- Quién aprueba y en qué paso va (mismo flujo que ve RH). -->
+                <FlujoAprobacion
+                    v-if="flujo"
+                    :flujo="flujo"
+                    :solicitud-id="solicitud.id"
+                />
+                <PermisoAutorizacionCard
+                    v-if="permiso"
+                    :permiso="permiso"
+                    :pdf-url="permisoPdf.url(solicitud.id)"
+                />
 
                 <RespuestaCorreccion
                     v-if="correccion"
@@ -262,7 +264,9 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                 <div
                     class="grid gap-4 rounded-2xl border border-border/60 bg-card p-5"
                 >
-                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div
+                        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                    >
                         <div>
                             <p class="text-xs text-muted-foreground">Tipo</p>
                             <p class="text-sm font-medium">

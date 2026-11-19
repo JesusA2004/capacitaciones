@@ -286,7 +286,9 @@ const accesos = computed(() => {
                 </h2>
             </header>
 
-            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <div
+                class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]"
+            >
                 <!-- Reproductor -->
                 <div v-if="video" class="flex flex-col gap-4">
                     <div
@@ -444,7 +446,7 @@ const accesos = computed(() => {
                 </h2>
             </header>
 
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <button
                     v-for="d in documentos"
                     :key="d.slug"

@@ -343,7 +343,10 @@ const datosLaborales = computed(() => [
             </p>
         </section>
 
-        <div v-else class="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <div
+            v-else
+            class="grid grid-cols-1 gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]"
+        >
             <!-- Riel de pasos -->
             <nav aria-label="Pasos del alta" class="flex flex-col gap-3">
                 <div class="rounded-2xl border border-border/60 bg-card p-4">
@@ -436,7 +439,7 @@ const datosLaborales = computed(() => [
                         <!-- 1. Datos personales -->
                         <div v-if="paso === 1" class="flex flex-col gap-5">
                             <div
-                                class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+                                class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
                             >
                                 <div class="grid content-start gap-2">
                                     <Label for="nombre">Nombre</Label>
@@ -572,7 +575,7 @@ const datosLaborales = computed(() => [
                                 />
                             </div>
 
-                            <div class="grid gap-5 sm:grid-cols-2">
+                            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                 <div class="grid content-start gap-2">
                                     <Label for="contacto_nombre"
                                         >Contacto de emergencia</Label
@@ -682,7 +685,7 @@ const datosLaborales = computed(() => [
                         <!-- 2. Datos laborales -->
                         <div v-else-if="paso === 2" class="flex flex-col gap-5">
                             <dl
-                                class="grid entrada-escalonada gap-3 sm:grid-cols-2 xl:grid-cols-3"
+                                class="grid entrada-escalonada grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
                             >
                                 <div
                                     v-for="dato in datosLaborales"
@@ -774,7 +777,7 @@ const datosLaborales = computed(() => [
                                             class="mt-3 grid gap-3"
                                         >
                                             <div
-                                                class="grid gap-3 sm:grid-cols-2"
+                                                class="grid grid-cols-1 gap-3 sm:grid-cols-2"
                                             >
                                                 <div class="grid gap-1.5">
                                                     <p

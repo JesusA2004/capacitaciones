@@ -23,7 +23,7 @@ defineProps<{ contratos: ContratoPropio[] }>();
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Mi portal', href: indexPortal() },
+            { title: 'Mi inicio', href: indexPortal() },
             { title: 'Mis contratos', href: rutaContratos() },
         ],
     },
@@ -55,7 +55,7 @@ const porVencer = (c: ContratoPropio) =>
 
         <div
             v-else
-            class="grid entrada-escalonada gap-3 md:grid-cols-2 xl:grid-cols-3"
+            class="grid entrada-escalonada grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
         >
             <article
                 v-for="contrato in contratos"

@@ -18,6 +18,8 @@ const props = withDefaults(
   {
     align: "center",
     sideOffset: 4,
+    // Nunca pegado al borde de la pantalla (320 px): 8 px de aire.
+    collisionPadding: 8,
   },
 )
 const emits = defineEmits<PopoverContentEmits>()

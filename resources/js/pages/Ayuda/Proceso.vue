@@ -115,7 +115,7 @@ const siguiente = computed(() => {
                 <li
                     v-for="(a, i) in articulos"
                     :key="a.id"
-                    class="grid gap-4 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+                    class="grid grid-cols-1 gap-4 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 sm:grid-cols-[auto_1fr_auto] sm:items-center"
                 >
                     <span
                         class="flex size-10 items-center justify-center rounded-full bg-[var(--mrl-petroleo)] text-sm font-semibold text-white tabular-nums"
@@ -161,7 +161,7 @@ const siguiente = computed(() => {
             </ol>
 
             <nav
-                class="grid gap-3 border-t border-[var(--mrl-borde)] pt-6 sm:grid-cols-2"
+                class="grid grid-cols-1 gap-3 border-t border-[var(--mrl-borde)] pt-6 sm:grid-cols-2"
                 aria-label="Otros procesos"
             >
                 <Link

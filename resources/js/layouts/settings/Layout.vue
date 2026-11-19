@@ -50,13 +50,12 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
         />
 
         <div class="flex flex-col gap-6 lg:flex-row lg:gap-12">
-            <!-- Móvil/tablet: pestañas horizontales con scroll; escritorio:
-                 menú vertical a la izquierda. -->
-            <aside
-                class="-mx-4 min-w-0 px-4 sm:mx-0 sm:px-0 lg:w-52 lg:shrink-0"
-            >
+            <!-- Móvil: rejilla de 2 columnas (todas las secciones a la vista,
+                 ninguna escondida tras un scroll sin pista); tablet: una fila;
+                 escritorio: menú vertical a la izquierda. -->
+            <aside class="min-w-0 lg:w-52 lg:shrink-0">
                 <nav
-                    class="flex [scrollbar-width:none] gap-1 overflow-x-auto border-b border-border/60 pb-2 lg:flex-col lg:border-b-0 lg:pb-0"
+                    class="grid grid-cols-2 gap-1 border-b border-border/60 pb-2 sm:flex sm:flex-wrap lg:flex-col lg:border-b-0 lg:pb-0"
                     aria-label="Configuración"
                 >
                     <Button

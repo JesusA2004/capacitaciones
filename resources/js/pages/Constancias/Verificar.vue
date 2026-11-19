@@ -79,7 +79,7 @@ defineProps<{
                     </div>
                 </div>
 
-                <dl class="grid gap-px bg-border/60 sm:grid-cols-2">
+                <dl class="grid grid-cols-1 gap-px bg-border/60 sm:grid-cols-2">
                     <div class="flex gap-3 bg-card p-5 sm:col-span-2">
                         <span
                             class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary"

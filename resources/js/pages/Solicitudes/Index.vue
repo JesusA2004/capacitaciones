@@ -473,7 +473,7 @@ function periodo(solicitud: SolicitudInternaItem): string | null {
         <div
             v-else
             data-tour="mis-solicitudes-lista"
-            class="grid entrada-escalonada gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+            class="grid entrada-escalonada grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
         >
             <Link
                 v-for="solicitud in solicitudes.data"
@@ -556,7 +556,7 @@ function periodo(solicitud: SolicitudInternaItem): string | null {
 
             <div
                 v-if="pasoFormulario === 'tipo'"
-                class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
                 <button
                     v-for="tipo in tiposCatalogo"
@@ -721,7 +721,7 @@ function periodo(solicitud: SolicitudInternaItem): string | null {
                         modoFechas === 'horario' ||
                         modoFechas === 'fecha_unica'
                     "
-                    class="grid gap-4 sm:grid-cols-2"
+                    class="grid grid-cols-1 gap-4 sm:grid-cols-2"
                 >
                     <div class="grid gap-2">
                         <Label for="fecha_inicio">{{

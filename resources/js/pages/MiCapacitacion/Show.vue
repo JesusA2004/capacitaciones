@@ -303,7 +303,7 @@ function alCompletarVideo() {
             </p>
         </div>
 
-        <div class="grid items-start gap-4 2xl:grid-cols-2">
+        <div class="grid grid-cols-1 items-start gap-4 2xl:grid-cols-2">
             <section
                 v-for="(modulo, m) in modulos"
                 :key="modulo.id"

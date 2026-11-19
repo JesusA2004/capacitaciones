@@ -29,7 +29,7 @@ defineProps<{
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Mi portal', href: indexPortal() },
+            { title: 'Mi inicio', href: indexPortal() },
             { title: 'Mis documentos laborales', href: rutaIndex() },
         ],
     },
@@ -105,7 +105,7 @@ const pestana = (activa: boolean) =>
 
         <div
             v-else
-            class="grid entrada-escalonada gap-3 md:grid-cols-2 xl:grid-cols-3"
+            class="grid entrada-escalonada grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
         >
             <Link
                 v-for="documento in documentos.data"

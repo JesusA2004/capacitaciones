@@ -96,7 +96,7 @@ function estado(c: CelebracionMuro): string {
 
         <div
             v-else
-            class="grid entrada-escalonada gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+            class="grid entrada-escalonada grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
             <Link
                 v-for="c in celebraciones"

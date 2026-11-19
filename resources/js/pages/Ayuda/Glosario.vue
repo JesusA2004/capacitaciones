@@ -58,7 +58,7 @@ const terminos = computed(() => {
             />
         </div>
 
-        <dl class="grid gap-3 sm:grid-cols-2">
+        <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div
                 v-for="t in terminos"
                 :key="t.termino"

@@ -177,7 +177,7 @@ function confirmar() {
                         <HandCoins class="size-4 text-bronce" />
                         Préstamo
                     </h3>
-                    <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div class="grid gap-1.5">
                             <Label for="pr-monto">Monto autorizado</Label>
                             <div class="relative">
@@ -255,7 +255,7 @@ function confirmar() {
                         <FileSignature class="size-4 text-bronce" />
                         Contrato de crédito
                     </h3>
-                    <div class="grid gap-3 sm:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div class="grid gap-1.5">
                             <Label for="pr-cargo">Cargo (sin I.V.A.)</Label>
                             <div class="relative">
@@ -319,7 +319,7 @@ function confirmar() {
                             />
                         </div>
                     </div>
-                    <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div class="grid gap-1.5">
                             <Label for="pr-primer">Primer pago parcial</Label>
                             <DatePicker
@@ -344,7 +344,7 @@ function confirmar() {
                             />
                         </div>
                     </div>
-                    <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div class="grid gap-1.5">
                             <Label for="pr-pago">Pago por periodo</Label>
                             <div class="relative">

@@ -23,7 +23,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Mi portal', href: indexPortal() },
+            { title: 'Mi inicio', href: indexPortal() },
             { title: 'Mi perfil', href: '' },
         ],
     },

@@ -121,7 +121,7 @@ function error(campo: string): string | undefined {
                     </template>
                 </p>
             </div>
-            <div class="grid gap-3 sm:grid-cols-2">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div
                     v-for="c in faltantes"
                     :key="c.campo"
@@ -197,7 +197,7 @@ function error(campo: string): string | undefined {
                     en tu expediente cuando RH los apruebe.
                 </p>
             </div>
-            <dl class="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
                 <div v-for="c in enRevision" :key="c.campo" class="min-w-0">
                     <dt class="text-xs text-muted-foreground">
                         {{ c.etiqueta }}

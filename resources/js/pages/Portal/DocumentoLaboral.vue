@@ -38,7 +38,7 @@ const props = defineProps<{ documento: DocumentoLaboralPropio }>();
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Mi portal', href: indexPortal() },
+            { title: 'Mi inicio', href: indexPortal() },
             { title: 'Mis documentos laborales', href: rutaIndex() },
         ],
     },
@@ -142,7 +142,7 @@ async function firmarDocumento() {
             </span>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div
                 class="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
             >

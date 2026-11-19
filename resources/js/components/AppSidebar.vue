@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
                     :key="modo.clave"
                     type="button"
                     :aria-pressed="modoVisual === modo.clave"
-                    class="relative z-10 presionable h-8 rounded-md px-2 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    class="relative z-10 h-8 min-w-0 presionable truncate rounded-md px-1.5 text-xs font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     :class="
                         modoVisual === modo.clave
                             ? 'text-primary-foreground'

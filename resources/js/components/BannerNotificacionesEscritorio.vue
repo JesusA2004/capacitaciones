@@ -84,7 +84,7 @@ async function alActivar(): Promise<void> {
                 class="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2"
             >
                 <p
-                    class="truncate text-xs font-semibold text-foreground sm:text-sm"
+                    class="text-xs leading-snug font-semibold text-balance text-foreground sm:truncate sm:text-sm"
                 >
                     Recibe avisos de PEOPLE al instante
                 </p>

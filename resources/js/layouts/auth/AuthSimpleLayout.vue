@@ -62,7 +62,7 @@ const CARACTERISTICAS = [
                 />
             </div>
 
-            <ul class="relative z-10 grid gap-3 xl:grid-cols-3">
+            <ul class="relative z-10 grid grid-cols-1 gap-3 xl:grid-cols-3">
                 <li
                     v-for="(item, i) in CARACTERISTICAS"
                     :key="item.texto"

@@ -117,7 +117,7 @@ function enviar() {
         </CrudPageHeader>
 
         <div
-            class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)]"
+            class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)]"
         >
             <div class="flex flex-col gap-5">
                 <section

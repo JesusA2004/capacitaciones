@@ -107,7 +107,7 @@ defineOptions({
             </nav>
 
             <header
-                class="grid gap-6 rounded-[2rem] border border-[var(--mrl-borde)] bg-gradient-to-br from-crema/80 via-[var(--mrl-superficie)] to-salvia/50 p-6 sm:p-8 lg:grid-cols-[1fr_auto]"
+                class="grid grid-cols-1 gap-6 rounded-[2rem] border border-[var(--mrl-borde)] bg-gradient-to-br from-crema/80 via-[var(--mrl-superficie)] to-salvia/50 p-6 sm:p-8 lg:grid-cols-[1fr_auto]"
             >
                 <div class="flex items-start gap-4">
                     <span
@@ -164,7 +164,9 @@ defineOptions({
                 </div>
             </header>
 
-            <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div
+                class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]"
+            >
                 <article class="flex min-w-0 flex-col gap-8">
                     <!-- QUÉ ES -->
                     <section>
@@ -297,7 +299,7 @@ defineOptions({
                         >
                             Lo que se captura
                         </h2>
-                        <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div
                                 v-for="g in art.campos"
                                 :key="g.grupo"
@@ -392,7 +394,7 @@ defineOptions({
 
                     <!-- Anterior / siguiente -->
                     <nav
-                        class="grid gap-3 border-t border-[var(--mrl-borde)] pt-6 sm:grid-cols-2"
+                        class="grid grid-cols-1 gap-3 border-t border-[var(--mrl-borde)] pt-6 sm:grid-cols-2"
                         aria-label="Artículos del proceso"
                     >
                         <Link

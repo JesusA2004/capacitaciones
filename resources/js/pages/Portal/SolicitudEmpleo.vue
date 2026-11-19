@@ -516,7 +516,7 @@ const trazo = computed(
             </p>
             <dl
                 v-if="enRevisionTotal.length"
-                class="grid w-full max-w-xl gap-x-5 gap-y-2 rounded-2xl bg-card/70 p-4 text-left sm:grid-cols-2"
+                class="grid w-full max-w-xl grid-cols-1 gap-x-5 gap-y-2 rounded-2xl bg-card/70 p-4 text-left sm:grid-cols-2"
             >
                 <div
                     v-for="c in enRevisionTotal"
@@ -552,7 +552,10 @@ const trazo = computed(
             </div>
         </section>
 
-        <div v-else class="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <div
+            v-else
+            class="grid grid-cols-1 gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]"
+        >
             <!-- Pasos -->
             <nav
                 aria-label="Secciones"
@@ -670,7 +673,9 @@ const trazo = computed(
                             </p>
                         </div>
                     </div>
-                    <div class="grid gap-x-5 gap-y-4 md:grid-cols-2">
+                    <div
+                        class="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2"
+                    >
                         <div
                             v-for="campo in grupo.campos"
                             :key="campo.campo"
@@ -870,7 +875,9 @@ const trazo = computed(
                         Ya los enviaste: no tienes que capturarlos otra vez.
                         Quedan en tu expediente cuando RH los apruebe.
                     </p>
-                    <dl class="mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-2">
+                    <dl
+                        class="mt-3 grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2"
+                    >
                         <div
                             v-for="c in enRevision"
                             :key="c.campo"
@@ -927,7 +934,9 @@ const trazo = computed(
                         />
                     </button>
                     <div v-if="verRegistrados" class="px-4 pb-4">
-                        <dl class="grid gap-x-5 gap-y-2 sm:grid-cols-2">
+                        <dl
+                            class="grid grid-cols-1 gap-x-5 gap-y-2 sm:grid-cols-2"
+                        >
                             <div
                                 v-for="c in registrados"
                                 :key="c.campo"

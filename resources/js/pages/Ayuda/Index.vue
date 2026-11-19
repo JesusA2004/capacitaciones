@@ -142,7 +142,10 @@ function buscar(): void {
                     {{ subtitulo }}
                 </p>
 
-                <div class="flex flex-wrap justify-center gap-2">
+                <!-- Móvil: botones del mismo ancho, uno debajo de otro. -->
+                <div
+                    class="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-center"
+                >
                     <Button
                         v-if="flujoCompleto"
                         size="lg"
@@ -212,7 +215,7 @@ function buscar(): void {
             >
                 <Clapperboard class="size-6" />
             </span>
-            <span class="min-w-0 flex-1">
+            <span class="min-w-48 flex-1">
                 <span class="block text-lg font-semibold">
                     Material de apoyo
                 </span>
@@ -221,7 +224,7 @@ function buscar(): void {
                     infografía de gerentes e infografía de gestor.
                 </span>
             </span>
-            <span class="flex items-center gap-1 text-sm font-semibold">
+            <span class="ml-auto flex items-center gap-1 text-sm font-semibold">
                 Ver material <ArrowRight class="size-4" />
             </span>
         </Link>
@@ -249,7 +252,7 @@ function buscar(): void {
                 </div>
                 <Button
                     variant="outline"
-                    class="gap-2"
+                    class="h-auto min-h-9 gap-2 py-2 whitespace-normal max-sm:w-full"
                     @click="iniciar(recorridoSistema)"
                 >
                     <Compass class="size-4" /> Recorrido guiado en pantalla
@@ -278,7 +281,7 @@ function buscar(): void {
                     }}
                 </h2>
             </header>
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <Link
                     v-for="p in procesos"
                     :key="p.id"
@@ -354,7 +357,7 @@ function buscar(): void {
                     }}
                 </h2>
             </header>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Link
                     v-for="r in rolesVisibles"
                     :key="r.id"
@@ -411,7 +414,7 @@ function buscar(): void {
                     saltar, regresar o salir cuando quieras; no modifica nada.
                 </p>
             </header>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div
                     v-for="r in recorridos"
                     :key="r.id"
@@ -468,7 +471,7 @@ function buscar(): void {
                     Cada módulo de tu menú
                 </h2>
             </header>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <details
                     v-for="m in modulos"
                     :key="m.id"
@@ -542,7 +545,7 @@ function buscar(): void {
         </section>
 
         <!-- Video, glosario y preguntas -->
-        <section class="grid gap-4 lg:grid-cols-3">
+        <section class="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Link
                 v-if="flujoCompleto"
                 href="/ayuda/video"

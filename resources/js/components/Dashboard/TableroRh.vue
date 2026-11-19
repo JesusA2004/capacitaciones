@@ -370,7 +370,10 @@ function detalleFila(f: FilaPlantillaSucursal): string {
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-                <MonthPicker v-model="mes" class="w-44" />
+                <MonthPicker
+                    v-model="mes"
+                    class="w-44 max-sm:w-auto max-sm:min-w-36 max-sm:flex-1"
+                />
                 <SelectSimple
                     v-if="tablero.filters.empresas.length > 1"
                     v-model="empresa"
@@ -384,7 +387,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                     placeholder="Empresa"
                     aria-label="Empresa"
                     placeholder-busqueda="Buscar empresa…"
-                    class="h-9 w-44"
+                    class="h-9 w-44 max-sm:w-auto max-sm:min-w-36 max-sm:flex-1"
                 />
                 <SelectSimple
                     v-if="tablero.filters.sucursales.length > 1"
@@ -399,7 +402,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                     placeholder="Sucursal"
                     aria-label="Sucursal"
                     placeholder-busqueda="Buscar sucursal…"
-                    class="h-9 w-48"
+                    class="h-9 w-48 max-sm:w-auto max-sm:min-w-36 max-sm:flex-1"
                 />
                 <div
                     class="inline-flex items-center gap-1"
@@ -490,7 +493,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
             <!-- Cuatro bloques: cada indicador aparece una sola vez. -->
             <div
                 data-tour="dashboard-kpis"
-                class="grid entrada-escalonada gap-3 md:grid-cols-2 xl:grid-cols-4"
+                class="grid entrada-escalonada grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4"
             >
                 <article class="bloque border-t-primary">
                     <h2 class="bloque-titulo text-primary">Plantilla</h2>
@@ -950,7 +953,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                     plaza autorizada o ocupan dos; «en incorporación» sí ocupa
                     plaza; una baja en trámite ya no cuenta desde su último día.
                 </p>
-                <div class="mt-3 grid gap-3 lg:grid-cols-2">
+                <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                     <section
                         v-for="g in diferenciasPorMotivo"
                         :key="g.motivo"
@@ -1013,7 +1016,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
             </article>
 
             <div
-                class="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
+                class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
             >
                 <!-- Rotación mensual -->
                 <article data-tour="dashboard-rotacion" class="grafica">
@@ -1305,7 +1308,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                 </article>
             </div>
 
-            <div class="grid gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <div
+                class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+            >
                 <!-- Plantilla por sucursal -->
                 <article class="grafica">
                     <header
@@ -1356,7 +1361,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                     </p>
                     <ul
                         v-else
-                        class="mt-3 grid gap-x-6 gap-y-0.5 md:grid-cols-2"
+                        class="mt-3 grid grid-cols-1 gap-x-6 gap-y-0.5 md:grid-cols-2"
                     >
                         <li
                             v-for="f in sucursalesCobertura"
@@ -1364,7 +1369,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                         >
                             <button
                                 type="button"
-                                class="grid w-full grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_2.75rem_3rem] items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/60"
+                                class="grid min-h-8 w-full grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_2.75rem_3rem] items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/60"
                                 :class="[
                                     f.es_corporativo &&
                                         'bg-crema/60 font-semibold',

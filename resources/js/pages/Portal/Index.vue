@@ -168,7 +168,7 @@ const enlace =
         <!-- Encabezado: foto (precargada del expediente) + saludo -->
         <div
             data-tour="portal-encabezado"
-            class="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-5 text-foreground shadow-sm sm:p-8"
+            class="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-4 text-foreground shadow-sm sm:p-8"
         >
             <div
                 aria-hidden="true"
@@ -178,11 +178,9 @@ const enlace =
                 aria-hidden="true"
                 class="pointer-events-none absolute -bottom-24 left-1/3 size-56 rounded-full bg-menta/60"
             />
-            <div
-                class="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:text-left"
-            >
+            <div class="relative flex items-center gap-4 sm:gap-5">
                 <Avatar
-                    class="size-20 shrink-0 border-4 border-card shadow-md sm:size-24"
+                    class="size-16 shrink-0 border-2 border-card shadow-md sm:size-24 sm:border-4"
                 >
                     <AvatarImage
                         v-if="perfil.foto_url"
@@ -197,16 +195,16 @@ const enlace =
                 <div class="min-w-0 flex-1">
                     <p class="text-sm text-bronce">{{ saludo }}</p>
                     <h1
-                        class="text-2xl font-semibold text-balance break-words sm:text-3xl"
+                        class="text-xl leading-tight font-semibold text-balance break-words sm:text-3xl"
                     >
                         {{ perfil.nombre_completo }}
                     </h1>
-                    <p class="mt-1 text-sm text-muted-foreground sm:text-base">
+                    <p class="mt-1 text-xs text-muted-foreground sm:text-base">
                         {{ perfil.puesto ?? 'Sin puesto asignado' }} ·
                         {{ perfil.sucursal ?? 'Sin sucursal' }}
                     </p>
                     <div
-                        class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-primary ring-1 ring-border/60"
+                        class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-primary ring-1 ring-border/60 sm:mt-3"
                     >
                         <UserRound class="size-3.5" aria-hidden="true" />
                         {{ perfil.numero_empleado ?? 'Sin número de empleado' }}
@@ -214,7 +212,7 @@ const enlace =
                 </div>
                 <Link
                     :href="indexNotificaciones()"
-                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transicion-ui hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95 max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
+                    class="relative flex size-11 shrink-0 items-center justify-center self-start rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transicion-ui hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95 sm:size-12 sm:self-center"
                     :aria-label="`Notificaciones (${notificaciones.no_leidas} sin leer)`"
                 >
                     <Bell class="size-5" aria-hidden="true" />
@@ -280,7 +278,7 @@ const enlace =
                 /></Link>
             </div>
             <div
-                class="grid entrada-escalonada gap-3 md:grid-cols-2 2xl:grid-cols-3"
+                class="grid entrada-escalonada grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3"
             >
                 <Link
                     v-for="p in porHacer"
@@ -344,13 +342,13 @@ const enlace =
         <!-- Accesos rápidos -->
         <div
             data-tour="portal-accesos"
-            class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+            class="grid entrada-escalonada grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))] gap-2 sm:gap-3"
         >
             <Link
                 v-for="acceso in accesos"
                 :key="acceso.titulo"
                 :href="acceso.href"
-                class="group flex min-h-24 tarjeta-interactiva flex-col items-start gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm sm:min-h-0 sm:flex-row sm:items-center sm:gap-4"
+                class="group flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-3 shadow-sm sm:gap-4 sm:p-4"
             >
                 <span
                     class="flex size-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-200"
@@ -373,7 +371,7 @@ const enlace =
                     >
                 </span>
                 <ChevronRight
-                    class="hidden size-4 shrink-0 icono-avanza text-[var(--mrl-texto-suave)]/60 sm:block"
+                    class="size-4 shrink-0 icono-avanza text-[var(--mrl-texto-suave)]/60"
                     aria-hidden="true"
                 />
             </Link>

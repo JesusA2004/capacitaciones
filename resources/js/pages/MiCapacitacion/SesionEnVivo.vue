@@ -97,7 +97,7 @@ const estado = computed(
         </CrudPageHeader>
 
         <div
-            class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]"
+            class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]"
         >
             <section
                 class="relative entrada-suave overflow-hidden rounded-3xl border border-border/60 bg-linear-to-br from-salvia via-menta to-crema p-6 shadow-sm sm:p-8"

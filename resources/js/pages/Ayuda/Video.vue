@@ -73,7 +73,7 @@ function irA(segundos: number): void {
             </p>
         </header>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div class="flex flex-col gap-4">
                 <div
                     class="overflow-hidden rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-petroleo)] shadow-sm"
@@ -191,7 +191,7 @@ function irA(segundos: number): void {
                     Un tema, de 1 a 3 minutos
                 </h2>
             </header>
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <details
                     v-for="mini in MINI_VIDEOS"
                     :key="mini.id"

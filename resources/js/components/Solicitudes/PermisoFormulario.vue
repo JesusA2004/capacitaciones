@@ -62,7 +62,7 @@ const tieneTipo = computed(() =>
     <div class="grid gap-5">
         <section class="grid gap-2">
             <Label>Permiso solicitado</Label>
-            <div class="grid gap-2 sm:grid-cols-3">
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <button
                     v-for="opcion in opcionesTipo"
                     :key="opcion.value"
@@ -88,7 +88,7 @@ const tieneTipo = computed(() =>
             <InputError :message="errores.permiso_tipo" />
         </section>
 
-        <section v-if="tieneTipo" class="grid gap-4 sm:grid-cols-2">
+        <section v-if="tieneTipo" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="grid gap-2">
                 <Label for="permiso-fecha">Fecha del permiso</Label>
                 <DatePicker id="permiso-fecha" v-model="fechaInicio" />

@@ -69,8 +69,8 @@ function alSalirMouse() {
       }"
     >
       <SheetHeader class="sr-only">
-        <SheetTitle>Sidebar</SheetTitle>
-        <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+        <SheetTitle>Menú de navegación</SheetTitle>
+        <SheetDescription>Accesos a todas las pantallas del portal.</SheetDescription>
       </SheetHeader>
       <div class="flex h-full w-full flex-col">
         <slot />

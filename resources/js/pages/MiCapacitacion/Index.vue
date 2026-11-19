@@ -223,7 +223,7 @@ function contadorSeccion(clave: Seccion): number | null {
                         />
                     </div>
                     <div
-                        class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                     >
                         <Skeleton
                             v-for="n in 3"
@@ -278,7 +278,7 @@ function contadorSeccion(clave: Seccion): number | null {
                             v-else
                             tag="div"
                             :cantidad="panel.aulas.length"
-                            class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                            class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                         >
                             <Link
                                 v-for="aula in panel.aulas"
@@ -473,7 +473,7 @@ function contadorSeccion(clave: Seccion): number | null {
                             v-else
                             tag="ul"
                             :cantidad="panel.certificados.length"
-                            class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                            class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                         >
                             <li
                                 v-for="certificado in panel.certificados"

@@ -34,7 +34,7 @@ defineProps<{ recibos: RespuestaPaginada<Recibo> }>();
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Mi portal', href: indexPortal() },
+            { title: 'Mi inicio', href: indexPortal() },
             { title: 'Mis recibos de nómina', href: misRecibos() },
         ],
     },
@@ -74,7 +74,7 @@ const fecha = (valor: string) =>
 
         <div
             v-else
-            class="grid entrada-escalonada gap-4 md:grid-cols-2 xl:grid-cols-3"
+            class="grid entrada-escalonada grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
         >
             <article
                 v-for="recibo in recibos.data"

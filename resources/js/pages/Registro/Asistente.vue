@@ -618,7 +618,10 @@ const claseInactivo =
             <Spinner />
         </section>
 
-        <div v-else class="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <div
+            v-else
+            class="grid grid-cols-1 gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]"
+        >
             <!-- Riel de pasos -->
             <nav aria-label="Pasos del registro" class="flex flex-col gap-3">
                 <div class="rounded-2xl border border-border/60 bg-card p-4">
@@ -719,7 +722,7 @@ const claseInactivo =
                             paso.clave === 'personales' ||
                             paso.clave === 'emergencia'
                         "
-                        class="grid gap-5 sm:grid-cols-2"
+                        class="grid grid-cols-1 gap-5 sm:grid-cols-2"
                     >
                         <div
                             v-for="campo in camposPaso"
@@ -1042,7 +1045,7 @@ const claseInactivo =
                                 >
                             </div>
                             <ul
-                                class="grid entrada-escalonada gap-2 sm:grid-cols-2"
+                                class="grid entrada-escalonada grid-cols-1 gap-2 sm:grid-cols-2"
                             >
                                 <li
                                     v-for="s in estado.solicitud_empleo

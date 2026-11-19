@@ -88,7 +88,7 @@ const otrosRoles = computed(() =>
                 >
                     Tu checklist
                 </h2>
-                <ul class="grid gap-3 sm:grid-cols-2">
+                <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <li v-for="(item, i) in datos.checklist" :key="item.texto">
                         <Link
                             :href="`/ayuda/articulo/${item.articulo}`"

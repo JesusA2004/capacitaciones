@@ -614,9 +614,11 @@ function detalle(c: ColaboradorDirectorio): string {
                                 <p
                                     class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-semibold text-[var(--mrl-texto)]"
                                 >
-                                    <span class="min-w-0 truncate">{{
-                                        c.nombre
-                                    }}</span>
+                                    <span
+                                        class="line-clamp-2 min-w-0 break-words"
+                                        :title="c.nombre"
+                                        >{{ c.nombre }}</span
+                                    >
                                     <span
                                         v-if="c.es_mi_jefe"
                                         class="rounded-full bg-salvia px-2 py-0.5 text-[11px] font-medium text-primary"
@@ -630,9 +632,9 @@ function detalle(c: ColaboradorDirectorio): string {
                                 </p>
                                 <span
                                     v-if="c.datos_por_completar === true"
-                                    class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
+                                    class="mt-0.5 inline-flex w-fit items-start gap-1 rounded-lg bg-warning-soft px-2 py-0.5 text-[11px] leading-snug font-medium text-warning"
                                 >
-                                    <MailX class="size-3" />
+                                    <MailX class="mt-px size-3 shrink-0" />
                                     Datos por completar · {{ faltantes(c) }}
                                 </span>
                                 <Link

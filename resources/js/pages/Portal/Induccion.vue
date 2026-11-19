@@ -160,7 +160,7 @@ const repasando = ref(false);
                 contesta su evaluación FO-RH-EI. Al aprobarla empieza a laborar.
             </p>
             <ol
-                class="mt-4 grid entrada-escalonada gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4"
+                class="mt-4 grid entrada-escalonada grid-cols-1 gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4"
             >
                 <li
                     class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
