@@ -212,7 +212,7 @@ function guardarPreguntas() {
         </CrudPageHeader>
 
         <div
-            class="grid items-start gap-5 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]"
+            class="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]"
         >
             <section
                 class="flex entrada-suave flex-col rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
@@ -236,7 +236,7 @@ function guardarPreguntas() {
                         <InputError :message="form.errors.instrucciones" />
                     </div>
 
-                    <div class="grid grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div class="grid gap-2">
                             <Label for="calificacion_minima"
                                 >Calificación mínima (%)</Label
@@ -436,7 +436,7 @@ function guardarPreguntas() {
                 <div
                     class="mt-4 flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-border bg-crema/30 p-3"
                 >
-                    <div class="grid gap-2">
+                    <div class="grid w-full gap-2 sm:w-auto">
                         <Label>Banco</Label>
                         <SelectSimple
                             v-model="bancoElegido"
@@ -448,11 +448,11 @@ function guardarPreguntas() {
                             "
                             placeholder="Selecciona un banco"
                             placeholder-busqueda="Buscar banco…"
-                            class="w-56"
+                            class="w-full sm:w-56"
                         />
                     </div>
 
-                    <div class="grid gap-2">
+                    <div class="grid w-full gap-2 sm:w-auto">
                         <Label>Pregunta</Label>
                         <SelectSimple
                             v-model="preguntaElegida"
@@ -464,7 +464,7 @@ function guardarPreguntas() {
                             "
                             placeholder="Selecciona una pregunta"
                             placeholder-busqueda="Buscar pregunta…"
-                            class="w-72"
+                            class="w-full sm:w-72"
                         />
                     </div>
 

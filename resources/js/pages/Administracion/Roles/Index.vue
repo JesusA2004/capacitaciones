@@ -618,7 +618,7 @@ const dialogClonar = ref(false);
             ]"
         />
 
-        <div class="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
             <!-- Lista de roles -->
             <aside
                 class="flex flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start"
@@ -858,7 +858,7 @@ const dialogClonar = ref(false);
 
                     <!-- Comparar / copiar -->
                     <div
-                        class="grid gap-3 border-t border-border/60 pt-3 md:grid-cols-2"
+                        class="grid grid-cols-1 gap-3 border-t border-border/60 pt-3 md:grid-cols-2"
                     >
                         <div class="flex flex-col gap-1.5 text-sm">
                             <span
@@ -909,10 +909,10 @@ const dialogClonar = ref(false);
 
                 <!-- Barra: vista, búsqueda y filtros -->
                 <div
-                    class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-3 shadow-sm md:flex-row md:items-center"
+                    class="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card p-3 shadow-sm"
                 >
                     <div
-                        class="inline-flex shrink-0 rounded-xl bg-muted p-1"
+                        class="scroll-x-limpio inline-flex max-w-full shrink-0 rounded-xl bg-muted p-1"
                         role="tablist"
                     >
                         <button
@@ -921,7 +921,7 @@ const dialogClonar = ref(false);
                             type="button"
                             role="tab"
                             :aria-selected="vista === opcion.valor"
-                            class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+                            class="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors"
                             :class="
                                 vista === opcion.valor
                                     ? 'bg-background shadow-sm'
@@ -934,7 +934,7 @@ const dialogClonar = ref(false);
                     </div>
 
                     <template v-if="vista === 'matriz'">
-                        <div class="relative min-w-0 flex-1">
+                        <div class="relative min-w-0 flex-1 basis-60">
                             <Search
                                 class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                             />
@@ -1054,7 +1054,7 @@ const dialogClonar = ref(false);
 
                         <div
                             v-if="!plegadas.has(etapa.clave)"
-                            class="grid entrada-escalonada gap-3 xl:grid-cols-2"
+                            class="grid entrada-escalonada grid-cols-1 gap-3 xl:grid-cols-2"
                         >
                             <ModuloPermisosCard
                                 v-for="modulo in etapa.modulos"
@@ -1112,7 +1112,7 @@ const dialogClonar = ref(false);
                                 listan para que nada quede oculto.
                             </p>
                         </div>
-                        <div class="grid gap-3 xl:grid-cols-2">
+                        <div class="grid grid-cols-1 gap-3 xl:grid-cols-2">
                             <article
                                 v-for="grupo in otrosVisibles"
                                 :key="grupo.grupo"
@@ -1121,7 +1121,9 @@ const dialogClonar = ref(false);
                                 <h4 class="font-medium">
                                     {{ etiquetaModulo(grupo.grupo) }}
                                 </h4>
-                                <ul class="grid gap-1.5 sm:grid-cols-2">
+                                <ul
+                                    class="grid grid-cols-1 gap-1.5 sm:grid-cols-2"
+                                >
                                     <li
                                         v-for="permiso in grupo.permisos"
                                         :key="permiso"
@@ -1159,7 +1161,8 @@ const dialogClonar = ref(false);
             </section>
         </div>
 
-        <!-- Barra de cambios sin guardar: flotante y siempre a la vista
+        <!-- Barra de cambios sin guardar: flotante y siempre a la vista, sin
+             tapar la barra inferior móvil ni el botón de Ayuda
              (no hay que bajar hasta el final para guardar). El espaciador
              evita que tape lo último de la matriz. -->
         <div
@@ -1169,7 +1172,7 @@ const dialogClonar = ref(false);
                 !soloLectura &&
                 vista !== 'notificaciones'
             "
-            class="h-24"
+            class="h-56 sm:h-28"
             aria-hidden="true"
         />
         <div
@@ -1179,7 +1182,7 @@ const dialogClonar = ref(false);
                 !soloLectura &&
                 vista !== 'notificaciones'
             "
-            class="fixed inset-x-4 bottom-20 z-40 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg md:inset-x-auto md:right-6 md:bottom-6 md:max-w-xl"
+            class="fixed inset-x-4 bottom-32 z-40 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg sm:right-20 sm:bottom-6 md:left-auto md:max-w-xl"
             role="status"
         >
             <span class="text-sm">

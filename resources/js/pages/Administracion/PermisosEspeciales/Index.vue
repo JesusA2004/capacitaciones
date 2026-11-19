@@ -102,11 +102,14 @@ function fecha(valor: string): string {
             descripcion="Todos tienen exactamente lo de su rol. Para dar uno: Usuarios → menú de la persona → «Permisos especiales»."
         />
 
-        <ul v-else class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+        <ul
+            v-else
+            class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3"
+        >
             <li v-for="p in filtradas" :key="p.id">
                 <Link
                     :href="show.url(p.id)"
-                    class="tarjeta-interactiva flex h-full flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    class="flex h-full tarjeta-interactiva flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
                 >
                     <span class="font-semibold">{{ p.nombre }}</span>
                     <span class="flex flex-wrap gap-1">

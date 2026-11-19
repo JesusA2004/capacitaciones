@@ -145,7 +145,7 @@ async function eliminar(pregunta: PreguntaItem) {
             v-else
             tag="div"
             :cantidad="preguntas.length"
-            class="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3"
+            class="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3"
         >
             <article
                 v-for="(pregunta, i) in preguntas"

@@ -226,7 +226,7 @@ const ORIGEN_CLASE: Record<string, string> = {
 
         <!-- Explicación corta -->
         <div
-            class="grid gap-3 rounded-2xl border border-border/60 bg-crema p-4 text-sm sm:grid-cols-2"
+            class="grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-crema p-4 text-sm sm:grid-cols-2"
         >
             <p class="flex items-start gap-2">
                 <GitBranch class="mt-0.5 size-4 shrink-0 text-primary" />
@@ -262,7 +262,9 @@ const ORIGEN_CLASE: Record<string, string> = {
                         : 'personas con aprobaciones detenidas'
                 }}
             </h2>
-            <ul class="grid max-h-72 gap-2 overflow-y-auto lg:grid-cols-2">
+            <ul
+                class="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto lg:grid-cols-2"
+            >
                 <li
                     v-for="a in alertas"
                     :key="a.colaborador_id"
@@ -294,7 +296,7 @@ const ORIGEN_CLASE: Record<string, string> = {
             </div>
             <ul
                 v-else
-                class="grid entrada-escalonada gap-3 md:grid-cols-2 2xl:grid-cols-3"
+                class="grid entrada-escalonada grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3"
             >
                 <li
                     v-for="regla in reglas"
@@ -416,7 +418,7 @@ const ORIGEN_CLASE: Record<string, string> = {
             </div>
 
             <ul
-                class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
             >
                 <li
                     v-for="p in personasVisibles"

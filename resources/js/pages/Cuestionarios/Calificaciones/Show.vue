@@ -139,7 +139,7 @@ function calificarRespuesta(respuestaId: number, esCorrecta: boolean) {
         <ListaAnimada
             tag="div"
             :cantidad="intento.respuestas.length"
-            class="grid gap-3 xl:grid-cols-2"
+            class="grid grid-cols-1 gap-3 xl:grid-cols-2"
         >
             <article
                 v-for="(respuesta, i) in intento.respuestas"

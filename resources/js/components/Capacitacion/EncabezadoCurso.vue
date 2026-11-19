@@ -55,10 +55,10 @@ const pestanas = [
         <PortadaCurso
             :curso-id="curso.id"
             :titulo="curso.titulo"
-            alto="h-36 sm:h-44"
+            alto="flex min-h-36 flex-col justify-end sm:min-h-44"
         >
             <div
-                class="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6"
+                class="relative flex flex-col gap-3 p-5 pt-12 sm:flex-row sm:items-end sm:justify-between sm:p-6"
             >
                 <div class="min-w-0">
                     <Badge

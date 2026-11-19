@@ -483,14 +483,14 @@ const hoy = new Date().toISOString().slice(0, 10);
             ]"
         />
 
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <section class="flex min-w-0 flex-col gap-4">
                 <!-- Barra -->
                 <div
-                    class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-3 shadow-sm md:flex-row md:items-center"
+                    class="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card p-3 shadow-sm"
                 >
                     <div
-                        class="inline-flex shrink-0 rounded-xl bg-muted p-1"
+                        class="scroll-x-limpio inline-flex max-w-full shrink-0 rounded-xl bg-muted p-1"
                         role="tablist"
                     >
                         <button
@@ -506,7 +506,7 @@ const hoy = new Date().toISOString().slice(0, 10);
                             type="button"
                             role="tab"
                             :aria-selected="vista === opcion.valor"
-                            class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+                            class="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors"
                             :class="
                                 vista === opcion.valor
                                     ? 'bg-background shadow-sm'
@@ -518,7 +518,7 @@ const hoy = new Date().toISOString().slice(0, 10);
                         </button>
                     </div>
                     <template v-if="vista === 'matriz'">
-                        <div class="relative min-w-0 flex-1">
+                        <div class="relative min-w-0 flex-1 basis-60">
                             <Search
                                 class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                             />
@@ -671,7 +671,7 @@ const hoy = new Date().toISOString().slice(0, 10);
                         </button>
                         <div
                             v-if="!plegadas.has(etapa.clave)"
-                            class="grid gap-3 2xl:grid-cols-2"
+                            class="grid grid-cols-1 gap-3 2xl:grid-cols-2"
                         >
                             <ModuloPermisosCard
                                 v-for="modulo in etapa.modulos"
@@ -706,7 +706,7 @@ const hoy = new Date().toISOString().slice(0, 10);
                         class="flex flex-col gap-3"
                     >
                         <h3 class="font-semibold">Otros permisos</h3>
-                        <div class="grid gap-3 2xl:grid-cols-2">
+                        <div class="grid grid-cols-1 gap-3 2xl:grid-cols-2">
                             <article
                                 v-for="grupo in otrosVisibles"
                                 :key="grupo.grupo"
@@ -715,7 +715,9 @@ const hoy = new Date().toISOString().slice(0, 10);
                                 <h4 class="font-medium">
                                     {{ etiquetaModulo(grupo.grupo) }}
                                 </h4>
-                                <ul class="grid gap-1.5 sm:grid-cols-2">
+                                <ul
+                                    class="grid grid-cols-1 gap-1.5 sm:grid-cols-2"
+                                >
                                     <li
                                         v-for="permiso in grupo.permisos"
                                         :key="permiso"
@@ -834,16 +836,17 @@ const hoy = new Date().toISOString().slice(0, 10);
         </div>
 
         <!-- Barra de cambios: flotante y siempre a la vista (no hay que bajar
-             hasta el final para guardar). El espaciador evita que tape lo
+             hasta el final para guardar; sin tapar la barra inferior móvil ni el
+             botón de Ayuda). El espaciador evita que tape lo
              último de la matriz. -->
         <div
             v-if="cambios > 0 && !soloLectura"
-            class="h-48 md:h-36"
+            class="h-80 sm:h-56 md:h-40"
             aria-hidden="true"
         />
         <div
             v-if="cambios > 0 && !soloLectura"
-            class="fixed inset-x-4 bottom-20 z-40 flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg md:inset-x-auto md:right-6 md:bottom-6 md:w-[min(48rem,calc(100vw-20rem))]"
+            class="fixed inset-x-4 bottom-32 z-40 flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg sm:right-20 sm:bottom-6 md:left-auto md:w-[min(48rem,calc(100vw-7rem))] lg:w-[min(48rem,calc(100vw-22rem))]"
             role="status"
         >
             <span class="text-sm">
@@ -852,8 +855,10 @@ const hoy = new Date().toISOString().slice(0, 10);
                 >
                 para {{ usuario.nombre }}: su rol no cambia.
             </span>
-            <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem_auto]">
-                <div class="grid gap-1">
+            <div
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-[minmax(0,1fr)_12rem_auto]"
+            >
+                <div class="grid gap-1 sm:col-span-2 md:col-span-1">
                     <Label for="motivo-especial">Motivo (obligatorio)</Label>
                     <Textarea
                         id="motivo-especial"
@@ -879,7 +884,7 @@ const hoy = new Date().toISOString().slice(0, 10);
                         Ideal para coberturas: vence sola.
                     </p>
                 </div>
-                <div class="flex items-end gap-2">
+                <div class="flex flex-wrap items-end justify-end gap-2">
                     <Button variant="outline" size="sm" @click="descartar">
                         <RotateCcw class="size-4" />
                         Descartar

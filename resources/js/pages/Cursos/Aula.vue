@@ -203,7 +203,7 @@ const CELDA: Record<EstadoCeldaAula, { texto: string; clase: string }> = {
                     v-else
                     tag="ol"
                     :cantidad="aula.tablon.length"
-                    class="grid gap-3 xl:grid-cols-2"
+                    class="grid grid-cols-1 gap-3 xl:grid-cols-2"
                 >
                     <li
                         v-for="(evento, i) in aula.tablon"
@@ -275,7 +275,10 @@ const CELDA: Record<EstadoCeldaAula, { texto: string; clase: string }> = {
                     titulo="Sin trabajo asignado"
                     descripcion="Agrega lecciones de cuestionario, actividad o sesión en vivo desde el constructor del curso."
                 />
-                <ul v-else class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                <ul
+                    v-else
+                    class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3"
+                >
                     <li
                         v-for="trabajo in aula.trabajo"
                         :key="trabajo.leccion_id"
@@ -430,7 +433,7 @@ const CELDA: Record<EstadoCeldaAula, { texto: string; clase: string }> = {
                     v-else
                     tag="ul"
                     :cantidad="participantesFiltrados.length"
-                    class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+                    class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
                 >
                     <li
                         v-for="persona in participantesFiltrados"

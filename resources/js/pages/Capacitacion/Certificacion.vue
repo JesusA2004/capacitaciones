@@ -303,7 +303,7 @@ function enviarFirmado() {
                 />
                 <ol
                     v-if="puede_gestionar"
-                    class="grid gap-3 md:grid-cols-3"
+                    class="grid grid-cols-1 gap-3 md:grid-cols-3"
                     aria-label="Cómo se certifica"
                 >
                     <li
@@ -655,7 +655,7 @@ function enviarFirmado() {
             <h2 class="text-base font-semibold">
                 Niveles por constancias de cursos
             </h2>
-            <ul class="grid gap-3 md:grid-cols-3">
+            <ul class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <li
                     v-for="nivel in niveles"
                     :key="nivel.clave"
@@ -710,7 +710,7 @@ function enviarFirmado() {
                     />
                 </div>
 
-                <div class="grid gap-4 lg:grid-cols-3">
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <DashboardChartCard
                         title="Personas por nivel"
                         type="donut"

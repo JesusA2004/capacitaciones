@@ -145,7 +145,7 @@ function guardar() {
                     <InputError :message="form.errors.descripcion" />
                 </div>
 
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div class="grid gap-2">
                         <Label>Proveedor</Label>
                         <Select v-model="form.proveedor">
@@ -229,7 +229,7 @@ function guardar() {
                         </Select>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div class="grid gap-2">
                             <Label for="porcentaje_minimo_asistencia"
                                 >% mínimo</Label

@@ -31,11 +31,13 @@ const TONOS: Record<string, string> = {
 
 <template>
     <div
-        class="flex items-center gap-2.5 rounded-2xl border border-border/60 bg-card p-3 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:gap-3.5 sm:p-4"
+        class="@container flex items-center gap-2.5 rounded-2xl border border-border/60 bg-card p-3 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:gap-3.5 sm:p-4"
     >
+        <!-- Contenedor: en tarjetas muy angostas (2 columnas en 320–360 px)
+             el icono se oculta para que la etiqueta no se parta a media palabra. -->
         <span
             v-if="icono"
-            class="flex size-9 shrink-0 items-center justify-center rounded-xl sm:size-11"
+            class="hidden size-9 shrink-0 items-center justify-center rounded-xl sm:size-11 @[8.5rem]:flex"
             :class="TONOS[tono]"
         >
             <component :is="icono" class="size-4 sm:size-5" />

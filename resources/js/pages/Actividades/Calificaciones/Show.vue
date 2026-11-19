@@ -113,7 +113,7 @@ function enviarCalificacion(aprobada: boolean) {
         </CrudPageHeader>
 
         <div
-            class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]"
+            class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]"
         >
             <section
                 class="flex entrada-suave flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"

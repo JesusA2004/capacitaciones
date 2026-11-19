@@ -10,14 +10,12 @@ import {
     CopyCheck,
     FolderOpen,
     Hourglass,
-    MonitorX,
     Send,
     Undo2,
     UserRoundCheck,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
-import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import CambioSuave from '@/components/ui/CambioSuave.vue';
 import { Label } from '@/components/ui/label';
@@ -87,12 +85,6 @@ function enviar(url: string, datos: Record<string, string> = {}): void {
     <Head :title="`Baja en sistemas · ${p.colaborador.nombre}`" />
 
     <div class="pagina-ancha flex flex-col gap-4">
-        <CrudPageHeader
-            :titulo="p.colaborador.nombre"
-            :icono="MonitorX"
-            detalle
-        />
-
         <section
             class="flex flex-wrap items-center gap-4 rounded-2xl border bg-card p-4 shadow-xs"
         >
@@ -107,9 +99,9 @@ function enviar(url: string, datos: Record<string, string> = {}): void {
                 >
                     {{ p.evento_etiqueta }}
                 </span>
-                <p class="mt-1 text-xl font-semibold">
+                <h1 class="mt-1 text-xl font-semibold">
                     {{ p.colaborador.nombre }}
-                </p>
+                </h1>
                 <p class="text-sm text-muted-foreground">
                     {{ p.colaborador.puesto ?? 'Sin puesto' }} ·
                     {{ p.colaborador.sucursal ?? 'Sin sucursal' }}
@@ -176,7 +168,7 @@ function enviar(url: string, datos: Record<string, string> = {}): void {
         </div>
 
         <div
-            class="grid entrada-escalonada gap-4 md:grid-cols-2 xl:grid-cols-4"
+            class="grid entrada-escalonada grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4"
         >
             <section
                 v-for="seccion in p.secciones"

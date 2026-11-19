@@ -23,7 +23,7 @@ const consulta = () =>
 <template>
     <div class="flex flex-col gap-3">
         <nav
-            class="flex w-fit gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-crema/50 p-1"
+            class="flex w-fit max-w-full gap-1 overflow-x-auto rounded-2xl border border-border/60 bg-crema/50 p-1"
             aria-label="Bandejas de calificación"
         >
             <Link

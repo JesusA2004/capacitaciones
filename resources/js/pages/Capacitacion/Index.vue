@@ -134,11 +134,13 @@ function porcentaje(completaron: number, inscritos: number): number {
                             class="h-24 rounded-2xl"
                         />
                     </div>
-                    <div class="grid gap-4 lg:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
                         <Skeleton class="h-64 rounded-2xl lg:col-span-2" />
                         <Skeleton class="h-64 rounded-2xl" />
                     </div>
-                    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div
+                        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+                    >
                         <Skeleton
                             v-for="n in 4"
                             :key="n"
@@ -185,7 +187,7 @@ function porcentaje(completaron: number, inscritos: number): number {
                     />
                 </div>
 
-                <div class="grid gap-4 lg:grid-cols-3">
+                <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div class="lg:col-span-2">
                         <DashboardChartCard
                             title="Cursos terminados por mes"
@@ -277,7 +279,7 @@ function porcentaje(completaron: number, inscritos: number): number {
                         v-else
                         tag="div"
                         :cantidad="portada.cursos.length"
-                        class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+                        class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
                     >
                         <component
                             :is="puede.ver_cursos ? Link : 'div'"
@@ -359,7 +361,9 @@ function porcentaje(completaron: number, inscritos: number): number {
                     class="flex flex-col gap-3"
                 >
                     <h2 class="text-lg font-semibold">Próximas sesiones</h2>
-                    <ul class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <ul
+                        class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+                    >
                         <li
                             v-for="sesion in portada.proximas_sesiones"
                             :key="sesion.id"

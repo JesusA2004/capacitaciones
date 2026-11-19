@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import SelectorVista from '@/components/ui/SelectorVista.vue';
 import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import type { Tono } from '@/lib/tonos';
+import { dashboard } from '@/routes';
 import { index as agendaIndex } from '@/routes/agenda';
 import { excel, pdf } from '@/routes/agenda/exportar';
 import type { EnlaceFlujo } from '@/types';
@@ -40,6 +41,15 @@ import type {
     EstadoAgenda,
     VistaAgenda,
 } from '@/types/agenda';
+
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            { title: 'Inicio', href: dashboard() },
+            { title: 'Agenda de entrevistas', href: '' },
+        ],
+    },
+});
 
 const props = defineProps<{
     filtros: AgendaFiltros;
@@ -244,7 +254,9 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
         </CrudPageHeader>
         <EnlaceRegreso :regreso="regreso" />
 
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div
+            class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 max-sm:[&>*:last-child]:col-span-2"
+        >
             <TarjetaMetrica
                 etiqueta="Entrevistas agendadas"
                 :valor="indicadores.agendadas"
@@ -328,7 +340,7 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
             </div>
 
             <div
-                class="grid gap-2 rounded-2xl bg-crema/50 p-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto]"
+                class="grid grid-cols-1 gap-2 rounded-2xl bg-crema/50 p-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto]"
             >
                 <form
                     class="relative"

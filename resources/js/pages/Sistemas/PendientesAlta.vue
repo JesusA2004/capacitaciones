@@ -309,7 +309,7 @@ const vacio = computed(() => {
         <!-- Indicadores (clic = filtra) -->
         <div
             data-tour="sistemas-altas-indicadores"
-            class="grid entrada-escalonada gap-3 sm:grid-cols-3"
+            class="grid entrada-escalonada grid-cols-1 gap-3 sm:grid-cols-3"
         >
             <button
                 v-for="(ind, i) in indicadores"
@@ -609,7 +609,7 @@ const vacio = computed(() => {
                     <Transition name="cambio-suave">
                         <div
                             v-if="abiertos.has(fila.id)"
-                            class="mt-3 grid gap-4 lg:grid-cols-3"
+                            class="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3"
                         >
                             <dl
                                 v-for="seccion in fila.secciones"

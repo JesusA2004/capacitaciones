@@ -144,7 +144,7 @@ const sistema = computed(() =>
             </div>
         </header>
 
-        <div class="grid entrada-escalonada gap-4 lg:grid-cols-2">
+        <div class="grid entrada-escalonada grid-cols-1 gap-4 lg:grid-cols-2">
             <!-- Empresa -->
             <section
                 v-if="puede.empresas"
@@ -312,7 +312,7 @@ const sistema = computed(() =>
                     </div>
                 </div>
                 <ul
-                    class="grid entrada-escalonada gap-2 sm:grid-cols-2 xl:grid-cols-3"
+                    class="grid entrada-escalonada grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3"
                 >
                     <li v-for="s in sistema" :key="s.titulo">
                         <Link

@@ -115,7 +115,7 @@ function restaurarColor(c: ParametroConfiguracion) {
             de las gráficas aplican al tablero de RH en ambos modos.
         </p>
 
-        <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
+        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
             <form class="flex flex-col gap-2" @submit.prevent="guardar">
                 <template v-for="b in bloques" :key="b.clave">
                     <h2
@@ -286,7 +286,7 @@ function restaurarColor(c: ParametroConfiguracion) {
                     <div
                         v-for="(g, i) in graficas"
                         :key="g.clave"
-                        class="grid grid-cols-[7rem_1fr] items-center gap-2 text-xs"
+                        class="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-2 text-xs"
                     >
                         <span class="truncate">{{ g.etiqueta }}</span>
                         <span

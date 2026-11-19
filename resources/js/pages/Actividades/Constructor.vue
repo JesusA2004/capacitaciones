@@ -118,7 +118,7 @@ function guardar() {
         </CrudPageHeader>
 
         <form
-            class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]"
+            class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]"
             @submit.prevent="guardar"
         >
             <section
@@ -144,7 +144,7 @@ function guardar() {
                 <div class="grid gap-2">
                     <Label>Tipo de entrega</Label>
                     <div
-                        class="grid gap-2 sm:grid-cols-3"
+                        class="grid grid-cols-1 gap-2 sm:grid-cols-3"
                         role="radiogroup"
                         aria-label="Tipo de entrega"
                     >

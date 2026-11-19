@@ -60,17 +60,23 @@ defineOptions({
     },
 });
 
-const { cargando, ir } = useSeguimientoPeriodo(() => indexSeguimientoSucursales.url());
+const { cargando, ir } = useSeguimientoPeriodo(() =>
+    indexSeguimientoSucursales.url(),
+);
 
 const periodo = computed(() => props.datos?.datos?.periodo ?? null);
 const tablero = computed(() => props.datos?.datos?.tablero ?? null);
-const semanaElegida = computed(() =>
-    tablero.value?.semanas.find((s) => s.id === tablero.value?.semana_id) ?? null,
+const semanaElegida = computed(
+    () =>
+        tablero.value?.semanas.find((s) => s.id === tablero.value?.semana_id) ??
+        null,
 );
 const indiceSemana = computed(() =>
     semanaElegida.value === null
         ? null
-        : (tablero.value?.semanas.findIndex((s) => s.id === semanaElegida.value?.id) ?? null),
+        : (tablero.value?.semanas.findIndex(
+              (s) => s.id === semanaElegida.value?.id,
+          ) ?? null),
 );
 const alcanceTexto = computed(() =>
     semanaElegida.value
@@ -161,7 +167,13 @@ const opcionesRanking = computed(() => ({
             :icono="Building2"
         >
             <Button variant="outline" as-child>
-                <Link :href="indexGestores({ query: filtros.mes ? { mes: filtros.mes } : {} })">
+                <Link
+                    :href="
+                        indexGestores({
+                            query: filtros.mes ? { mes: filtros.mes } : {},
+                        })
+                    "
+                >
                     <Users class="size-4" /> Por gestor
                 </Link>
             </Button>
@@ -190,14 +202,21 @@ const opcionesRanking = computed(() => ({
                 />
 
                 <CambioSuave>
-                    <EsqueletoTablero v-if="cargando" key="cargando" :con-selector="false" />
+                    <EsqueletoTablero
+                        v-if="cargando"
+                        key="cargando"
+                        :con-selector="false"
+                    />
 
                     <EmptyState
                         v-else-if="!tablero || tablero.estado === 'sin_datos'"
                         key="sin-datos"
                         :icono="PieChart"
                         titulo="Reportes aún no tiene datos de este mes"
-                        :descripcion="tablero?.mensaje ?? 'Cuando Reportes genere la radiografía del mes, aquí aparecerán sus datos.'"
+                        :descripcion="
+                            tablero?.mensaje ??
+                            'Cuando Reportes genere la radiografía del mes, aquí aparecerán sus datos.'
+                        "
                     />
 
                     <EmptyState
@@ -212,7 +231,11 @@ const opcionesRanking = computed(() => ({
                         "
                     />
 
-                    <div v-else :key="`t-${periodo.mes?.id}-${tablero.semana_id}`" class="flex flex-col gap-5">
+                    <div
+                        v-else
+                        :key="`t-${periodo.mes?.id}-${tablero.semana_id}`"
+                        class="flex flex-col gap-5"
+                    >
                         <section
                             class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5"
                             :aria-label="`Indicadores de ${alcanceTexto}`"
@@ -258,12 +281,19 @@ const opcionesRanking = computed(() => ({
                             />
                         </section>
 
-                        <section class="grid gap-3 lg:grid-cols-3">
-                            <div class="rounded-2xl border border-border bg-card p-4 lg:col-span-2">
-                                <div class="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-                                    <h2 class="text-sm font-semibold">Semanas del mes</h2>
+                        <section class="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                            <div
+                                class="rounded-2xl border border-border bg-card p-4 lg:col-span-2"
+                            >
+                                <div
+                                    class="mb-1 flex flex-wrap items-baseline justify-between gap-2"
+                                >
+                                    <h2 class="text-sm font-semibold">
+                                        Semanas del mes
+                                    </h2>
                                     <p class="text-xs text-muted-foreground">
-                                        Por fecha de operación y de pago · {{ periodo.mes?.etiqueta }}
+                                        Por fecha de operación y de pago ·
+                                        {{ periodo.mes?.etiqueta }}
                                     </p>
                                 </div>
                                 <VueApexCharts
@@ -273,87 +303,187 @@ const opcionesRanking = computed(() => ({
                                     :series="serieSemanas"
                                 />
                             </div>
-                            <div class="rounded-2xl border border-border bg-card p-4">
-                                <div class="mb-1 flex items-baseline justify-between gap-2">
-                                    <h2 class="text-sm font-semibold">Colocación por sucursal</h2>
-                                    <p class="text-xs text-muted-foreground">{{ alcanceTexto }}</p>
+                            <div
+                                class="rounded-2xl border border-border bg-card p-4"
+                            >
+                                <div
+                                    class="mb-1 flex items-baseline justify-between gap-2"
+                                >
+                                    <h2 class="text-sm font-semibold">
+                                        Colocación por sucursal
+                                    </h2>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ alcanceTexto }}
+                                    </p>
                                 </div>
                                 <VueApexCharts
                                     type="bar"
                                     height="300"
                                     :options="opcionesRanking"
-                                    :series="[{ name: 'Colocación', data: rankingSucursales.map((s) => s.colocacion ?? 0) }]"
+                                    :series="[
+                                        {
+                                            name: 'Colocación',
+                                            data: rankingSucursales.map(
+                                                (s) => s.colocacion ?? 0,
+                                            ),
+                                        },
+                                    ]"
                                 />
                             </div>
                         </section>
 
-                        <section class="rounded-2xl border border-border bg-card p-4">
-                            <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                                <h2 class="text-sm font-semibold">Sucursales</h2>
+                        <section
+                            class="rounded-2xl border border-border bg-card p-4"
+                        >
+                            <div
+                                class="mb-3 flex flex-wrap items-baseline justify-between gap-2"
+                            >
+                                <h2 class="text-sm font-semibold">
+                                    Sucursales
+                                </h2>
                                 <p class="text-xs text-muted-foreground">
-                                    Cartera y mora son un corte de MES (no existen por semana).
+                                    Cartera y mora son un corte de MES (no
+                                    existen por semana).
                                 </p>
                             </div>
                             <div class="tabla-scroll">
-                                <table class="w-full min-w-[760px] text-left text-sm">
-                                    <thead class="text-xs text-muted-foreground">
+                                <table
+                                    class="w-full min-w-[760px] text-left text-sm"
+                                >
+                                    <thead
+                                        class="text-xs text-muted-foreground"
+                                    >
                                         <tr class="border-b border-border">
-                                            <th class="py-2 pr-3 font-medium">Sucursal</th>
-                                            <th class="py-2 pr-3 text-right font-medium">Colocación</th>
-                                            <th class="py-2 pr-3 text-right font-medium">Recuperación</th>
-                                            <th class="py-2 pr-3 text-right font-medium">Cartera</th>
-                                            <th class="py-2 pr-3 text-right font-medium">Mora</th>
-                                            <th class="py-2 pr-3 text-right font-medium">Gestores</th>
-                                            <th class="py-2 pr-3 font-medium">Semanas</th>
+                                            <th class="py-2 pr-3 font-medium">
+                                                Sucursal
+                                            </th>
+                                            <th
+                                                class="py-2 pr-3 text-right font-medium"
+                                            >
+                                                Colocación
+                                            </th>
+                                            <th
+                                                class="py-2 pr-3 text-right font-medium"
+                                            >
+                                                Recuperación
+                                            </th>
+                                            <th
+                                                class="py-2 pr-3 text-right font-medium"
+                                            >
+                                                Cartera
+                                            </th>
+                                            <th
+                                                class="py-2 pr-3 text-right font-medium"
+                                            >
+                                                Mora
+                                            </th>
+                                            <th
+                                                class="py-2 pr-3 text-right font-medium"
+                                            >
+                                                Gestores
+                                            </th>
+                                            <th class="py-2 pr-3 font-medium">
+                                                Semanas
+                                            </th>
                                             <th class="py-2" />
                                         </tr>
                                     </thead>
-                                    <ListaAnimada tag="tbody" :cantidad="tablero.sucursales.length">
+                                    <ListaAnimada
+                                        tag="tbody"
+                                        :cantidad="tablero.sucursales.length"
+                                    >
                                         <tr
                                             v-for="fila in tablero.sucursales"
                                             :key="fila.id"
                                             class="border-b border-border/60 transicion-ui last:border-0 hover:bg-crema/40"
                                         >
                                             <td class="py-2.5 pr-3">
-                                                <p class="font-medium">{{ fila.nombre }}</p>
-                                                <p class="text-[11px] text-muted-foreground">
-                                                    {{ fila.branches.join(' · ') }}
+                                                <p class="font-medium">
+                                                    {{ fila.nombre }}
+                                                </p>
+                                                <p
+                                                    class="text-[11px] text-muted-foreground"
+                                                >
+                                                    {{
+                                                        fila.branches.join(
+                                                            ' · ',
+                                                        )
+                                                    }}
                                                 </p>
                                             </td>
-                                            <td class="py-2.5 pr-3 text-right tabular-nums">
-                                                {{ formatoMoneda(fila.colocacion) }}
+                                            <td
+                                                class="py-2.5 pr-3 text-right tabular-nums"
+                                            >
+                                                {{
+                                                    formatoMoneda(
+                                                        fila.colocacion,
+                                                    )
+                                                }}
                                             </td>
-                                            <td class="py-2.5 pr-3 text-right tabular-nums">
-                                                {{ formatoMoneda(fila.recuperacion) }}
+                                            <td
+                                                class="py-2.5 pr-3 text-right tabular-nums"
+                                            >
+                                                {{
+                                                    formatoMoneda(
+                                                        fila.recuperacion,
+                                                    )
+                                                }}
                                             </td>
-                                            <td class="py-2.5 pr-3 text-right tabular-nums">
-                                                {{ formatoMoneda(fila.cartera) }}
+                                            <td
+                                                class="py-2.5 pr-3 text-right tabular-nums"
+                                            >
+                                                {{
+                                                    formatoMoneda(fila.cartera)
+                                                }}
                                             </td>
                                             <td class="py-2.5 pr-3 text-right">
                                                 <span
                                                     class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium tabular-nums"
                                                     :class="tonoMora(fila.mora)"
-                                                    >{{ formatoPorcentaje(fila.mora) }}</span
+                                                    >{{
+                                                        formatoPorcentaje(
+                                                            fila.mora,
+                                                        )
+                                                    }}</span
                                                 >
                                             </td>
-                                            <td class="py-2.5 pr-3 text-right tabular-nums">
+                                            <td
+                                                class="py-2.5 pr-3 text-right tabular-nums"
+                                            >
                                                 {{ fila.gestores }}
                                             </td>
                                             <td class="py-2.5 pr-3">
                                                 <BarrasSemanas
-                                                    :valores="fila.semanas.map((s) => s.colocacion)"
-                                                    :etiquetas="tablero.semanas.map((s) => s.etiqueta)"
+                                                    :valores="
+                                                        fila.semanas.map(
+                                                            (s) => s.colocacion,
+                                                        )
+                                                    "
+                                                    :etiquetas="
+                                                        tablero.semanas.map(
+                                                            (s) => s.etiqueta,
+                                                        )
+                                                    "
                                                     :resaltada="indiceSemana"
                                                 />
                                             </td>
                                             <td class="py-2.5 text-right">
-                                                <Button variant="ghost" size="sm" as-child>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    as-child
+                                                >
                                                     <Link
                                                         :href="
                                                             indexGestores({
                                                                 query: {
-                                                                    mes: periodo.mes?.id ?? null,
-                                                                    sucursal: fila.id,
+                                                                    mes:
+                                                                        periodo
+                                                                            .mes
+                                                                            ?.id ??
+                                                                        null,
+                                                                    sucursal:
+                                                                        fila.id,
                                                                 },
                                                             })
                                                         "
@@ -372,12 +502,24 @@ const opcionesRanking = computed(() => ({
                             class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-warning-soft p-4 text-sm"
                         >
                             <p>
-                                <span class="font-semibold">{{ tablero.sin_vincular.branches }}
-                                    {{ tablero.sin_vincular.branches === 1 ? 'sucursal' : 'sucursales' }} de Reportes sin
-                                    vincular</span>
-                                ({{ tablero.sin_vincular.nombres.join(', ') }}) con
-                                {{ formatoMoneda(tablero.sin_vincular.colocacion) }} de colocación en el mes: no
-                                están sumadas arriba.
+                                <span class="font-semibold"
+                                    >{{ tablero.sin_vincular.branches }}
+                                    {{
+                                        tablero.sin_vincular.branches === 1
+                                            ? 'sucursal'
+                                            : 'sucursales'
+                                    }}
+                                    de Reportes sin vincular</span
+                                >
+                                ({{ tablero.sin_vincular.nombres.join(', ') }})
+                                con
+                                {{
+                                    formatoMoneda(
+                                        tablero.sin_vincular.colocacion,
+                                    )
+                                }}
+                                de colocación en el mes: no están sumadas
+                                arriba.
                             </p>
                             <Button v-if="puedeVincular" size="sm" as-child>
                                 <Link :href="indexVinculos()">Vincular</Link>
@@ -385,8 +527,11 @@ const opcionesRanking = computed(() => ({
                         </section>
 
                         <p class="text-xs text-muted-foreground">
-                            Fuente: Reportes (radiografía del mes y actividad semanal por fecha de operación).
-                            <span v-if="tablero.calculado_en">Calculado: {{ tablero.calculado_en }}.</span>
+                            Fuente: Reportes (radiografía del mes y actividad
+                            semanal por fecha de operación).
+                            <span v-if="tablero.calculado_en"
+                                >Calculado: {{ tablero.calculado_en }}.</span
+                            >
                         </p>
                     </div>
                 </CambioSuave>

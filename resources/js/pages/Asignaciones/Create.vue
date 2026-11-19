@@ -154,7 +154,7 @@ async function enviar() {
         </CrudPageHeader>
 
         <form
-            class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]"
+            class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)]"
             @submit.prevent="enviar"
         >
             <div class="flex flex-col gap-5">
@@ -176,7 +176,7 @@ async function enviar() {
                             </p>
                         </div>
                     </header>
-                    <div class="grid gap-4 md:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div class="grid gap-2">
                             <Label>Curso</Label>
                             <SelectSimple
@@ -217,7 +217,7 @@ async function enviar() {
                             </p>
                         </div>
                     </header>
-                    <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="grid gap-2">
                             <Label for="fecha_inicio">Fecha de inicio</Label>
                             <DatePicker

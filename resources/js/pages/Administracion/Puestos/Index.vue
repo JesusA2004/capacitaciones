@@ -504,7 +504,7 @@ const pct = (valor: number | null): string =>
         <div
             v-if="salarios"
             v-show="seccion === 'alertas'"
-            class="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
+            class="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"
         >
             <section
                 class="flex flex-col gap-3 rounded-3xl border bg-card p-4 sm:p-6"

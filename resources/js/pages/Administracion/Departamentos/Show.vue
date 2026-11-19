@@ -565,7 +565,7 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
                     v-else
                     tag="ul"
                     :cantidad="filtrados.length"
-                    class="grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-3"
+                    class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 2xl:grid-cols-3"
                     :aria-label="`Personas de ${departamento.nombre}`"
                 >
                     <li

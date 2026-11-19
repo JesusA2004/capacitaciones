@@ -112,7 +112,7 @@ async function cambiarEstado(asistencia: AsistenciaItem, estado: string) {
             detalle
         />
 
-        <div class="grid gap-3 xl:grid-cols-2">
+        <div class="grid grid-cols-1 gap-3 xl:grid-cols-2">
             <div
                 v-for="asistencia in sesion.asistencias"
                 :key="asistencia.id"
@@ -205,7 +205,7 @@ async function cambiarEstado(asistencia: AsistenciaItem, estado: string) {
 
                 <div
                     v-if="asistencia.estado !== 'pendiente'"
-                    class="mt-2 grid gap-2 sm:grid-cols-3"
+                    class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3"
                 >
                     <Input
                         v-model="datosCorreccion(asistencia.id).motivo"

@@ -858,7 +858,7 @@ async function eliminar(): Promise<void> {
             </Transition>
 
             <div
-                class="grid items-start gap-5"
+                class="grid grid-cols-1 items-start gap-5"
                 :class="
                     puedeTrasladar &&
                     'lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)]'
@@ -985,7 +985,7 @@ async function eliminar(): Promise<void> {
                         v-else
                         tag="ul"
                         :cantidad="filtradas.length"
-                        class="grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-3"
+                        class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 2xl:grid-cols-3"
                         :aria-label="`Personas con el puesto ${puesto.nombre}`"
                     >
                         <li
@@ -1516,7 +1516,7 @@ async function eliminar(): Promise<void> {
                 />
 
                 <template v-else-if="rango">
-                    <div class="grid gap-3 sm:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div
                             v-for="(valor, etiqueta) in {
                                 Mínimo: rango.minimo,
@@ -1804,7 +1804,10 @@ async function eliminar(): Promise<void> {
                     :puesto="puesto"
                     :departamentos-disponibles="departamentosDisponibles"
                 />
-                <dl v-else class="grid gap-3 text-sm sm:grid-cols-2">
+                <dl
+                    v-else
+                    class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2"
+                >
                     <div class="rounded-2xl bg-crema/30 p-3">
                         <dt class="text-xs text-muted-foreground">
                             Departamento

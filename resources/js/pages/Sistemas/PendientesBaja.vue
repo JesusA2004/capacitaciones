@@ -142,7 +142,7 @@ function estadoFila(fila: PendienteBajaSistemas): {
         <!-- Indicadores (clic = filtra) -->
         <div
             data-tour="sistemas-bajas-indicadores"
-            class="grid entrada-escalonada gap-3 sm:grid-cols-2"
+            class="grid entrada-escalonada grid-cols-1 gap-3 sm:grid-cols-2"
         >
             <button
                 v-for="ind in indicadores"

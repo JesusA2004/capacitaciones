@@ -417,7 +417,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                     <Bike class="size-4" /> ¿Esta sucursal tendrá volantes?
                 </Button>
             </header>
-            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+            <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div
                     v-for="t in tarjetasGestores"
                     :key="t.clave"
@@ -465,7 +465,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
         </section>
 
         <div
-            class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
+            class="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
         >
             <!-- Plantilla por puesto: barra = ocupadas / autorizadas -->
             <section
@@ -473,12 +473,15 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                 aria-labelledby="plantilla-puesto"
             >
                 <header
-                    class="flex items-center justify-between gap-2 border-b px-4 py-2.5"
+                    class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-4 py-2.5"
                 >
-                    <h2 id="plantilla-puesto" class="text-sm font-semibold">
+                    <h2
+                        id="plantilla-puesto"
+                        class="text-sm font-semibold whitespace-nowrap"
+                    >
                         Plantilla por puesto
                     </h2>
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
                         <Link
                             v-if="totales.vacantes > 0"
                             :href="
@@ -623,7 +626,9 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                 </p>
             </section>
 
-            <div class="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div
+                class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1"
+            >
                 <DashboardChartCard
                     title="Cobertura de plantilla"
                     :description="`${totales.plantilla_actual} de ${totales.plantilla_autorizada} plazas ocupadas`"
@@ -677,7 +682,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                 <li
                     v-for="cambio in historialPlantilla"
                     :key="cambio.id"
-                    class="grid gap-1 px-4 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                    class="grid grid-cols-1 gap-1 px-4 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
                     <div class="min-w-0">
                         <p class="font-medium break-words">

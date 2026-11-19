@@ -434,7 +434,7 @@ const error = (clave: string) =>
                     </div>
 
                     <div
-                        class="grid grid-cols-[auto_1fr] items-center gap-2 text-sm"
+                        class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-sm"
                     >
                         <label
                             :for="`meses-${p.id}`"
@@ -551,7 +551,7 @@ const error = (clave: string) =>
 
                 <fieldset
                     v-if="p.tipo === 'lista' && p.opciones"
-                    class="mt-3 grid gap-1 text-sm sm:grid-cols-2"
+                    class="mt-3 grid grid-cols-1 gap-1 text-sm sm:grid-cols-2"
                 >
                     <label
                         v-for="o in p.opciones"
@@ -585,7 +585,7 @@ const error = (clave: string) =>
                 Meses tras los cuales un documento se considera vencido y se
                 vuelve a pedir (p. ej. en un reingreso). Vacío = no vence.
             </p>
-            <ul class="grid gap-2 sm:grid-cols-2">
+            <ul class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <li
                     v-for="t in vigencias"
                     :key="t.id"
@@ -623,7 +623,7 @@ const error = (clave: string) =>
                 un candidato. Un motivo ya usado nunca se borra: solo se
                 desactiva.
             </p>
-            <ul class="grid gap-2 sm:grid-cols-2">
+            <ul class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <li
                     v-for="m in motivosRechazo"
                     :key="m.id"
@@ -722,7 +722,7 @@ const error = (clave: string) =>
                 para su campaña) pero queda «No viable» con el motivo elegido.
                 Una pregunta ya usada no se borra: se desactiva.
             </p>
-            <ul class="grid gap-2 lg:grid-cols-2">
+            <ul class="grid grid-cols-1 gap-2 lg:grid-cols-2">
                 <li
                     v-for="p in preguntasFiltro"
                     :key="p.id"
@@ -733,7 +733,7 @@ const error = (clave: string) =>
                         class="h-8"
                         :aria-label="`Pregunta ${p.id}`"
                     />
-                    <div class="grid gap-2 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <SelectSimple
                             :model-value="p.respuesta_requerida ? 'si' : 'no'"
                             :opciones="opcionesRespuesta"
